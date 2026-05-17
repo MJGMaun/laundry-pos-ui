@@ -111,7 +111,7 @@ onMounted(load)
 				</div>
 				<div class="bg-white rounded-xl border border-gray-200 p-4">
 					<div class="text-xs text-gray-500 mb-1">Total Expenses</div>
-					<div class="text-xl font-bold text-red-600">₱{{ fmt(pl.expenses.total || pl.expenses) }}</div>
+					<div class="text-xl font-bold text-red-600">₱{{ fmt(pl.expenses.total || 0) }}</div>
 				</div>
 				<div class="bg-white rounded-xl border border-gray-200 p-4">
 					<div class="text-xs text-gray-500 mb-1">Net Profit</div>
