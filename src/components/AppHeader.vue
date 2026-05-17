@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useOnline } from '@vueuse/core'
 import { useAuthStore } from '@/stores/auth.js'
 import { useBranchStore } from '@/stores/branch.js'
+import { useQueueStore } from '@/stores/queue.js'
 import { useRouter } from 'vue-router'
 
 defineEmits(['toggle-sidebar'])
@@ -11,6 +12,7 @@ const auth = useAuthStore()
 const branch = useBranchStore()
 const router = useRouter()
 const isOnline = useOnline()
+const queue = useQueueStore()
 
 const showUserMenu = ref(false)
 
@@ -38,7 +40,7 @@ async function logout() {
 
     <div class="flex-1" />
 
-    <!-- Offline indicator -->
+    <!-- Offline / pending indicator -->
     <Transition name="fade">
       <div
         v-if="!isOnline"
@@ -46,6 +48,15 @@ async function logout() {
       >
         <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse inline-block" />
         Offline
+      </div>
+    </Transition>
+    <Transition name="fade">
+      <div
+        v-if="isOnline && queue.pendingCount > 0"
+        class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 border border-blue-200 text-blue-700"
+      >
+        <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse inline-block" />
+        Syncing {{ queue.pendingCount }}…
       </div>
     </Transition>
 

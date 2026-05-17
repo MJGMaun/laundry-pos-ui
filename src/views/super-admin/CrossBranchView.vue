@@ -5,6 +5,8 @@ import { useConfirm } from 'primevue/useconfirm'
 import { getBranchComparison, getProfitLoss } from '@/api/reports.js'
 import { getExpenses, createExpense, updateExpense, deleteExpense, getExpenseCategories } from '@/api/expenses.js'
 import { getBranches } from '@/api/branches.js'
+import { useQueueStore } from '@/stores/queue.js'
+import { isOfflineError } from '@/offline/isOfflineError.js'
 import { Bar } from 'vue-chartjs'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js'
 
@@ -12,6 +14,7 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
 const toast = useToast()
 const confirm = useConfirm()
+const queue = useQueueStore()
 
 const branches = ref([])
 const selectedBranchId = ref('all')
@@ -128,7 +131,16 @@ async function save() {
     closeForm()
     loadBranch()
   } catch (e) {
-    toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to save', life: 4000 })
+    if (isOfflineError(e)) {
+      const bid = selectedBranchId.value
+      const method = editingId.value ? 'PUT' : 'POST'
+      const url = editingId.value ? `/expenses/${editingId.value}` : '/expenses'
+      await queue.enqueueRequest(method, url, { ...form.value }, bid)
+      toast.add({ severity: 'warn', summary: 'Saved offline', detail: 'Expense queued — will sync when connected', life: 6000 })
+      closeForm()
+    } else {
+      toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to save', life: 4000 })
+    }
   } finally {
     saving.value = false
   }
@@ -147,7 +159,12 @@ function remove(id) {
         toast.add({ severity: 'success', summary: 'Deleted', detail: 'Expense deleted', life: 3000 })
         loadBranch()
       } catch (e) {
-        toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to delete', life: 4000 })
+        if (isOfflineError(e)) {
+          await queue.enqueueRequest('DELETE', `/expenses/${id}`, null, selectedBranchId.value)
+          toast.add({ severity: 'warn', summary: 'Queued offline', detail: 'Delete will sync when connected', life: 6000 })
+        } else {
+          toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to delete', life: 4000 })
+        }
       }
     },
   })

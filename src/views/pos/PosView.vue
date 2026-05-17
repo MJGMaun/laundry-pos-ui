@@ -2,16 +2,19 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useCartStore } from '@/stores/cart.js'
 import { useBranchStore } from '@/stores/branch.js'
+import { useQueueStore } from '@/stores/queue.js'
 import { useToast } from 'primevue/usetoast'
 import { getServices } from '@/api/services.js'
 import { getBranchServices } from '@/api/branches.js'
 import { getCustomers } from '@/api/customers.js'
 import { createOrder } from '@/api/orders.js'
 import { createPayment } from '@/api/payments.js'
+import { isOfflineError } from '@/offline/isOfflineError.js'
 import { useRouter } from 'vue-router'
 
 const cart = useCartStore()
 const branch = useBranchStore()
+const queue = useQueueStore()
 const toast = useToast()
 const router = useRouter()
 
@@ -165,7 +168,29 @@ async function processPayment() {
     showPayment.value = false
     showSuccess.value = true
   } catch (e) {
-    paymentError.value = e.response?.data?.message || 'Failed to process order.'
+    if (isOfflineError(e)) {
+      const orderData = {
+        customer_id: cart.customer?.id || null,
+        loads: cart.items.map((i) => ({ service_id: i.service_id, quantity: i.quantity, notes: '' })),
+        notes: cart.notes || '',
+        pickup_fee: cart.pickupFee || 0,
+        delivery_fee: cart.deliveryFee || 0,
+      }
+      const payableRows = payments.value
+        .filter((p) => Number(p.amount) > 0)
+        .map((p) => {
+          const pd = { method: p.method, amount: Number(p.amount), type: 'payment' }
+          if (p.method === 'cash') pd.tendered = Number(p.tendered || p.amount)
+          else pd.reference_number = p.reference_number || ''
+          return pd
+        })
+      await queue.enqueueOrder(orderData, payableRows)
+      cart.clear()
+      showPayment.value = false
+      toast.add({ severity: 'warn', summary: 'Saved offline', detail: 'Order queued — will sync when connected', life: 6000 })
+    } else {
+      paymentError.value = e.response?.data?.message || 'Failed to process order.'
+    }
   } finally {
     processingPayment.value = false
   }
