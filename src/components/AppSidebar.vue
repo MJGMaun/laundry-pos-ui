@@ -78,14 +78,8 @@ function isActive(path) {
       class="flex items-center gap-3 px-4 h-16 shrink-0 border-b"
       style="border-color: rgba(255,255,255,0.07);"
     >
-      <div
-        class="flex items-center justify-center w-9 h-9 rounded-xl shrink-0"
-        style="background: linear-gradient(135deg, #3b82f6, #6366f1); box-shadow: 0 4px 12px rgba(99,102,241,0.4);"
-      >
-        <span class="text-base leading-none">🧺</span>
-      </div>
+      <img src="@/assets/logo-pos.png" alt="Laundry POS" class="w-9 h-9 rounded-xl shrink-0 object-contain" />
       <div v-if="open" class="overflow-hidden">
-        <div class="font-bold text-white text-sm tracking-tight whitespace-nowrap">Laundry POS</div>
         <div class="text-xs truncate" style="color: rgba(148,163,184,0.6);">
           {{ branch.currentBranch?.name || 'Select branch' }}
         </div>
