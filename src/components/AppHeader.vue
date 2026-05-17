@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from 'vue'
+import { useOnline } from '@vueuse/core'
 import { useAuthStore } from '@/stores/auth.js'
 import { useBranchStore } from '@/stores/branch.js'
 import { useRouter } from 'vue-router'
@@ -9,6 +10,7 @@ defineEmits(['toggle-sidebar'])
 const auth = useAuthStore()
 const branch = useBranchStore()
 const router = useRouter()
+const isOnline = useOnline()
 
 const showUserMenu = ref(false)
 
@@ -35,6 +37,17 @@ async function logout() {
     </button>
 
     <div class="flex-1" />
+
+    <!-- Offline indicator -->
+    <Transition name="fade">
+      <div
+        v-if="!isOnline"
+        class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 border border-amber-200 text-amber-700"
+      >
+        <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse inline-block" />
+        Offline
+      </div>
+    </Transition>
 
     <!-- Branch selector -->
     <div v-if="branch.branches.length > 1 || auth.isSuperAdmin" class="flex items-center gap-2">
@@ -116,4 +129,6 @@ async function logout() {
   from { opacity: 0; transform: translateY(-8px) scale(0.96); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
+.fade-enter-active, .fade-leave-active { transition: opacity 300ms, transform 300ms; }
+.fade-enter-from, .fade-leave-to { opacity: 0; transform: scale(0.9); }
 </style>
