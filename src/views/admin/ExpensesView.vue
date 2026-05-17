@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import DatePicker from 'primevue/datepicker'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
 import { getExpenses, createExpense, updateExpense, deleteExpense, getExpenseCategories } from '@/api/expenses.js'
@@ -14,7 +15,7 @@ const loadError = ref('')
 const showForm = ref(false)
 const editingId = ref(null)
 const saving = ref(false)
-const filterMonth = ref(new Date().toISOString().slice(0, 7))
+const filterMonth = ref(new Date())
 const filterCat = ref('')
 
 function unwrap(res) {
@@ -29,7 +30,10 @@ async function load() {
   loadError.value = ''
   try {
     const params = {}
-    if (filterMonth.value) params.month = filterMonth.value
+    if (filterMonth.value) {
+      const d = new Date(filterMonth.value)
+      params.month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    }
     if (filterCat.value)   params.category_id = filterCat.value
     const res = await getExpenses(params)
     expenses.value = unwrap(res)
@@ -129,11 +133,15 @@ onMounted(() => { load(); loadCategories() })
 
     <!-- Filters -->
     <div class="flex flex-wrap gap-2 mb-4">
-      <input
+      <DatePicker
         v-model="filterMonth"
-        type="month"
-        class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
-        @change="load"
+        view="month"
+        date-format="MM yy"
+        show-icon
+        icon-display="input"
+        placeholder="Select month"
+        class="reports-datepicker"
+        @update:model-value="load"
       />
       <select v-model="filterCat" class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm" @change="load">
         <option value="">All categories</option>
