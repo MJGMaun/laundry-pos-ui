@@ -114,7 +114,7 @@ function isActive(path) {
               : '',
             `animation: sidebarSlide ${180 + i * 30}ms ease both;`,
           ]"
-          @click="navigate(); $emit('close')"
+          @click="navigate()"
         >
           <!-- Active left bar -->
           <div
