@@ -1,1 +1,0 @@
-import{A as s}from"./index-DP-ljqNC.js";const a=r=>s.get("/orders",{params:r}),o=r=>s.get(`/orders/${r}`),d=r=>s.post("/orders",r),c=(r,t)=>s.patch(`/orders/${r}/status`,t);export{o as a,d as c,a as g,c as u};

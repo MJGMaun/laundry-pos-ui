@@ -1,1 +1,0 @@
-import{A as e}from"./index-DP-ljqNC.js";const r=t=>e.get("/customers",{params:t}),m=t=>e.get(`/customers/${t}`),u=t=>e.post("/customers",t),c=(t,s)=>e.put(`/customers/${t}`,s),p=t=>e.delete(`/customers/${t}`);export{u as createCustomer,p as deleteCustomer,m as getCustomer,r as getCustomers,c as updateCustomer};
