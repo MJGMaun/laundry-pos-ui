@@ -8,7 +8,7 @@ const router = useRouter()
 const auth = useAuthStore()
 const branch = useBranchStore()
 
-const form = ref({ email: '', password: '' })
+const form = ref({ username: '', password: '' })
 const error = ref('')
 const loading = ref(false)
 const showPassword = ref(false)
@@ -68,18 +68,18 @@ async function submit() {
 				</div>
 
 				<form @submit.prevent="submit" class="space-y-4">
-					<!-- Email -->
+					<!-- Username -->
 					<div class="space-y-1.5">
-						<label class="text-xs font-medium" style="color: rgba(148,163,184,0.9);">Email address</label>
+						<label class="text-xs font-medium" style="color: rgba(148,163,184,0.9);">Username</label>
 						<div class="relative">
 							<div class="absolute left-3 top-1/2 -translate-y-1/2" style="color: rgba(148,163,184,0.5);">
 								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-										d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+										d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
 								</svg>
 							</div>
-							<input v-model="form.email" type="email" required placeholder="you@example.com"
-								class="login-input" />
+							<input v-model="form.username" type="text" required placeholder="Username"
+								class="login-input" autocomplete="username" />
 						</div>
 					</div>
 
@@ -94,7 +94,7 @@ async function submit() {
 								</svg>
 							</div>
 							<input v-model="form.password" :type="showPassword ? 'text' : 'password'" required
-								placeholder="••••••••" class="login-input login-input-icons" />
+								placeholder="Password" class="login-input login-input-icons" />
 							<button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
 								style="color: rgba(148,163,184,0.5);" @click="showPassword = !showPassword">
 								<svg v-if="!showPassword" class="w-4 h-4" fill="none" stroke="currentColor"

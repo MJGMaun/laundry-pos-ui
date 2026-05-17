@@ -194,7 +194,7 @@ onMounted(load)
             <div v-for="u in branchUsers" :key="u.id" class="flex items-center gap-2 py-2.5">
               <div class="flex-1">
                 <div class="text-sm font-medium text-gray-900">{{ u.name }}</div>
-                <div class="text-xs text-gray-500 capitalize">{{ u.role }} · {{ u.email }}</div>
+                <div class="text-xs text-gray-500 capitalize">{{ u.role }}{{ u.username ? ' · @' + u.username : '' }}</div>
               </div>
               <span v-if="u.pivot?.is_primary" class="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Primary</span>
             </div>
