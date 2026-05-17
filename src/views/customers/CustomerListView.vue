@@ -11,7 +11,7 @@ const page = ref(1)
 const total = ref(0)
 const showForm = ref(false)
 const saving = ref(false)
-const form = ref({ name: '', phone: '', email: '' })
+const form = ref({ name: '', phone: '', email: '', address: '', notes: '' })
 
 async function load() {
   loading.value = true
@@ -32,7 +32,7 @@ async function saveCustomer() {
     const { createCustomer } = await import('@/api/customers.js')
     await createCustomer(form.value)
     showForm.value = false
-    form.value = { name: '', phone: '', email: '' }
+    form.value = { name: '', phone: '', email: '', address: '', notes: '' }
     load()
   } catch (e) {
     alert(e.response?.data?.message || 'Failed to save customer')
@@ -108,6 +108,8 @@ onMounted(load)
             <input v-model="form.name" placeholder="Name *" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             <input v-model="form.phone" placeholder="Phone *" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             <input v-model="form.email" placeholder="Email (optional)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+            <input v-model="form.address" placeholder="Address (optional)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+            <textarea v-model="form.notes" placeholder="Notes (optional)" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none" />
           </div>
           <div class="flex gap-3 mt-5">
             <button class="flex-1 border border-gray-300 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-gray-50" @click="showForm = false">Cancel</button>

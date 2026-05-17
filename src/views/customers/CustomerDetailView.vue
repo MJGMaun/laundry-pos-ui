@@ -22,7 +22,7 @@ async function load() {
     ])
     customer.value = custRes.data.data || custRes.data
     orders.value = ordersRes.data.data || ordersRes.data
-    form.value = { name: customer.value.name, phone: customer.value.phone, email: customer.value.email || '' }
+    form.value = { name: customer.value.name, phone: customer.value.phone, email: customer.value.email || '', address: customer.value.address || '', notes: customer.value.notes || '' }
   } finally {
     loading.value = false
   }
@@ -68,6 +68,8 @@ onMounted(load)
           <div>
             <h2 class="text-xl font-bold text-gray-900">{{ customer.name }}</h2>
             <div class="text-sm text-gray-500 mt-0.5">{{ customer.phone }} {{ customer.email ? '· ' + customer.email : '' }}</div>
+            <div v-if="customer.address" class="text-sm text-gray-500 mt-0.5">{{ customer.address }}</div>
+            <div v-if="customer.notes" class="text-sm text-gray-400 mt-1 italic">{{ customer.notes }}</div>
             <div v-if="customer.loyalty_tier" class="mt-1">
               <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                 {{ customer.loyalty_tier?.name || 'Bronze' }}
@@ -87,6 +89,8 @@ onMounted(load)
           <input v-model="form.name" placeholder="Name" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
           <input v-model="form.phone" placeholder="Phone" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
           <input v-model="form.email" placeholder="Email" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+          <input v-model="form.address" placeholder="Address" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+          <textarea v-model="form.notes" placeholder="Notes" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none" />
           <button
             class="bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60 hover:bg-blue-700"
             :disabled="saving"
