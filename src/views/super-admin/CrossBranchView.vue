@@ -20,6 +20,7 @@ const loading = ref(false)
 // ── All-branches state ──────────────────────────────────────────
 const compData = ref([])
 const compChart = ref({ labels: [], datasets: [] })
+const compApiTotals = ref(null)
 
 // ── Per-branch state ────────────────────────────────────────────
 const pl = ref(null)
@@ -59,6 +60,7 @@ async function loadComparison() {
     const raw = res.data
     const arr = raw?.data ?? raw?.branches ?? raw
     compData.value = Array.isArray(arr) ? arr : []
+    compApiTotals.value = raw?.totals ?? null
     compChart.value = {
       labels: compData.value.map(b => b.branch_name || b.name),
       datasets: [
@@ -200,15 +202,15 @@ onMounted(async () => {
       <div class="grid grid-cols-3 gap-3">
         <div class="bg-white rounded-xl border border-gray-200 p-4">
           <div class="text-xs text-gray-500 mb-1">Total Revenue</div>
-          <div class="text-xl font-bold text-green-700">₱{{ fmt(compTotals.revenue) }}</div>
+          <div class="text-xl font-bold text-green-700">₱{{ fmt(compApiTotals?.revenue ?? compTotals.revenue) }}</div>
         </div>
         <div class="bg-white rounded-xl border border-gray-200 p-4">
           <div class="text-xs text-gray-500 mb-1">Total Expenses</div>
-          <div class="text-xl font-bold text-red-600">₱{{ fmt(compTotals.expenses) }}</div>
+          <div class="text-xl font-bold text-red-600">₱{{ fmt(compApiTotals?.expenses ?? compTotals.expenses) }}</div>
         </div>
         <div class="bg-white rounded-xl border border-gray-200 p-4">
           <div class="text-xs text-gray-500 mb-1">Total Net Profit</div>
-          <div class="text-xl font-bold" :class="compTotals.net_profit >= 0 ? 'text-green-700' : 'text-red-600'">₱{{ fmt(compTotals.net_profit) }}</div>
+          <div class="text-xl font-bold" :class="(compApiTotals?.net_profit ?? compTotals.net_profit) >= 0 ? 'text-green-700' : 'text-red-600'">₱{{ fmt(compApiTotals?.net_profit ?? compTotals.net_profit) }}</div>
         </div>
       </div>
 
@@ -269,7 +271,7 @@ onMounted(async () => {
         </div>
         <div class="bg-white rounded-xl border border-gray-200 p-4">
           <div class="text-xs text-gray-500 mb-1">Expenses</div>
-          <div class="text-xl font-bold text-red-600">₱{{ fmt(pl.expenses) }}</div>
+          <div class="text-xl font-bold text-red-600">₱{{ fmt(pl.expenses?.total ?? pl.expenses) }}</div>
         </div>
         <div class="bg-white rounded-xl border border-gray-200 p-4">
           <div class="text-xs text-gray-500 mb-1">Net Profit</div>
