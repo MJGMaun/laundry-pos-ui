@@ -81,6 +81,12 @@ const router = createRouter({
           meta: { roles: ['super_admin', 'admin'] },
         },
         {
+          path: 'users',
+          name: 'users',
+          component: () => import('@/views/admin/UsersView.vue'),
+          meta: { roles: ['super_admin', 'admin'] },
+        },
+        {
           path: 'branches',
           name: 'branches',
           component: () => import('@/views/super-admin/BranchesView.vue'),

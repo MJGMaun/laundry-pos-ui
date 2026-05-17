@@ -1,8 +1,9 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
-import { getBranches, createBranch, updateBranch, deleteBranch, getBranchUsers, assignUser } from '@/api/branches.js'
+import { getBranches, createBranch, updateBranch, deleteBranch, getBranchUsers, assignUser, removeUser } from '@/api/branches.js'
+import { getAllUsers } from '@/api/users.js'
 
 const toast = useToast()
 const confirm = useConfirm()
@@ -15,6 +16,7 @@ const saving = ref(false)
 
 const selectedBranch = ref(null)
 const branchUsers = ref([])
+const allUsers = ref([])
 const showUsers = ref(false)
 const newUserId = ref('')
 const assigningUser = ref(false)
@@ -71,9 +73,19 @@ function deactivate(id) {
 async function viewUsers(branch) {
   selectedBranch.value = branch
   showUsers.value = true
-  const res = await getBranchUsers(branch.id)
-  branchUsers.value = res.data.data || res.data
+  newUserId.value = ''
+  const [usersRes, allRes] = await Promise.all([
+    getBranchUsers(branch.id),
+    getAllUsers(),
+  ])
+  branchUsers.value = usersRes.data.data || usersRes.data
+  allUsers.value = allRes.data.data || allRes.data
 }
+
+const assignableUsers = computed(() => {
+  const assignedIds = new Set(branchUsers.value.map(u => u.id))
+  return allUsers.value.filter(u => !assignedIds.has(u.id))
+})
 
 async function addUser() {
   if (!newUserId.value) return
@@ -88,6 +100,25 @@ async function addUser() {
   } finally {
     assigningUser.value = false
   }
+}
+
+function removeUserFromBranch(user) {
+  confirm.require({
+    message: `Remove ${user.name} from ${selectedBranch.value?.name}?`,
+    header: 'Remove User',
+    icon: 'pi pi-exclamation-triangle',
+    rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
+    acceptProps: { label: 'Remove', severity: 'danger' },
+    accept: async () => {
+      try {
+        await removeUser(selectedBranch.value.id, user.id)
+        toast.add({ severity: 'success', summary: 'Removed', detail: `${user.name} removed from branch`, life: 3000 })
+        viewUsers(selectedBranch.value)
+      } catch (e) {
+        toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to remove user', life: 4000 })
+      }
+    },
+  })
 }
 
 function openForm(branch = null) {
@@ -196,17 +227,21 @@ onMounted(load)
                 <div class="text-sm font-medium text-gray-900">{{ u.name }}</div>
                 <div class="text-xs text-gray-500 capitalize">{{ u.role }}{{ u.username ? ' · @' + u.username : '' }}</div>
               </div>
-              <span v-if="u.pivot?.is_primary" class="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Primary</span>
+              <span v-if="u.is_primary" class="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Primary</span>
+              <button class="text-xs text-red-500 hover:text-red-600 font-medium ml-1" @click="removeUserFromBranch(u)">Remove</button>
             </div>
           </div>
 
           <div class="flex gap-2">
-            <input
+            <select
               v-model="newUserId"
-              type="number"
-              placeholder="User ID to assign"
-              class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
-            />
+              class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+            >
+              <option value="">Select a user…</option>
+              <option v-for="u in assignableUsers" :key="u.id" :value="u.id">
+                {{ u.name }}{{ u.username ? ' (@' + u.username + ')' : '' }}
+              </option>
+            </select>
             <button
               class="bg-blue-600 text-white text-sm px-4 py-2 rounded-lg disabled:opacity-60 hover:bg-blue-700"
               :disabled="assigningUser || !newUserId"

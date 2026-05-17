@@ -9,8 +9,10 @@ api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')
   if (token) config.headers.Authorization = `Bearer ${token}`
 
-  const branchId = localStorage.getItem('branch_id')
-  if (branchId) config.headers['X-Branch-Id'] = branchId
+  if (!config.skipBranchId) {
+    const branchId = localStorage.getItem('branch_id')
+    if (branchId) config.headers['X-Branch-Id'] = branchId
+  }
 
   return config
 })
