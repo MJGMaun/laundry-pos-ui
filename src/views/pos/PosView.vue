@@ -564,6 +564,18 @@ watch(() => branch.currentBranchId, loadServices)
                         />
                       </div>
                     </div>
+                    <div class="flex gap-1 flex-wrap">
+                      <button
+                        v-for="d in [20, 50, 100, 200, 500, 1000]"
+                        :key="d"
+                        class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-slate-600 hover:border-blue-400 hover:text-blue-600 active:scale-95 transition-all"
+                        @click="p.tendered = String(Number(p.tendered || 0) + d)"
+                      >+{{ d }}</button>
+                      <button
+                        class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-red-400 hover:border-red-300 hover:text-red-500 active:scale-95 transition-all"
+                        @click="p.tendered = ''"
+                      >Clear</button>
+                    </div>
                     <Transition name="scale-in">
                       <div
                         v-if="Number(p.tendered) >= Number(p.amount) && Number(p.amount) > 0"
