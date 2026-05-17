@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.js'
+import { useBranchStore } from '@/stores/branch.js'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -108,6 +109,10 @@ router.beforeEach(async (to) => {
 
   if (!auth.user && auth.token) {
     await auth.fetchUser()
+    if (auth.isSuperAdmin) {
+      const branch = useBranchStore()
+      try { await branch.loadBranches() } catch {}
+    }
   }
 
   if (to.meta.requiresAuth && !auth.isAuthenticated) {

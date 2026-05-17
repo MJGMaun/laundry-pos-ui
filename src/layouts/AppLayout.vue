@@ -2,8 +2,10 @@
 import { ref } from 'vue'
 import AppSidebar from '@/components/AppSidebar.vue'
 import AppHeader from '@/components/AppHeader.vue'
+import { useBranchStore } from '@/stores/branch.js'
 
 const sidebarOpen = ref(true)
+const branch = useBranchStore()
 </script>
 
 <template>
@@ -16,7 +18,7 @@ const sidebarOpen = ref(true)
       <main class="flex-1 overflow-y-auto">
         <RouterView v-slot="{ Component, route }">
           <Transition name="page" mode="out-in">
-            <component :is="Component" :key="route.path" />
+            <component :is="Component" :key="route.path + '_' + branch.currentBranchId" />
           </Transition>
         </RouterView>
       </main>

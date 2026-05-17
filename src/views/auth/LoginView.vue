@@ -20,7 +20,12 @@ async function submit() {
 		const data = await auth.login(form.value)
 
 		const userBranches = data.user?.branches || []
-		if (userBranches.length) {
+		const isSuperAdmin = data.user?.role === 'super_admin'
+
+		if (isSuperAdmin) {
+			// Super admin sees all branches, not just assigned ones
+			try { await branch.loadBranches() } catch { }
+		} else if (userBranches.length) {
 			branch.setBranches(userBranches)
 		} else {
 			try { await branch.loadBranches() } catch { }

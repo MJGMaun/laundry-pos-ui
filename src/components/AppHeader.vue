@@ -43,7 +43,7 @@ async function logout() {
         <select
           :value="branch.currentBranchId"
           class="text-sm font-medium text-slate-700 bg-transparent border-none outline-none cursor-pointer"
-          @change="branch.selectBranch(Number($event.target.value) || null)"
+          @change="branch.selectBranch($event.target.value ? Number($event.target.value) : null)"
         >
           <option v-if="auth.isSuperAdmin" :value="null">All branches</option>
           <option v-for="b in branch.branches" :key="b.id" :value="b.id">{{ b.name }}</option>
