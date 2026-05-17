@@ -1,0 +1,1 @@
+import{A as s}from"./index-DP-ljqNC.js";const r=e=>s.get("/services",{params:e}),i=e=>s.post("/services",e),o=(e,t)=>s.put(`/services/${e}`,t),a=e=>s.delete(`/services/${e}`),v=e=>s.patch(`/services/${e}/toggle`);export{i as c,a as d,r as g,v as t,o as u};

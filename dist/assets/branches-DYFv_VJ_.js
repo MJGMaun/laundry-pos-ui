@@ -1,0 +1,1 @@
+import{A as e}from"./index-DP-ljqNC.js";const r=()=>e.get("/branches"),t=s=>e.post("/branches",s),n=(s,a)=>e.put(`/branches/${s}`,a),h=s=>e.delete(`/branches/${s}`),o=s=>e.get(`/branches/${s}/users`),b=(s,a)=>e.post(`/branches/${s}/users`,a),g=s=>e.get(`/branches/${s}/services`);export{r as a,b,t as c,o as d,h as e,g,n as u};
