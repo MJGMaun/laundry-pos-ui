@@ -1,20 +1,30 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useToast } from 'primevue/usetoast'
+import { useAuthStore } from '@/stores/auth.js'
+import { useBranchStore } from '@/stores/branch.js'
 import { getSettings, updateSetting } from '@/api/settings.js'
+import { getBranches } from '@/api/branches.js'
 
 const toast = useToast()
+const auth = useAuthStore()
+const branchStore = useBranchStore()
 
 const loading = ref(false)
 const saving = ref({})
 const settings = ref({})
+const branches = ref([])
+const selectedBranchId = ref(null)
+
+const activeBranchId = computed(() =>
+  auth.isSuperAdmin ? selectedBranchId.value : branchStore.currentBranchId
+)
 
 const GROUPS = [
 	{
 		key: 'shop',
 		label: 'Shop Info',
 		fields: [
-			{ key: 'shop_name', label: 'Shop Name', type: 'text' },
 			{ key: 'shop_address', label: 'Address', type: 'text' },
 			{ key: 'shop_phone', label: 'Phone', type: 'text' },
 			{ key: 'shop_email', label: 'Email', type: 'email' },
@@ -47,8 +57,9 @@ const GROUPS = [
 
 async function load() {
 	loading.value = true
+	settings.value = {}
 	try {
-		const res = await getSettings()
+		const res = await getSettings(activeBranchId.value)
 		const arr = res.data.settings || []
 		arr.forEach((s) => { settings.value[s.key] = s.value })
 	} finally {
@@ -59,7 +70,7 @@ async function load() {
 async function save(key) {
 	saving.value[key] = true
 	try {
-		await updateSetting(key, { value: settings.value[key] })
+		await updateSetting(key, { value: settings.value[key] }, activeBranchId.value)
 		toast.add({ severity: 'success', summary: 'Saved', detail: 'Setting updated', life: 2500 })
 	} catch (e) {
 		toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to save', life: 4000 })
@@ -68,12 +79,31 @@ async function save(key) {
 	}
 }
 
-onMounted(load)
+watch(selectedBranchId, load)
+
+onMounted(async () => {
+	if (auth.isSuperAdmin) {
+		const res = await getBranches()
+		branches.value = res.data.data || res.data
+		if (branches.value.length) selectedBranchId.value = branches.value[0].id
+	} else {
+		load()
+	}
+})
 </script>
 
 <template>
 	<div class="p-4 sm:p-6 max-w-3xl mx-auto">
-		<h1 class="text-xl font-bold text-gray-900 mb-5">Settings</h1>
+		<div class="flex items-center justify-between mb-5">
+			<h1 class="text-xl font-bold text-gray-900">Settings</h1>
+			<select
+				v-if="auth.isSuperAdmin"
+				v-model="selectedBranchId"
+				class="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+			>
+				<option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
+			</select>
+		</div>
 
 		<div v-if="loading" class="text-center py-20 text-gray-400">Loading…</div>
 
