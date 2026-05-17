@@ -79,7 +79,7 @@ async function submit() {
 								</svg>
 							</div>
 							<input v-model="form.email" type="email" required placeholder="you@example.com"
-								class="login-input pl-10" />
+								class="login-input" />
 						</div>
 					</div>
 
@@ -94,7 +94,7 @@ async function submit() {
 								</svg>
 							</div>
 							<input v-model="form.password" :type="showPassword ? 'text' : 'password'" required
-								placeholder="••••••••" class="login-input pl-10 pr-10" />
+								placeholder="••••••••" class="login-input login-input-icons" />
 							<button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
 								style="color: rgba(148,163,184,0.5);" @click="showPassword = !showPassword">
 								<svg v-if="!showPassword" class="w-4 h-4" fill="none" stroke="currentColor"
@@ -196,7 +196,7 @@ async function submit() {
 
 .login-input {
 	width: 100%;
-	padding: 10px 13px;
+	padding: 10px 13px 10px 2.5rem;
 	border-radius: 12px;
 	font-size: 14px;
 	outline: none;
@@ -219,6 +219,10 @@ async function submit() {
 
 .login-input::placeholder {
 	color: rgba(148, 163, 184, 0.4);
+}
+
+.login-input-icons {
+	padding-right: 2.5rem;
 }
 
 .login-btn-shimmer {
