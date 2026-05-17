@@ -295,3 +295,9 @@ body {
 .cart-enter-active { animation: cart-add 280ms var(--ease-spring) both; }
 .cart-leave-active { animation: slide-in-right 200ms var(--ease-in-out) reverse both; }
 .cart-move         { transition: transform 250ms var(--ease-out); }
+
+/* ─────────────────────────────────────────
+   PrimeVue Toast overrides
+───────────────────────────────────────── */
+.p-toast-message-text .p-toast-summary { color: #0f172a !important; }
+.p-toast-message-text .p-toast-detail  { color: #334155 !important; }

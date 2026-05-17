@@ -1,6 +1,9 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useToast } from 'primevue/usetoast'
 import { getSettings, updateSetting } from '@/api/settings.js'
+
+const toast = useToast()
 
 const loading = ref(false)
 const saving = ref({})
@@ -57,8 +60,9 @@ async function save(key) {
 	saving.value[key] = true
 	try {
 		await updateSetting(key, { value: settings.value[key] })
+		toast.add({ severity: 'success', summary: 'Saved', detail: 'Setting updated', life: 2500 })
 	} catch (e) {
-		alert(e.response?.data?.message || 'Failed to save')
+		toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to save', life: 4000 })
 	} finally {
 		saving.value[key] = false
 	}

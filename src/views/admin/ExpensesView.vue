@@ -1,6 +1,11 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useToast } from 'primevue/usetoast'
+import { useConfirm } from 'primevue/useconfirm'
 import { getExpenses, createExpense, updateExpense, deleteExpense, getExpenseCategories } from '@/api/expenses.js'
+
+const toast = useToast()
+const confirm = useConfirm()
 
 const expenses = ref([])
 const categories = ref([])
@@ -13,7 +18,6 @@ const filterMonth = ref(new Date().toISOString().slice(0, 7))
 const filterCat = ref('')
 
 function unwrap(res) {
-  // Response shape: { expenses: { data: [...], total, ... }, monthly_totals: [...] }
   const candidates = [res.data?.expenses?.data, res.data?.data?.data, res.data?.data, res.data]
   return candidates.find(Array.isArray) ?? []
 }
@@ -25,7 +29,7 @@ async function load() {
   loadError.value = ''
   try {
     const params = {}
-    if (filterMonth.value) params.month = filterMonth.value   // "YYYY-MM"
+    if (filterMonth.value) params.month = filterMonth.value
     if (filterCat.value)   params.category_id = filterCat.value
     const res = await getExpenses(params)
     expenses.value = unwrap(res)
@@ -51,19 +55,33 @@ async function save() {
     } else {
       await createExpense(form.value)
     }
+    toast.add({ severity: 'success', summary: 'Saved', detail: `Expense ${editingId.value ? 'updated' : 'logged'} successfully`, life: 3000 })
     closeForm()
     load()
   } catch (e) {
-    alert(e.response?.data?.message || 'Failed to save')
+    toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to save', life: 4000 })
   } finally {
     saving.value = false
   }
 }
 
-async function remove(id) {
-  if (!confirm('Delete this expense?')) return
-  await deleteExpense(id)
-  load()
+function remove(id) {
+  confirm.require({
+    message: 'Are you sure you want to delete this expense?',
+    header: 'Delete Expense',
+    icon: 'pi pi-exclamation-triangle',
+    rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
+    acceptProps: { label: 'Delete', severity: 'danger' },
+    accept: async () => {
+      try {
+        await deleteExpense(id)
+        toast.add({ severity: 'success', summary: 'Deleted', detail: 'Expense deleted', life: 3000 })
+        load()
+      } catch (e) {
+        toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to delete', life: 4000 })
+      }
+    },
+  })
 }
 
 function openForm(expense = null) {

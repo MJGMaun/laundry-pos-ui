@@ -1,10 +1,12 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useToast } from 'primevue/usetoast'
 import { getOrders } from '@/api/orders.js'
 import { updateLoadStatus } from '@/api/loads.js'
 
 const router = useRouter()
+const toast = useToast()
 const loading = ref(false)
 const orders = ref([])
 const markingLoad = ref(null)
@@ -40,9 +42,10 @@ async function markPickedUp(loadId) {
   markingLoad.value = loadId
   try {
     await updateLoadStatus(loadId, { status: 'picked_up' })
+    toast.add({ severity: 'success', summary: 'Done', detail: 'Marked as picked up', life: 2500 })
     await load()
   } catch (e) {
-    alert(e.response?.data?.message || 'Failed')
+    toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed', life: 4000 })
   } finally {
     markingLoad.value = null
   }

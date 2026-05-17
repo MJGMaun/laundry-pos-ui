@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useCartStore } from '@/stores/cart.js'
 import { useBranchStore } from '@/stores/branch.js'
+import { useToast } from 'primevue/usetoast'
 import { getServices } from '@/api/services.js'
 import { getBranchServices } from '@/api/branches.js'
 import { getCustomers } from '@/api/customers.js'
@@ -11,6 +12,7 @@ import { useRouter } from 'vue-router'
 
 const cart = useCartStore()
 const branch = useBranchStore()
+const toast = useToast()
 const router = useRouter()
 
 const allServices = ref([])
@@ -113,7 +115,7 @@ async function saveNewCustomer() {
     showNewCustomerForm.value = false
     newCustomer.value = { name: '', phone: '', email: '' }
   } catch (e) {
-    alert(e.response?.data?.message || 'Failed to save customer')
+    toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to save customer', life: 4000 })
   } finally {
     savingCustomer.value = false
   }

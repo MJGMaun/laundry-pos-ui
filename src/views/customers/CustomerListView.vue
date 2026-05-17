@@ -1,9 +1,12 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useToast } from 'primevue/usetoast'
 import { getCustomers } from '@/api/customers.js'
 
 const router = useRouter()
+const toast = useToast()
+
 const customers = ref([])
 const loading = ref(false)
 const search = ref('')
@@ -31,11 +34,12 @@ async function saveCustomer() {
   try {
     const { createCustomer } = await import('@/api/customers.js')
     await createCustomer(form.value)
+    toast.add({ severity: 'success', summary: 'Saved', detail: 'Customer created successfully', life: 3000 })
     showForm.value = false
     form.value = { name: '', phone: '', email: '', address: '', notes: '' }
     load()
   } catch (e) {
-    alert(e.response?.data?.message || 'Failed to save customer')
+    toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to save customer', life: 4000 })
   } finally {
     saving.value = false
   }

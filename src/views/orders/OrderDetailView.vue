@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useToast } from 'primevue/usetoast'
 import { getOrder, updateOrderStatus } from '@/api/orders.js'
 import { updateLoadStatus } from '@/api/loads.js'
 import { createPayment } from '@/api/payments.js'
@@ -8,6 +9,7 @@ import { useAuthStore } from '@/stores/auth.js'
 
 const route = useRoute()
 const router = useRouter()
+const toast = useToast()
 const auth = useAuthStore()
 
 const order = ref(null)
@@ -103,7 +105,7 @@ async function advanceLoadStatus(loadId, current) {
   const next = loadStatusNext[current]
   if (!next) return
   try { await updateLoadStatus(loadId, { status: next }); await load() }
-  catch (e) { alert(e.response?.data?.message || 'Failed') }
+  catch (e) { toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed', life: 4000 }) }
 }
 
 function fmt(n) { return Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }

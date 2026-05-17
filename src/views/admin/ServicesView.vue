@@ -1,6 +1,11 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { useToast } from 'primevue/usetoast'
+import { useConfirm } from 'primevue/useconfirm'
 import { getServices, createService, updateService, deleteService, toggleService } from '@/api/services.js'
+
+const toast = useToast()
+const confirm = useConfirm()
 
 const services = ref([])
 const loading = ref(false)
@@ -48,10 +53,11 @@ async function save() {
 		} else {
 			await createService(form.value)
 		}
+		toast.add({ severity: 'success', summary: 'Saved', detail: `Service ${editingId.value ? 'updated' : 'created'} successfully`, life: 3000 })
 		closeForm()
 		load()
 	} catch (e) {
-		alert(e.response?.data?.message || 'Failed to save')
+		toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to save', life: 4000 })
 	} finally {
 		saving.value = false
 	}
@@ -62,10 +68,23 @@ async function toggle(id) {
 	load()
 }
 
-async function remove(id) {
-	if (!confirm('Delete this service?')) return
-	await deleteService(id)
-	load()
+function remove(id) {
+	confirm.require({
+		message: 'Are you sure you want to delete this service?',
+		header: 'Delete Service',
+		icon: 'pi pi-exclamation-triangle',
+		rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
+		acceptProps: { label: 'Delete', severity: 'danger' },
+		accept: async () => {
+			try {
+				await deleteService(id)
+				toast.add({ severity: 'success', summary: 'Deleted', detail: 'Service deleted', life: 3000 })
+				load()
+			} catch (e) {
+				toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to delete', life: 4000 })
+			}
+		},
+	})
 }
 
 function openForm(svc = null) {

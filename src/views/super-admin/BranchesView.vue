@@ -1,6 +1,11 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useToast } from 'primevue/usetoast'
+import { useConfirm } from 'primevue/useconfirm'
 import { getBranches, createBranch, updateBranch, deleteBranch, getBranchUsers, assignUser } from '@/api/branches.js'
+
+const toast = useToast()
+const confirm = useConfirm()
 
 const branches = ref([])
 const loading = ref(false)
@@ -34,19 +39,33 @@ async function save() {
     } else {
       await createBranch(form.value)
     }
+    toast.add({ severity: 'success', summary: 'Saved', detail: `Branch ${editingId.value ? 'updated' : 'created'} successfully`, life: 3000 })
     closeForm()
     load()
   } catch (e) {
-    alert(e.response?.data?.message || 'Failed to save')
+    toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to save', life: 4000 })
   } finally {
     saving.value = false
   }
 }
 
-async function deactivate(id) {
-  if (!confirm('Deactivate this branch?')) return
-  await deleteBranch(id)
-  load()
+function deactivate(id) {
+  confirm.require({
+    message: 'Are you sure you want to deactivate this branch?',
+    header: 'Deactivate Branch',
+    icon: 'pi pi-exclamation-triangle',
+    rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
+    acceptProps: { label: 'Deactivate', severity: 'danger' },
+    accept: async () => {
+      try {
+        await deleteBranch(id)
+        toast.add({ severity: 'success', summary: 'Done', detail: 'Branch deactivated', life: 3000 })
+        load()
+      } catch (e) {
+        toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to deactivate', life: 4000 })
+      }
+    },
+  })
 }
 
 async function viewUsers(branch) {
@@ -62,9 +81,10 @@ async function addUser() {
   try {
     await assignUser(selectedBranch.value.id, { user_id: Number(newUserId.value) })
     newUserId.value = ''
+    toast.add({ severity: 'success', summary: 'Assigned', detail: 'User assigned to branch', life: 3000 })
     viewUsers(selectedBranch.value)
   } catch (e) {
-    alert(e.response?.data?.message || 'Failed to assign user')
+    toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to assign user', life: 4000 })
   } finally {
     assigningUser.value = false
   }
