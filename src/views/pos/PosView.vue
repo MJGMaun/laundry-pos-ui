@@ -308,8 +308,6 @@ watch(() => branch.currentBranchId, loadServices)
             <button class="text-xs text-blue-600 hover:text-blue-700 font-medium" @click="showNewCustomerForm = !showNewCustomerForm">
               + New customer
             </button>
-            <span class="text-slate-300">·</span>
-            <span class="text-xs text-slate-400">or proceed without</span>
           </div>
 
           <Transition name="dropdown">
@@ -500,8 +498,6 @@ watch(() => branch.currentBranchId, loadServices)
                         class="text-xs text-blue-600 hover:text-blue-700 font-semibold transition-colors"
                         @click="showNewCustomerForm = !showNewCustomerForm"
                       >{{ showNewCustomerForm ? '− Cancel' : '+ New customer' }}</button>
-                      <span class="text-slate-300 text-xs">·</span>
-                      <span class="text-xs text-slate-400">or proceed without</span>
                     </div>
 
                     <Transition name="slide-down">
