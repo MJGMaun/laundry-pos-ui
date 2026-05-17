@@ -28,7 +28,9 @@ async function load() {
   loading.value = true
   try {
     const res = await getBranchComparison()
-    data.value = res.data.data || res.data
+    const raw = res.data
+    const arr = raw?.data ?? raw?.branches ?? raw
+    data.value = Array.isArray(arr) ? arr : []
 
     chart.value = {
       labels: data.value.map((b) => b.branch_name || b.name),

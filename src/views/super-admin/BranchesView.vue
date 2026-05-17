@@ -10,6 +10,7 @@ const confirm = useConfirm()
 
 const branches = ref([])
 const loading = ref(false)
+const loadError = ref('')
 const showForm = ref(false)
 const editingId = ref(null)
 const saving = ref(false)
@@ -25,9 +26,12 @@ const form = ref({ name: '', address: '', phone: '', email: '', tin: '' })
 
 async function load() {
   loading.value = true
+  loadError.value = ''
   try {
     const res = await getBranches()
     branches.value = res.data.data || res.data
+  } catch (e) {
+    loadError.value = e.response?.data?.message || 'Failed to load branches'
   } finally {
     loading.value = false
   }
@@ -147,6 +151,10 @@ onMounted(load)
       <button class="bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700" @click="openForm()">
         + New Branch
       </button>
+    </div>
+
+    <div v-if="loadError" class="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">
+      {{ loadError }}
     </div>
 
     <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">

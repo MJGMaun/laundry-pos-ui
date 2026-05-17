@@ -1,6 +1,6 @@
 import api from './index.js'
 
-export const getBranches = () => api.get('/branches')
+export const getBranches = () => api.get('/branches', { skipBranchId: true })
 export const createBranch = (data) => api.post('/branches', data)
 export const updateBranch = (id, data) => api.put(`/branches/${id}`, data)
 export const deleteBranch = (id) => api.delete(`/branches/${id}`)
