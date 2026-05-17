@@ -25,7 +25,7 @@ async function load() {
     ])
     customer.value = custRes.data.data || custRes.data
     orders.value = ordersRes.data.data || ordersRes.data
-    form.value = { name: customer.value.name, phone: customer.value.phone, email: customer.value.email || '', address: customer.value.address || '', notes: customer.value.notes || '' }
+    form.value = { name: customer.value.name, username: customer.value.username || '', phone: customer.value.phone, email: customer.value.email || '', address: customer.value.address || '', notes: customer.value.notes || '' }
   } finally {
     loading.value = false
   }
@@ -71,7 +71,7 @@ onMounted(load)
         <div class="flex items-start justify-between mb-4">
           <div>
             <h2 class="text-xl font-bold text-gray-900">{{ customer.name }}</h2>
-            <div class="text-sm text-gray-500 mt-0.5">{{ customer.phone }} {{ customer.email ? '· ' + customer.email : '' }}</div>
+            <div class="text-sm text-gray-500 mt-0.5">{{ customer.phone }}{{ customer.username ? ' · @' + customer.username : '' }}{{ customer.email ? ' · ' + customer.email : '' }}</div>
             <div v-if="customer.address" class="text-sm text-gray-500 mt-0.5">{{ customer.address }}</div>
             <div v-if="customer.notes" class="text-sm text-gray-400 mt-1 italic">{{ customer.notes }}</div>
             <div v-if="customer.loyalty_tier" class="mt-1">
@@ -92,7 +92,8 @@ onMounted(load)
         <div v-if="editing" class="space-y-3 border-t border-gray-200 pt-4">
           <input v-model="form.name" placeholder="Name" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
           <input v-model="form.phone" placeholder="Phone" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-          <input v-model="form.email" placeholder="Email" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+          <input v-model="form.username" placeholder="Username (optional)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+          <input v-model="form.email" placeholder="Email (optional)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
           <input v-model="form.address" placeholder="Address" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
           <textarea v-model="form.notes" placeholder="Notes" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none" />
           <button

@@ -14,7 +14,7 @@ const page = ref(1)
 const total = ref(0)
 const showForm = ref(false)
 const saving = ref(false)
-const form = ref({ name: '', phone: '', email: '', address: '', notes: '' })
+const form = ref({ name: '', username: '', phone: '', email: '', address: '', notes: '' })
 
 async function load() {
   loading.value = true
@@ -36,7 +36,7 @@ async function saveCustomer() {
     await createCustomer(form.value)
     toast.add({ severity: 'success', summary: 'Saved', detail: 'Customer created successfully', life: 3000 })
     showForm.value = false
-    form.value = { name: '', phone: '', email: '', address: '', notes: '' }
+    form.value = { name: '', username: '', phone: '', email: '', address: '', notes: '' }
     load()
   } catch (e) {
     toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to save customer', life: 4000 })
@@ -67,7 +67,7 @@ onMounted(load)
     <div class="mb-4">
       <input
         v-model="search"
-        placeholder="Search by name, phone, or email…"
+        placeholder="Search by name or phone…"
         class="w-full sm:w-80 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         @keyup.enter="page = 1; load()"
       />
@@ -81,7 +81,7 @@ onMounted(load)
           <tr>
             <th class="text-left px-4 py-3 font-medium text-gray-600">Name</th>
             <th class="text-left px-4 py-3 font-medium text-gray-600">Phone</th>
-            <th class="text-left px-4 py-3 font-medium text-gray-600">Email</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">Username</th>
             <th class="text-right px-4 py-3 font-medium text-gray-600">Total Spent</th>
             <th class="text-right px-4 py-3 font-medium text-gray-600">Visits</th>
           </tr>
@@ -95,7 +95,7 @@ onMounted(load)
           >
             <td class="px-4 py-3 font-medium text-gray-900">{{ c.name }}</td>
             <td class="px-4 py-3 text-gray-700">{{ c.phone }}</td>
-            <td class="px-4 py-3 text-gray-500">{{ c.email || '—' }}</td>
+            <td class="px-4 py-3 text-gray-500">{{ c.username || '—' }}</td>
             <td class="px-4 py-3 text-right text-gray-900">₱{{ fmt(c.total_spent) }}</td>
             <td class="px-4 py-3 text-right text-gray-600">{{ c.total_visits }}</td>
           </tr>
@@ -111,6 +111,7 @@ onMounted(load)
           <div class="space-y-3">
             <input v-model="form.name" placeholder="Name *" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             <input v-model="form.phone" placeholder="Phone *" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+            <input v-model="form.username" placeholder="Username (optional)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             <input v-model="form.email" placeholder="Email (optional)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             <input v-model="form.address" placeholder="Address (optional)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             <textarea v-model="form.notes" placeholder="Notes (optional)" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none" />
