@@ -6,11 +6,14 @@ import { getOrder, updateOrderStatus } from '@/api/orders.js'
 import { updateLoadStatus } from '@/api/loads.js'
 import { createPayment } from '@/api/payments.js'
 import { useAuthStore } from '@/stores/auth.js'
+import { useQueueStore } from '@/stores/queue.js'
+import { isOfflineError } from '@/offline/isOfflineError.js'
 
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 const auth = useAuthStore()
+const queue = useQueueStore()
 
 const order = ref(null)
 const loading = ref(true)
@@ -63,8 +66,20 @@ async function advanceOrderStatus() {
   }
   statusError.value = ''
   updatingStatus.value = true
-  try { await updateOrderStatus(order.value.id, { status: next }); await load() }
-  finally { updatingStatus.value = false }
+  try {
+    await updateOrderStatus(order.value.id, { status: next })
+    await load()
+  } catch (e) {
+    if (isOfflineError(e)) {
+      await queue.enqueueRequest('PATCH', `/orders/${order.value.id}/status`, { status: next })
+      order.value = { ...order.value, status: next }
+      toast.add({ severity: 'warn', summary: 'Saved offline', detail: 'Status update queued — will sync when connected', life: 5000 })
+    } else {
+      toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed', life: 4000 })
+    }
+  } finally {
+    updatingStatus.value = false
+  }
 }
 
 const showPaymentForm = ref(false)
@@ -95,7 +110,21 @@ async function recordPayment() {
       await load()
     }
   } catch (e) {
-    paymentFormError.value = e.response?.data?.message || 'Failed to record payment.'
+    if (isOfflineError(e)) {
+      const p = newPayment.value
+      const payData = { method: p.method, amount: Number(p.amount), type: 'payment' }
+      if (p.method === 'cash') payData.tendered = Number(p.tendered || p.amount)
+      else payData.reference_number = p.reference_number || ''
+      await queue.enqueueRequest('POST', `/orders/${order.value.id}/payments`, payData)
+      // If this payment covers the balance, also queue the status completion
+      if (Number(p.amount) >= outstandingBalance.value - 0.01 && order.value.status !== 'completed') {
+        await queue.enqueueRequest('PATCH', `/orders/${order.value.id}/status`, { status: 'completed' })
+      }
+      showPaymentForm.value = false
+      toast.add({ severity: 'warn', summary: 'Saved offline', detail: 'Payment queued — will sync when connected', life: 5000 })
+    } else {
+      paymentFormError.value = e.response?.data?.message || 'Failed to record payment.'
+    }
   } finally {
     savingPayment.value = false
   }
@@ -104,8 +133,21 @@ async function recordPayment() {
 async function advanceLoadStatus(loadId, current) {
   const next = loadStatusNext[current]
   if (!next) return
-  try { await updateLoadStatus(loadId, { status: next }); await load() }
-  catch (e) { toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed', life: 4000 }) }
+  try {
+    await updateLoadStatus(loadId, { status: next })
+    await load()
+  } catch (e) {
+    if (isOfflineError(e)) {
+      await queue.enqueueRequest('PATCH', `/loads/${loadId}/status`, { status: next })
+      order.value = {
+        ...order.value,
+        loads: order.value.loads.map((l) => l.id === loadId ? { ...l, status: next } : l),
+      }
+      toast.add({ severity: 'warn', summary: 'Saved offline', detail: 'Load status queued — will sync when connected', life: 5000 })
+    } else {
+      toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed', life: 4000 })
+    }
+  }
 }
 
 function fmt(n) { return Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }

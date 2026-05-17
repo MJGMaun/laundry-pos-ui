@@ -4,9 +4,12 @@ import { useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { getOrders } from '@/api/orders.js'
 import { updateLoadStatus } from '@/api/loads.js'
+import { useQueueStore } from '@/stores/queue.js'
+import { isOfflineError } from '@/offline/isOfflineError.js'
 
 const router = useRouter()
 const toast = useToast()
+const offlineQueue = useQueueStore()
 const loading = ref(false)
 const orders = ref([])
 const markingLoad = ref(null)
@@ -45,7 +48,17 @@ async function markPickedUp(loadId) {
     toast.add({ severity: 'success', summary: 'Done', detail: 'Marked as picked up', life: 2500 })
     await load()
   } catch (e) {
-    toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed', life: 4000 })
+    if (isOfflineError(e)) {
+      await offlineQueue.enqueueRequest('PATCH', `/loads/${loadId}/status`, { status: 'picked_up' })
+      // Optimistically remove the load from local state
+      orders.value = orders.value.map((o) => ({
+        ...o,
+        loads: o.loads.map((l) => l.id === loadId ? { ...l, status: 'picked_up' } : l),
+      }))
+      toast.add({ severity: 'warn', summary: 'Saved offline', detail: 'Pickup queued — will sync when connected', life: 5000 })
+    } else {
+      toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed', life: 4000 })
+    }
   } finally {
     markingLoad.value = null
   }
