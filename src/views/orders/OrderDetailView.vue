@@ -3,17 +3,20 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { getOrder, updateOrderStatus, updateOrder } from '@/api/orders.js'
-import { updateLoadStatus } from '@/api/loads.js'
+import { updateLoadStatus, addLoads } from '@/api/loads.js'
+import { getBranchServices } from '@/api/branches.js'
+import { useBranchStore } from '@/stores/branch.js'
 import { createPayment } from '@/api/payments.js'
 import { useAuthStore } from '@/stores/auth.js'
 import { useQueueStore } from '@/stores/queue.js'
 import { isOfflineError } from '@/offline/isOfflineError.js'
 
-const route = useRoute()
+const route  = useRoute()
 const router = useRouter()
-const toast = useToast()
-const auth = useAuthStore()
-const queue = useQueueStore()
+const toast  = useToast()
+const auth   = useAuthStore()
+const queue  = useQueueStore()
+const branch = useBranchStore()
 
 const order = ref(null)
 const loading = ref(true)
@@ -150,6 +153,50 @@ async function advanceLoadStatus(loadId, current) {
   }
 }
 
+const showAddLoads  = ref(false)
+const addLoadsRows  = ref([])
+const addLoadsError = ref('')
+const savingLoads   = ref(false)
+const services      = ref([])
+
+async function openAddLoads() {
+  if (!services.value.length) {
+    try {
+      const res = await getBranchServices(branch.currentBranchId)
+      services.value = (res.data.data || res.data).filter((s) => s.is_active !== false)
+    } catch {
+      toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to load services', life: 4000 })
+      return
+    }
+  }
+  addLoadsRows.value = [{ service_id: '', quantity: 1 }]
+  addLoadsError.value = ''
+  showAddLoads.value = true
+}
+
+function addLoadRow() {
+  addLoadsRows.value.push({ service_id: '', quantity: 1 })
+}
+
+async function saveLoads() {
+  if (addLoadsRows.value.some((r) => !r.service_id)) {
+    addLoadsError.value = 'Select a service for each row.'
+    return
+  }
+  savingLoads.value = true
+  addLoadsError.value = ''
+  try {
+    await addLoads(order.value.id, { loads: addLoadsRows.value })
+    showAddLoads.value = false
+    await load()
+    toast.add({ severity: 'success', summary: 'Loads added', life: 2500 })
+  } catch (e) {
+    addLoadsError.value = e.response?.data?.message || 'Failed to add loads.'
+  } finally {
+    savingLoads.value = false
+  }
+}
+
 const showEditForm = ref(false)
 const editForm    = ref({ extra_fees: 0, notes: '' })
 const savingEdit  = ref(false)
@@ -248,7 +295,16 @@ onMounted(load)
       <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden animate-slide-up stagger-1" style="box-shadow: var(--shadow-card);">
         <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
           <h3 class="font-bold text-slate-900">Loads</h3>
-          <span class="text-xs text-slate-400">{{ order.loads?.length || 0 }} load{{ order.loads?.length !== 1 ? 's' : '' }}</span>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-400">{{ order.loads?.length || 0 }} item{{ order.loads?.length !== 1 ? 's' : '' }}</span>
+            <button
+              v-if="order.status !== 'completed' && auth.isCashier"
+              class="flex items-center gap-1.5 text-xs font-semibold text-blue-600 border border-blue-200 hover:bg-blue-50 px-3 py-1.5 rounded-xl transition-all active:scale-95"
+              @click="showAddLoads ? showAddLoads = false : openAddLoads()"
+            >
+              {{ showAddLoads ? '✕ Cancel' : '+ Add Loads' }}
+            </button>
+          </div>
         </div>
         <div class="divide-y divide-slate-50">
           <div
@@ -272,6 +328,58 @@ onMounted(load)
           </div>
         </div>
       </div>
+
+      <!-- Add Loads form -->
+      <Transition name="slide-down">
+        <div v-if="showAddLoads" class="bg-white rounded-2xl border border-blue-200 overflow-hidden animate-slide-up" style="box-shadow: var(--shadow-card);">
+          <div class="px-5 py-3 border-b border-slate-100 bg-blue-50">
+            <h3 class="font-semibold text-blue-800 text-sm">Add Loads to Order</h3>
+          </div>
+          <div class="p-4 space-y-2">
+            <div v-for="(row, i) in addLoadsRows" :key="i" class="flex items-center gap-2">
+              <select
+                v-model="row.service_id"
+                class="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all bg-white"
+              >
+                <option value="">Select service…</option>
+                <option v-for="s in services" :key="s.id" :value="s.id">
+                  {{ s.name }} — ₱{{ fmt(s.price) }}
+                </option>
+              </select>
+              <input
+                v-model="row.quantity"
+                type="number" min="0.01" step="0.5"
+                class="w-20 border border-slate-200 rounded-xl px-3 py-2 text-sm text-center focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+              />
+              <button
+                v-if="addLoadsRows.length > 1"
+                class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all shrink-0"
+                @click="addLoadsRows.splice(i, 1)"
+              >✕</button>
+            </div>
+
+            <button
+              class="text-xs text-blue-600 font-medium hover:text-blue-700 transition-colors"
+              @click="addLoadRow"
+            >+ Add another service</button>
+
+            <div v-if="addLoadsError" class="text-xs text-red-500 font-medium px-1">{{ addLoadsError }}</div>
+
+            <div class="flex gap-2 pt-2">
+              <button
+                class="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50 transition-all"
+                @click="showAddLoads = false"
+              >Cancel</button>
+              <button
+                class="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50"
+                style="background: linear-gradient(135deg, #2563eb, #4f46e5);"
+                :disabled="savingLoads"
+                @click="saveLoads"
+              >{{ savingLoads ? 'Saving…' : 'Save Loads' }}</button>
+            </div>
+          </div>
+        </div>
+      </Transition>
 
       <!-- Payments + Totals -->
       <div class="grid sm:grid-cols-2 gap-4">
