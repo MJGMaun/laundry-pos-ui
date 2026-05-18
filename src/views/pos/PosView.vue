@@ -41,6 +41,7 @@ const showPayment = ref(false)
 const payments = ref([{ method: 'cash', amount: '', tendered: '', reference_number: '' }])
 const paymentError = ref('')
 const processingPayment = ref(false)
+const payLater = ref(false)
 
 const lastOrder = ref(null)
 const showSuccess = ref(false)
@@ -214,6 +215,7 @@ function openPayment() {
   const total = cart.total.toFixed(2)
   payments.value = [{ method: 'cash', amount: total, tendered: '0', reference_number: '' }]
   paymentError.value = ''
+  payLater.value = false
   customerQuery.value = ''
   customerResults.value = []
   showNewCustomerForm.value = false
@@ -243,12 +245,14 @@ async function processPayment() {
     })
     const order = orderRes.data.data || orderRes.data
 
-    const payableRows = payments.value.filter((p) => Number(p.amount) > 0)
-    for (const p of payableRows) {
-      const payData = { method: p.method, amount: Number(p.amount), type: 'payment' }
-      if (p.method === 'cash') payData.tendered = Number(p.tendered || p.amount)
-      else payData.reference_number = p.reference_number || ''
-      await createPayment(order.id, payData)
+    if (!payLater.value) {
+      const payableRows = payments.value.filter((p) => Number(p.amount) > 0)
+      for (const p of payableRows) {
+        const payData = { method: p.method, amount: Number(p.amount), type: 'payment' }
+        if (p.method === 'cash') payData.tendered = Number(p.tendered || p.amount)
+        else payData.reference_number = p.reference_number || ''
+        await createPayment(order.id, payData)
+      }
     }
 
     lastOrder.value = order
@@ -799,7 +803,7 @@ watch(() => branch.currentBranchId, loadServices)
                     style="background: linear-gradient(135deg, #16a34a, #15803d); box-shadow: 0 4px 14px rgba(22,163,74,0.35);"
                     @click="processPayment"
                   >
-                    <span v-if="!processingPayment">{{ paymentTotal > 0 ? '✓ Confirm Payment' : '✓ Create Order (Pay Later)' }}</span>
+                    <span v-if="!processingPayment">{{ payLater ? '✓ Create Order (Pay Later)' : '✓ Confirm Payment' }}</span>
                     <span v-else class="flex items-center justify-center gap-2">
                       <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.3)" stroke-width="3"/><path d="M12 2a10 10 0 0110 10" stroke="white" stroke-width="3" stroke-linecap="round"/></svg>
                       Processing…
@@ -807,13 +811,17 @@ watch(() => branch.currentBranchId, loadServices)
                   </button>
                 </div>
                 <button
-                  v-if="paymentTotal > 0"
+                  v-if="!payLater"
                   class="w-full py-2.5 rounded-2xl text-sm font-medium text-slate-400 hover:text-slate-600 hover:bg-slate-50 border border-dashed border-slate-200 transition-all active:scale-[0.98]"
                   :disabled="processingPayment"
-                  @click="payments = [{ method: 'cash', amount: '0', tendered: '0', reference_number: '' }]"
+                  @click="payLater = true; payments = [{ method: 'cash', amount: cart.total.toFixed(2), tendered: '0', reference_number: '' }]"
                 >
                   Pay later — create order without payment
                 </button>
+                <div v-else class="flex items-center justify-between px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-700 font-medium">
+                  <span>Order will be created unpaid</span>
+                  <button class="text-amber-500 hover:text-amber-700 transition-colors" @click="payLater = false">Undo</button>
+                </div>
               </div>
             </div>
           </Transition>
