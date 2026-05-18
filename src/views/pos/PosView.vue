@@ -141,7 +141,7 @@ async function selectCustomer(c) {
   } catch {}
 }
 
-// Auto-apply free_load reward: either already pending or earned on this order
+// Auto-apply free_load rewards: pending + earned on this order
 watchEffect(() => {
   const loyalty = customerLoyalty.value
   if (!loyalty || !cart.items.length) {
@@ -150,35 +150,34 @@ watchEffect(() => {
     return
   }
 
-  const discount = Math.max(...cart.items.map((i) => i.unit_price))
+  // Existing pending free_load rewards
+  const existingCount = loyalty.pending_rewards.filter((r) => r.rule?.reward_type === 'free_load').length
 
-  // 1. Already has a pending reward from a previous order
-  const existing = loyalty.pending_rewards.find((r) => r.rule?.reward_type === 'free_load')
-  if (existing) {
-    if (!cart.appliedLoyaltyReward) {
-      cart.applyLoyaltyReward(existing, discount)
-      selectedReward.value = existing
-    }
+  // Rewards earned on this order across all free_load rules
+  const cartStamps = Math.floor(cart.items.reduce((s, i) => s + Number(i.quantity), 0))
+  const prospective = loyalty.total_stamps + cartStamps
+  const newCount = loyalty.rules
+    .filter((r) => r.reward_type === 'free_load')
+    .reduce((sum, rule) => {
+      const prev = Math.floor(loyalty.total_stamps / rule.every_n_stamps)
+      const next = Math.floor(prospective / rule.every_n_stamps)
+      return sum + Math.max(0, next - prev)
+    }, 0)
+
+  const totalFreeLoads = existingCount + newCount
+
+  if (totalFreeLoads === 0) {
+    cart.clearLoyaltyReward()
+    selectedReward.value = null
     return
   }
 
-  // 2. Will cross a milestone on this order
-  const cartStamps = Math.floor(cart.items.reduce((s, i) => s + Number(i.quantity), 0))
-  const prospective = loyalty.total_stamps + cartStamps
-  const earningRule = loyalty.rules.find((rule) => {
-    if (rule.reward_type !== 'free_load') return false
-    return Math.floor(prospective / rule.every_n_stamps) > Math.floor(loyalty.total_stamps / rule.every_n_stamps)
-  })
+  // Discount = sum of top N unit prices
+  const sortedPrices = [...cart.items].sort((a, b) => b.unit_price - a.unit_price).map((i) => i.unit_price)
+  const discount = sortedPrices.slice(0, totalFreeLoads).reduce((s, p) => s + p, 0)
 
-  if (earningRule) {
-    if (!cart.appliedLoyaltyReward) {
-      cart.applyLoyaltyReward({ id: null, rule: earningRule }, discount)
-      selectedReward.value = cart.appliedLoyaltyReward
-    }
-  } else {
-    cart.clearLoyaltyReward()
-    selectedReward.value = null
-  }
+  cart.applyLoyaltyReward({ count: totalFreeLoads }, discount)
+  selectedReward.value = cart.appliedLoyaltyReward
 })
 
 async function saveNewCustomer() {
@@ -227,6 +226,7 @@ async function processPayment() {
       pickup_fee: cart.pickupFee || 0,
       delivery_fee: cart.deliveryFee || 0,
       discount_amount: cart.loyaltyDiscount || 0,
+      loyalty_free_loads: cart.appliedLoyaltyReward?.count || 0,
     })
     const order = orderRes.data.data || orderRes.data
 
@@ -544,7 +544,7 @@ watch(() => branch.currentBranchId, loadServices)
         </div>
         <div v-if="cart.loyaltyDiscount > 0" class="flex justify-between items-center text-xs mb-1">
           <div class="flex items-center gap-1 text-green-600 font-medium">
-            <span>🎁 Free load</span>
+            <span>🎁 {{ cart.appliedLoyaltyReward?.count > 1 ? `${cart.appliedLoyaltyReward.count}× free loads` : 'Free load' }}</span>
             <button class="text-slate-300 hover:text-red-400 transition-colors leading-none"
               @click="cart.clearLoyaltyReward(); selectedReward = null">✕</button>
           </div>
@@ -804,7 +804,7 @@ watch(() => branch.currentBranchId, loadServices)
                 {{ lastOrder.customer?.name || cart.customer?.name }}
               </div>
               <div v-if="lastRedeemedReward" class="mt-3 flex items-center justify-center gap-1.5 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-xl px-3 py-2">
-                🎁 Reward redeemed: {{ lastRedeemedReward.rule?.reward_description }}
+                🎁 {{ lastRedeemedReward.count > 1 ? `${lastRedeemedReward.count} free loads redeemed` : '1 free load redeemed' }}
               </div>
               <div class="flex gap-2 mt-6">
                 <button
