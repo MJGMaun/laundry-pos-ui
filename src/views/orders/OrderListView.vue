@@ -9,7 +9,7 @@ const loading = ref(false)
 const page = ref(1)
 const total = ref(0)
 const perPage = ref(20)
-const filters = ref({ status: '', search: '' })
+const filters = ref({ status: '', search: '', unpaid: false })
 
 const totalPages = computed(() => Math.ceil(total.value / perPage.value))
 
@@ -27,6 +27,7 @@ async function load() {
     const params = { page: page.value, per_page: perPage.value }
     if (filters.value.status) params.status = filters.value.status
     if (filters.value.search) params.search = filters.value.search
+    if (filters.value.unpaid) params.unpaid = 1
     const res = await getOrders(params)
     orders.value = res.data.data || res.data
     total.value = res.data.total || orders.value.length
@@ -69,6 +70,17 @@ onMounted(load)
           {{ s.label }}
         </button>
       </div>
+
+      <button
+        class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border transition-all duration-150"
+        :class="filters.unpaid
+          ? 'bg-amber-50 border-amber-300 text-amber-700'
+          : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700'"
+        @click="filters.unpaid = !filters.unpaid; applyFilters()"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        Unpaid
+      </button>
 
       <div class="relative ml-auto">
         <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
