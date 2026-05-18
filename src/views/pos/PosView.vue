@@ -151,7 +151,7 @@ watchEffect(() => {
   }
   const freeLoad = loyalty.pending_rewards.find((r) => r.rule?.reward_type === 'free_load')
   if (freeLoad && !cart.appliedLoyaltyReward) {
-    const discount = Math.min(...cart.items.map((i) => i.unit_price))
+    const discount = Math.max(...cart.items.map((i) => i.unit_price))
     cart.applyLoyaltyReward(freeLoad, discount)
     selectedReward.value = freeLoad
   }
