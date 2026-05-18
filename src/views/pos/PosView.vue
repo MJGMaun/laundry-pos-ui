@@ -770,19 +770,29 @@ watch(() => branch.currentBranchId, loadServices)
                 </Transition>
               </div>
 
-              <div class="px-6 py-4 border-t border-slate-100 flex gap-3">
-                <button class="flex-1 py-3 rounded-2xl font-semibold text-sm text-slate-600 border border-slate-200 hover:bg-slate-50 active:scale-[0.98] transition-all" @click="showPayment = false">Cancel</button>
+              <div class="px-6 py-4 border-t border-slate-100 space-y-2">
+                <div class="flex gap-3">
+                  <button class="flex-1 py-3 rounded-2xl font-semibold text-sm text-slate-600 border border-slate-200 hover:bg-slate-50 active:scale-[0.98] transition-all" @click="showPayment = false">Cancel</button>
+                  <button
+                    class="flex-1 py-3 rounded-2xl font-bold text-sm text-white transition-all active:scale-[0.98] disabled:opacity-50"
+                    :disabled="processingPayment"
+                    style="background: linear-gradient(135deg, #16a34a, #15803d); box-shadow: 0 4px 14px rgba(22,163,74,0.35);"
+                    @click="processPayment"
+                  >
+                    <span v-if="!processingPayment">{{ paymentTotal > 0 ? '✓ Confirm Payment' : '✓ Create Order (Pay Later)' }}</span>
+                    <span v-else class="flex items-center justify-center gap-2">
+                      <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.3)" stroke-width="3"/><path d="M12 2a10 10 0 0110 10" stroke="white" stroke-width="3" stroke-linecap="round"/></svg>
+                      Processing…
+                    </span>
+                  </button>
+                </div>
                 <button
-                  class="flex-1 py-3 rounded-2xl font-bold text-sm text-white transition-all active:scale-[0.98] disabled:opacity-50"
+                  v-if="paymentTotal > 0"
+                  class="w-full py-2.5 rounded-2xl text-sm font-medium text-slate-400 hover:text-slate-600 hover:bg-slate-50 border border-dashed border-slate-200 transition-all active:scale-[0.98]"
                   :disabled="processingPayment"
-                  style="background: linear-gradient(135deg, #16a34a, #15803d); box-shadow: 0 4px 14px rgba(22,163,74,0.35);"
-                  @click="processPayment"
+                  @click="payments = [{ method: 'cash', amount: '0', tendered: '0', reference_number: '' }]"
                 >
-                  <span v-if="!processingPayment">{{ paymentTotal > 0 ? '✓ Confirm Payment' : '✓ Create Order (Pay Later)' }}</span>
-                  <span v-else class="flex items-center justify-center gap-2">
-                    <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.3)" stroke-width="3"/><path d="M12 2a10 10 0 0110 10" stroke="white" stroke-width="3" stroke-linecap="round"/></svg>
-                    Processing…
-                  </span>
+                  Pay later — create order without payment
                 </button>
               </div>
             </div>
