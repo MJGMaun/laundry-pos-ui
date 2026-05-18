@@ -172,9 +172,11 @@ watchEffect(() => {
     return
   }
 
-  // Discount = sum of top N unit prices
-  const sortedPrices = [...cart.items].sort((a, b) => b.unit_price - a.unit_price).map((i) => i.unit_price)
-  const discount = sortedPrices.slice(0, totalFreeLoads).reduce((s, p) => s + p, 0)
+  // Discount = sum of top N unit prices, expanded by quantity
+  const expandedPrices = cart.items
+    .flatMap((i) => Array(Math.floor(i.quantity)).fill(i.unit_price))
+    .sort((a, b) => b - a)
+  const discount = expandedPrices.slice(0, totalFreeLoads).reduce((s, p) => s + p, 0)
 
   cart.applyLoyaltyReward({ count: totalFreeLoads }, discount)
   selectedReward.value = cart.appliedLoyaltyReward
