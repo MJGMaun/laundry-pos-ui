@@ -19,29 +19,81 @@ onMounted(async () => {
   }
 })
 
-// For a rule, how many stamps the customer has toward the next milestone
+// ── Stamp helpers ──────────────────────────────────────────────────────────────
 function stampsInCycle(rule) {
   return data.value.total_stamps % rule.every_n_stamps
 }
-
 function progressPct(rule) {
   return (stampsInCycle(rule) / rule.every_n_stamps) * 100
 }
-
 function stampsUntilNext(rule) {
   return rule.every_n_stamps - stampsInCycle(rule)
 }
-
-// Build stamp dot array for the current cycle
 function stampDots(rule) {
-  const total = rule.every_n_stamps
   const filled = stampsInCycle(rule)
-  // cap display at 20 dots, show a number if more
-  const display = Math.min(total, 20)
+  const display = Math.min(rule.every_n_stamps, 20)
   return Array.from({ length: display }, (_, i) => i < filled)
 }
-
 const pendingCount = computed(() => data.value?.pending_rewards?.length ?? 0)
+
+// ── 3D tilt + glare ────────────────────────────────────────────────────────────
+const cardEl   = ref(null)
+const tiltX    = ref(0)
+const tiltY    = ref(0)
+const glareX   = ref(50)
+const glareY   = ref(50)
+const glareOp  = ref(0)
+const isActive = ref(false)
+let resetTimer = null
+
+const MAX_TILT = 18
+
+function applyTilt(clientX, clientY) {
+  const el = cardEl.value
+  if (!el) return
+  const { left, top, width, height } = el.getBoundingClientRect()
+  const x = (clientX - left) / width   // 0→1
+  const y = (clientY - top)  / height  // 0→1
+  tiltY.value  =  (x - 0.5) * 2 * MAX_TILT
+  tiltX.value  = -(y - 0.5) * 2 * MAX_TILT
+  glareX.value = x * 100
+  glareY.value = y * 100
+  glareOp.value = 0.17
+  isActive.value = true
+  clearTimeout(resetTimer)
+}
+
+function resetTilt() {
+  resetTimer = setTimeout(() => {
+    tiltX.value   = 0
+    tiltY.value   = 0
+    glareOp.value = 0
+    isActive.value = false
+  }, 120)
+}
+
+function onMouseMove(e)  { applyTilt(e.clientX, e.clientY) }
+function onMouseLeave()  { resetTilt() }
+
+function onTouchMove(e) {
+  e.preventDefault()
+  const t = e.touches[0]
+  applyTilt(t.clientX, t.clientY)
+}
+function onTouchEnd() { resetTilt() }
+
+const cardStyle = computed(() => ({
+  transform:  `perspective(900px) rotateX(${tiltX.value}deg) rotateY(${tiltY.value}deg) scale3d(${isActive.value ? 1.03 : 1}, ${isActive.value ? 1.03 : 1}, 1)`,
+  transition: isActive.value ? 'transform 80ms linear' : 'transform 550ms cubic-bezier(0.23, 1, 0.32, 1)',
+  willChange: 'transform',
+}))
+
+const glareStyle = computed(() => ({
+  background: `radial-gradient(circle at ${glareX.value}% ${glareY.value}%, rgba(255,255,255,${glareOp.value * 0.5	}) 0%, rgba(180,160,255,${glareOp.value}) 40%, transparent 70%)`,
+  opacity: glareOp.value > 0 ? 1 : 0,
+  transition: isActive.value ? 'opacity 80ms linear' : 'opacity 500ms ease',
+  pointerEvents: 'none',
+}))
 </script>
 
 <template>
@@ -71,8 +123,18 @@ const pendingCount = computed(() => data.value?.pending_rewards?.length ?? 0)
       </div>
 
       <!-- Card -->
-      <div class="w-full max-w-sm animate-fade-up" style="animation-delay: 80ms;">
-        <div class="rounded-3xl overflow-hidden" style="background: linear-gradient(135deg, #1e1b4b, #312e81); box-shadow: 0 24px 64px rgba(0,0,0,0.5); border: 1px solid rgba(165,180,252,0.15);">
+      <div class="w-full max-w-sm animate-fade-up" style="animation-delay: 80ms; perspective: 900px; animation: fade-up 400ms cubic-bezier(0.22,1,0.36,1) both, float 4s ease-in-out 600ms infinite;">
+        <div
+          ref="cardEl"
+          class="rounded-3xl overflow-hidden relative select-none cursor-grab active:cursor-grabbing"
+          :style="[cardStyle, 'background: linear-gradient(135deg, #1e1b4b, #312e81); box-shadow: 0 24px 64px rgba(0,0,0,0.5); border: 1px solid rgba(165,180,252,0.15);']"
+          @mousemove="onMouseMove"
+          @mouseleave="onMouseLeave"
+          @touchmove.prevent="onTouchMove"
+          @touchend="onTouchEnd"
+        >
+          <!-- Glare overlay -->
+          <div class="absolute inset-0 rounded-3xl z-10" :style="glareStyle" />
 
           <!-- Card top -->
           <div class="px-6 pt-6 pb-4" style="border-bottom: 1px solid rgba(165,180,252,0.1);">
@@ -194,4 +256,9 @@ const pendingCount = computed(() => data.value?.pending_rewards?.length ?? 0)
   50%       { opacity: 0.85; }
 }
 .animate-pulse-soft { animation: pulse-soft 2.5s ease-in-out infinite; }
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-8px); }
+}
 </style>
