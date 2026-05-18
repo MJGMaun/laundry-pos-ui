@@ -5,6 +5,7 @@ import Toast from 'primevue/toast'
 import ConfirmDialog from 'primevue/confirmdialog'
 import { useToast } from 'primevue/usetoast'
 import { useQueueStore } from '@/stores/queue.js'
+import { runPull } from '@/offline/pull.js'
 
 const isOnline = useOnline()
 const toast = useToast()
@@ -13,7 +14,11 @@ const queue = useQueueStore()
 queue.refresh()
 
 watch(isOnline, async (online) => {
-  if (!online || queue.pendingCount === 0) return
+  if (!online) return
+
+  runPull().catch(() => {})
+
+  if (queue.pendingCount === 0) return
   const synced = await queue.sync()
   await queue.refresh()
   if (synced > 0) {

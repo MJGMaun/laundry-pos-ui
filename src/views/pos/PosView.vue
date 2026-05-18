@@ -10,6 +10,7 @@ import { getCustomers } from '@/api/customers.js'
 import { createOrder } from '@/api/orders.js'
 import { createPayment } from '@/api/payments.js'
 import { isOfflineError } from '@/offline/isOfflineError.js'
+import { db } from '@/offline/db.js'
 import { useRouter } from 'vue-router'
 
 const cart = useCartStore()
@@ -65,17 +66,25 @@ async function loadServices() {
   loadingServices.value = true
   try {
     let services = []
-    if (branch.currentBranchId) {
-      try {
-        const res = await getBranchServices(branch.currentBranchId)
-        services = res.data.data || res.data
-      } catch {
+    try {
+      if (branch.currentBranchId) {
+        try {
+          const res = await getBranchServices(branch.currentBranchId)
+          services = res.data.data || res.data
+        } catch {
+          const res = await getServices()
+          services = res.data.data || res.data
+        }
+      } else {
         const res = await getServices()
         services = res.data.data || res.data
       }
-    } else {
-      const res = await getServices()
-      services = res.data.data || res.data
+    } catch (e) {
+      if (!isOfflineError(e)) throw e
+      const branchId = branch.currentBranchId ? Number(branch.currentBranchId) : null
+      services = branchId
+        ? await db.services.where('branch_id').equals(branchId).toArray()
+        : await db.services.toArray()
     }
     allServices.value = services
     const catMap = new Map()
@@ -97,6 +106,17 @@ watch(customerQuery, (val) => {
     try {
       const res = await getCustomers({ search: val, per_page: 6 })
       customerResults.value = res.data.data || res.data
+    } catch (e) {
+      if (!isOfflineError(e)) throw e
+      const q = val.toLowerCase()
+      const branchId = branch.currentBranchId ? Number(branch.currentBranchId) : null
+      customerResults.value = await db.customers
+        .filter((c) => {
+          if (branchId && c.branch_id !== branchId) return false
+          return c.name?.toLowerCase().includes(q) || c.phone?.includes(val)
+        })
+        .limit(6)
+        .toArray()
     } finally {
       searchingCustomer.value = false
     }
@@ -145,8 +165,10 @@ async function processPayment() {
   if (!cart.items.length) { paymentError.value = 'Cart is empty.'; return }
   processingPayment.value = true
   paymentError.value = ''
+  const clientId = crypto.randomUUID()
   try {
     const orderRes = await createOrder({
+      client_id: clientId,
       customer_id: cart.customer?.id || null,
       loads: cart.items.map((i) => ({ service_id: i.service_id, quantity: i.quantity, notes: '' })),
       notes: cart.notes || '',
@@ -170,6 +192,7 @@ async function processPayment() {
   } catch (e) {
     if (isOfflineError(e)) {
       const orderData = {
+        client_id: clientId,
         customer_id: cart.customer?.id || null,
         loads: cart.items.map((i) => ({ service_id: i.service_id, quantity: i.quantity, notes: '' })),
         notes: cart.notes || '',

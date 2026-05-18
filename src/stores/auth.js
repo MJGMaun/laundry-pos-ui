@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { login as apiLogin, logout as apiLogout, getUser } from '@/api/auth.js'
+import { runPull } from '@/offline/pull.js'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
@@ -17,6 +18,7 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = res.data.access_token
     user.value = res.data.user
     localStorage.setItem('token', token.value)
+    runPull().catch(() => {})
     return res.data
   }
 
