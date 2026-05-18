@@ -178,7 +178,9 @@ onMounted(load)
                 {{ order.status?.replace('_', ' ') }}
               </span>
             </td>
-            <td class="px-5 py-3.5 text-slate-500">{{ order.loads?.length ?? order.loads_count ?? '—' }}</td>
+            <td class="px-5 py-3.5 text-slate-500">
+              {{ order.loads ? order.loads.reduce((s, l) => s + Number(l.quantity), 0) : (order.loads_count ?? '—') }}
+            </td>
             <td class="px-5 py-3.5 text-right font-bold text-slate-900">₱{{ fmt(order.total_amount) }}</td>
             <td class="px-5 py-3.5 text-slate-400 text-xs">{{ fmtDate(order.created_at) }}</td>
           </tr>
