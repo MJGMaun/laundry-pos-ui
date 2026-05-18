@@ -12,6 +12,12 @@ const router = createRouter({
       meta: { guest: true },
     },
     {
+      path: '/c/:id',
+      name: 'customer-loyalty-card',
+      component: () => import('@/views/CustomerLoyaltyCardView.vue'),
+      meta: { public: true },
+    },
+    {
       path: '/',
       component: () => import('@/layouts/AppLayout.vue'),
       meta: { requiresAuth: true },
@@ -120,6 +126,8 @@ router.beforeEach(async (to) => {
       try { await branch.loadBranches() } catch {}
     }
   }
+
+  if (to.meta.public) return true
 
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
     return { name: 'login' }

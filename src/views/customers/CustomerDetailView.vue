@@ -80,12 +80,20 @@ onMounted(load)
               </span>
             </div>
           </div>
-          <button
-            class="text-sm text-blue-600 hover:text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg"
-            @click="editing = !editing"
-          >
-            {{ editing ? 'Cancel' : 'Edit' }}
-          </button>
+          <div class="flex gap-2 items-center">
+            <a
+              :href="`/c/${customer.id}`"
+              target="_blank"
+              class="text-sm text-indigo-600 hover:text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded-lg flex items-center gap-1"
+              title="Open loyalty card"
+            >🎴 Loyalty Card</a>
+            <button
+              class="text-sm text-blue-600 hover:text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg"
+              @click="editing = !editing"
+            >
+              {{ editing ? 'Cancel' : 'Edit' }}
+            </button>
+          </div>
         </div>
 
         <!-- Edit form -->
