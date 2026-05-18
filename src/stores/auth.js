@@ -11,7 +11,7 @@ export const useAuthStore = defineStore('auth', () => {
   const role = computed(() => user.value?.role)
   const isSuperAdmin = computed(() => role.value === 'super_admin')
   const isAdmin = computed(() => ['super_admin', 'admin'].includes(role.value))
-  const isCashier = computed(() => ['super_admin', 'admin', 'cashier'].includes(role.value))
+  const isCashier = computed(() => ['super_admin', 'admin', 'cashier', 'staff'].includes(role.value))
 
   async function login(credentials) {
     const res = await apiLogin(credentials)
