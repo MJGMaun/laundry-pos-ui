@@ -89,7 +89,7 @@ const cardStyle = computed(() => ({
 }))
 
 const glareStyle = computed(() => ({
-  background: `radial-gradient(circle at ${glareX.value}% ${glareY.value}%, rgba(255,255,255,${glareOp.value * 0.5	}) 0%, rgba(180,160,255,${glareOp.value}) 40%, transparent 70%)`,
+  background: `radial-gradient(circle at ${glareX.value}% ${glareY.value}%, rgba(255,255,255,${glareOp.value * 0.5}) 0%, rgba(56,189,248,${glareOp.value}) 40%, transparent 70%)`,
   opacity: glareOp.value > 0 ? 1 : 0,
   transition: isActive.value ? 'opacity 80ms linear' : 'opacity 500ms ease',
   pointerEvents: 'none',
@@ -97,11 +97,11 @@ const glareStyle = computed(() => ({
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col items-center justify-start px-4 py-8" style="background: linear-gradient(160deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);">
+  <div class="min-h-screen flex flex-col items-center justify-start px-4 py-8" style="background: linear-gradient(160deg, #0a1628 0%, #0c2340 50%, #0a1628 100%);">
 
     <!-- Loading -->
     <div v-if="loading" class="flex flex-col items-center justify-center mt-24 gap-4">
-      <div class="w-12 h-12 rounded-full border-4 border-indigo-500/30 border-t-indigo-500 animate-spin" />
+      <div class="w-12 h-12 rounded-full border-4 border-blue-500/30 border-t-blue-500 animate-spin" />
       <p class="text-slate-400 text-sm">Loading loyalty card…</p>
     </div>
 
@@ -115,7 +115,7 @@ const glareStyle = computed(() => ({
     <template v-else>
       <!-- Header -->
       <div class="text-center mb-8 animate-fade-up">
-        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-3 text-3xl" style="background: linear-gradient(135deg, #6366f1, #8b5cf6); box-shadow: 0 8px 32px rgba(99,102,241,0.4);">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-3 text-3xl" style="background: linear-gradient(135deg, #2563eb, #0ea5e9); box-shadow: 0 8px 32px rgba(37,99,235,0.4);">
           <i class="pi pi-sync" style="font-size: 1rem"></i>
         </div>
         <h1 class="text-xl font-bold text-white">{{ data.branch?.name }}</h1>
@@ -129,7 +129,7 @@ const glareStyle = computed(() => ({
         <div
           ref="cardEl"
           class="rounded-3xl overflow-hidden relative select-none cursor-grab active:cursor-grabbing"
-          :style="[cardStyle, 'background: linear-gradient(135deg, #1e1b4b, #312e81); box-shadow: 0 24px 64px rgba(0,0,0,0.5); border: 1px solid rgba(165,180,252,0.15);']"
+          :style="[cardStyle, 'background: linear-gradient(135deg, #0c1d3a, #1a3a6b); box-shadow: 0 24px 64px rgba(0,0,0,0.5); border: 1px solid rgba(147,197,253,0.15);']"
           @mousemove="onMouseMove"
           @mouseleave="onMouseLeave"
           @touchmove.prevent="onTouchMove"
@@ -139,10 +139,10 @@ const glareStyle = computed(() => ({
           <div class="absolute inset-0 rounded-3xl z-10" :style="glareStyle" />
 
           <!-- Card top -->
-          <div class="px-6 pt-6 pb-4" style="border-bottom: 1px solid rgba(165,180,252,0.1);">
-            <p class="text-indigo-300/60 text-xs font-medium uppercase tracking-widest mb-1">Loyalty Card</p>
+          <div class="px-6 pt-6 pb-4" style="border-bottom: 1px solid rgba(147,197,253,0.1);">
+            <p class="text-blue-300/60 text-xs font-medium uppercase tracking-widest mb-1">Loyalty Card</p>
             <h2 class="text-white text-2xl font-bold leading-tight">{{ data.customer.name }}</h2>
-            <p v-if="data.customer.loyalty_card_number" class="text-indigo-300/50 text-xs font-mono mt-1">
+            <p v-if="data.customer.loyalty_card_number" class="text-blue-300/50 text-xs font-mono mt-1">
               {{ data.customer.loyalty_card_number }}
             </p>
           </div>
@@ -164,10 +164,10 @@ const glareStyle = computed(() => ({
               <div class="flex items-start justify-between gap-2">
                 <div>
                   <p class="text-white text-sm font-semibold leading-tight">{{ rule.reward_description }}</p>
-                  <p class="text-indigo-300/50 text-xs mt-0.5">Every {{ rule.every_n_stamps }} stamps</p>
+                  <p class="text-blue-300/50 text-xs mt-0.5">Every {{ rule.every_n_stamps }} stamps</p>
                 </div>
                 <div class="text-right shrink-0">
-                  <span class="text-indigo-200 text-xs font-semibold">{{ stampsInCycle(rule) }}/{{ rule.every_n_stamps }}</span>
+                  <span class="text-blue-200 text-xs font-semibold">{{ stampsInCycle(rule) }}/{{ rule.every_n_stamps }}</span>
                 </div>
               </div>
 
@@ -178,14 +178,15 @@ const glareStyle = computed(() => ({
                   :key="i"
                   class="w-8 h-8 rounded-full flex items-center justify-center text-sm transition-all duration-300"
                   :style="filled
-                    ? 'background: linear-gradient(135deg, #6366f1, #8b5cf6); box-shadow: 0 2px 8px rgba(99,102,241,0.5);'
-                    : 'background: rgba(255,255,255,0.06); border: 1px solid rgba(165,180,252,0.15);'"
+                    ? 'background: linear-gradient(135deg, #2563eb, #0ea5e9); box-shadow: 0 2px 8px rgba(37,99,235,0.5);'
+                    : 'background: rgba(255,255,255,0.06); border: 1px solid rgba(147,197,253,0.15);'"
                 >
-                  <span v-if="filled">✦</span>
-                  <span v-else class="text-indigo-400/30 text-xs">·</span>
+                  <span v-if="filled"><i class="pi pi-star-fill" style="font-size: 1rem"></i>
+</span>
+                  <span v-else class="text-blue-400/30 text-xs">·</span>
                 </div>
                 <div v-if="rule.every_n_stamps > 20" class="flex items-center px-2">
-                  <span class="text-indigo-300/40 text-xs">+{{ rule.every_n_stamps - 20 }} more</span>
+                  <span class="text-blue-300/40 text-xs">+{{ rule.every_n_stamps - 20 }} more</span>
                 </div>
               </div>
 
@@ -193,27 +194,27 @@ const glareStyle = computed(() => ({
               <div class="h-1.5 rounded-full overflow-hidden" style="background: rgba(255,255,255,0.06);">
                 <div
                   class="h-full rounded-full transition-all duration-700"
-                  style="background: linear-gradient(90deg, #6366f1, #a78bfa);"
+                  style="background: linear-gradient(90deg, #2563eb, #60a5fa);"
                   :style="`width: ${progressPct(rule)}%`"
                 />
               </div>
 
-              <p class="text-indigo-300/50 text-xs text-center">
+              <p class="text-blue-300/50 text-xs text-center">
                 <template v-if="stampsUntilNext(rule) === 0">🎉 Reward ready!</template>
                 <template v-else>{{ stampsUntilNext(rule) }} more stamp{{ stampsUntilNext(rule) !== 1 ? 's' : '' }} until your next reward</template>
               </p>
             </div>
 
             <div v-if="!data.rules.length" class="text-center py-4">
-              <p class="text-indigo-300/40 text-sm">No active loyalty programs yet.</p>
+              <p class="text-blue-300/40 text-sm">No active loyalty programs yet.</p>
             </div>
           </div>
 
           <!-- Card footer -->
-          <div class="px-6 pb-6 pt-2 flex items-center justify-between" style="border-top: 1px solid rgba(165,180,252,0.08);">
-            <p class="text-indigo-300/30 text-xs">Earn 1 stamp per load</p>
+          <div class="px-6 pb-6 pt-2 flex items-center justify-between" style="border-top: 1px solid rgba(147,197,253,0.08);">
+            <p class="text-blue-300/30 text-xs">Earn 1 stamp per load</p>
             <div class="flex gap-0.5">
-              <div v-for="n in 3" :key="n" class="w-1 h-1 rounded-full" style="background: rgba(165,180,252,0.2);" />
+              <div v-for="n in 3" :key="n" class="w-1 h-1 rounded-full" style="background: rgba(147,197,253,0.2);" />
             </div>
           </div>
         </div>
