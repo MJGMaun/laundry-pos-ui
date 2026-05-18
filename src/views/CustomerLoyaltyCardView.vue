@@ -75,18 +75,12 @@ const pendingCount = computed(() => data.value?.pending_rewards?.length ?? 0)
         <div class="rounded-3xl overflow-hidden" style="background: linear-gradient(135deg, #1e1b4b, #312e81); box-shadow: 0 24px 64px rgba(0,0,0,0.5); border: 1px solid rgba(165,180,252,0.15);">
 
           <!-- Card top -->
-          <div class="px-6 pt-6 pb-4 flex items-start justify-between" style="border-bottom: 1px solid rgba(165,180,252,0.1);">
-            <div>
-              <p class="text-indigo-300/60 text-xs font-medium uppercase tracking-widest mb-1">Loyalty Card</p>
-              <h2 class="text-white text-2xl font-bold leading-tight">{{ data.customer.name }}</h2>
-              <p v-if="data.customer.loyalty_card_number" class="text-indigo-300/50 text-xs font-mono mt-1">
-                {{ data.customer.loyalty_card_number }}
-              </p>
-            </div>
-            <div class="flex flex-col items-end">
-              <div class="text-3xl font-black text-white leading-none">{{ data.total_stamps }}</div>
-              <div class="text-indigo-300/60 text-xs mt-0.5">total stamps</div>
-            </div>
+          <div class="px-6 pt-6 pb-4" style="border-bottom: 1px solid rgba(165,180,252,0.1);">
+            <p class="text-indigo-300/60 text-xs font-medium uppercase tracking-widest mb-1">Loyalty Card</p>
+            <h2 class="text-white text-2xl font-bold leading-tight">{{ data.customer.name }}</h2>
+            <p v-if="data.customer.loyalty_card_number" class="text-indigo-300/50 text-xs font-mono mt-1">
+              {{ data.customer.loyalty_card_number }}
+            </p>
           </div>
 
           <!-- Pending rewards badge -->
