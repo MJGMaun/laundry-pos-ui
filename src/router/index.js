@@ -21,7 +21,7 @@ const router = createRouter({
           path: 'pos',
           name: 'pos',
           component: () => import('@/views/pos/PosView.vue'),
-          meta: { roles: ['super_admin', 'admin', 'cashier'] },
+          meta: { roles: ['super_admin', 'admin', 'cashier', 'staff'] },
         },
         {
           path: 'orders',
@@ -37,19 +37,19 @@ const router = createRouter({
           path: 'pickup-queue',
           name: 'pickup-queue',
           component: () => import('@/views/orders/PickupQueueView.vue'),
-          meta: { roles: ['super_admin', 'admin', 'cashier'] },
+          meta: { roles: ['super_admin', 'admin', 'cashier', 'staff'] },
         },
         {
           path: 'customers',
           name: 'customers',
           component: () => import('@/views/customers/CustomerListView.vue'),
-          meta: { roles: ['super_admin', 'admin', 'cashier'] },
+          meta: { roles: ['super_admin', 'admin', 'cashier', 'staff'] },
         },
         {
           path: 'customers/:id',
           name: 'customer-detail',
           component: () => import('@/views/customers/CustomerDetailView.vue'),
-          meta: { roles: ['super_admin', 'admin', 'cashier'] },
+          meta: { roles: ['super_admin', 'admin', 'cashier', 'staff'] },
         },
         {
           path: 'dashboard',
