@@ -9,6 +9,7 @@ import { getBranchServices } from '@/api/branches.js'
 import { getCustomers } from '@/api/customers.js'
 import { createOrder } from '@/api/orders.js'
 import { createPayment } from '@/api/payments.js'
+import { getCustomerLoyalty, redeemReward as redeemRewardApi } from '@/api/loyalty.js'
 import { isOfflineError } from '@/offline/isOfflineError.js'
 import { db } from '@/offline/db.js'
 import { useRouter } from 'vue-router'
@@ -38,6 +39,10 @@ const processingPayment = ref(false)
 
 const lastOrder = ref(null)
 const showSuccess = ref(false)
+const lastRedeemedReward = ref(null)
+
+const customerLoyalty = ref(null)
+const selectedReward  = ref(null)
 
 const filteredServices = computed(() => {
   const active = allServices.value.filter((s) => s.is_active !== false)
@@ -123,10 +128,16 @@ watch(customerQuery, (val) => {
   }, 300)
 })
 
-function selectCustomer(c) {
+async function selectCustomer(c) {
   cart.setCustomer(c)
   customerQuery.value = ''
   customerResults.value = []
+  selectedReward.value = null
+  customerLoyalty.value = null
+  try {
+    const res = await getCustomerLoyalty(c.id)
+    customerLoyalty.value = res.data
+  } catch {}
 }
 
 async function saveNewCustomer() {
@@ -185,8 +196,17 @@ async function processPayment() {
       await createPayment(order.id, payData)
     }
 
+    if (selectedReward.value) {
+      try {
+        await redeemRewardApi(selectedReward.value.id, order.id)
+      } catch {}
+    }
+
     lastOrder.value = order
+    lastRedeemedReward.value = selectedReward.value
     cart.clear()
+    customerLoyalty.value = null
+    selectedReward.value = null
     showPayment.value = false
     showSuccess.value = true
   } catch (e) {
@@ -310,15 +330,54 @@ watch(() => branch.currentBranchId, loadServices)
 
       <!-- Customer section -->
       <div class="p-3 border-b border-slate-100">
-        <div v-if="cart.customer" class="flex items-center gap-2.5 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5 animate-scale-in">
-          <div class="flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white text-xs font-bold shrink-0">
-            {{ cart.customer.name?.charAt(0).toUpperCase() }}
+        <div v-if="cart.customer" class="space-y-2">
+          <div class="flex items-center gap-2.5 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5 animate-scale-in">
+            <div class="flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white text-xs font-bold shrink-0">
+              {{ cart.customer.name?.charAt(0).toUpperCase() }}
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-semibold text-slate-900 truncate">{{ cart.customer.name }}</div>
+              <div class="text-xs text-slate-500">{{ cart.customer.phone }}</div>
+            </div>
+            <button class="w-6 h-6 flex items-center justify-center rounded-full text-slate-400 hover:bg-red-100 hover:text-red-500 transition-colors"
+              @click="cart.setCustomer(null); customerLoyalty = null; selectedReward = null">✕</button>
           </div>
-          <div class="flex-1 min-w-0">
-            <div class="text-sm font-semibold text-slate-900 truncate">{{ cart.customer.name }}</div>
-            <div class="text-xs text-slate-500">{{ cart.customer.phone }}</div>
+
+          <!-- Stamp card -->
+          <div v-if="customerLoyalty" class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 space-y-2">
+            <!-- Progress per rule -->
+            <div v-for="rule in customerLoyalty.rules" :key="rule.id" class="space-y-1">
+              <div class="flex justify-between items-center">
+                <span class="text-xs text-slate-500">{{ rule.reward_description }}</span>
+                <span class="text-xs font-semibold text-slate-700">
+                  {{ customerLoyalty.total_stamps % rule.every_n_stamps }}/{{ rule.every_n_stamps }}
+                </span>
+              </div>
+              <div class="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                <div class="h-full rounded-full transition-all duration-500"
+                  style="background: linear-gradient(90deg, #3b82f6, #6366f1);"
+                  :style="`width: ${((customerLoyalty.total_stamps % rule.every_n_stamps) / rule.every_n_stamps) * 100}%`" />
+              </div>
+            </div>
+
+            <!-- Pending rewards -->
+            <div v-if="customerLoyalty.pending_rewards.length" class="pt-1 space-y-1">
+              <div class="text-xs font-semibold text-slate-500">Available rewards</div>
+              <button
+                v-for="reward in customerLoyalty.pending_rewards"
+                :key="reward.id"
+                class="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left text-xs font-medium transition-all"
+                :class="selectedReward?.id === reward.id
+                  ? 'bg-green-50 border-green-300 text-green-700'
+                  : 'bg-white border-slate-200 text-slate-600 hover:border-blue-300'"
+                @click="selectedReward = selectedReward?.id === reward.id ? null : reward"
+              >
+                <span>🎁</span>
+                <span class="flex-1 truncate">{{ reward.rule?.reward_description }}</span>
+                <span v-if="selectedReward?.id === reward.id" class="text-green-600 font-bold">✓ Use</span>
+              </button>
+            </div>
           </div>
-          <button class="w-6 h-6 flex items-center justify-center rounded-full text-slate-400 hover:bg-red-100 hover:text-red-500 transition-colors" @click="cart.setCustomer(null)">✕</button>
         </div>
         <div v-else class="space-y-2">
           <div class="relative">
@@ -465,7 +524,7 @@ watch(() => branch.currentBranchId, loadServices)
         <button
           v-if="cart.items.length"
           class="w-full text-xs text-slate-400 hover:text-red-500 py-2 mt-1 transition-colors"
-          @click="cart.clear()"
+          @click="cart.clear(); customerLoyalty.value = null; selectedReward.value = null"
         >
           Clear cart
         </button>
@@ -699,6 +758,9 @@ watch(() => branch.currentBranchId, loadServices)
               <p class="text-sm text-slate-400 font-mono">{{ lastOrder?.order_number }}</p>
               <div v-if="lastOrder?.customer" class="mt-2 text-sm text-slate-500">
                 {{ lastOrder.customer?.name || cart.customer?.name }}
+              </div>
+              <div v-if="lastRedeemedReward" class="mt-3 flex items-center justify-center gap-1.5 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-xl px-3 py-2">
+                🎁 Reward redeemed: {{ lastRedeemedReward.rule?.reward_description }}
               </div>
               <div class="flex gap-2 mt-6">
                 <button

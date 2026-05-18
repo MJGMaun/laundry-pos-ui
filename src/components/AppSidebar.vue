@@ -28,6 +28,7 @@ const navItems = computed(() => {
     items.push({ to: '/reports',   emoji: '📈', label: 'Reports',      color: '#fb923c' })
     items.push({ to: '/expenses',  emoji: '💸', label: 'Expenses',     color: '#f87171' })
     items.push({ to: '/services',  emoji: '🧺', label: 'Services',     color: '#4ade80' })
+    items.push({ to: '/loyalty',   emoji: '🎁', label: 'Loyalty',      color: '#f472b6' })
     items.push({ to: '/users',     emoji: '👤', label: 'Users',        color: '#818cf8' })
     items.push({ to: '/settings',  emoji: '⚙️', label: 'Settings',     color: '#94a3b8' })
   }

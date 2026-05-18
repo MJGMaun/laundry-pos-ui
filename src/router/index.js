@@ -76,6 +76,12 @@ const router = createRouter({
           meta: { roles: ['super_admin', 'admin'] },
         },
         {
+          path: 'loyalty',
+          name: 'loyalty',
+          component: () => import('@/views/admin/LoyaltyView.vue'),
+          meta: { roles: ['super_admin', 'admin'] },
+        },
+        {
           path: 'settings',
           name: 'settings',
           component: () => import('@/views/admin/SettingsView.vue'),
