@@ -120,6 +120,8 @@ const glareStyle = computed(() => ({
         </div>
         <h1 class="text-xl font-bold text-white">{{ data.branch?.name }}</h1>
         <p class="text-slate-400 text-sm mt-0.5">{{ data.branch?.address }}</p>
+        <p class="text-slate-400 text-sm mt-0.5">{{ data.branch?.phone }}</p>
+        <p class="text-slate-400 text-sm mt-0.5">{{ data.branch?.email }}</p>
       </div>
 
       <!-- Card -->
