@@ -12,7 +12,7 @@ const router = createRouter({
       meta: { guest: true },
     },
     {
-      path: '/c/:id',
+      path: '/c/:username',
       name: 'customer-loyalty-card',
       component: () => import('@/views/CustomerLoyaltyCardView.vue'),
       meta: { public: true },

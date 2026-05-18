@@ -9,4 +9,4 @@ export const getCustomerLoyalty = (customerId) => api.get(`/customers/${customer
 export const redeemReward        = (rewardId, orderId) =>
   api.post(`/loyalty-rewards/${rewardId}/redeem`, { order_id: orderId })
 
-export const getPublicLoyalty = (customerId) => api.get(`/public/customer/${customerId}/loyalty`)
+export const getPublicLoyalty = (username) => api.get(`/public/customer/${username}/loyalty`)

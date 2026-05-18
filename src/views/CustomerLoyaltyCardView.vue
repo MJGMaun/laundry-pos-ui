@@ -10,7 +10,7 @@ const error = ref(null)
 
 onMounted(async () => {
   try {
-    const res = await getPublicLoyalty(route.params.id)
+    const res = await getPublicLoyalty(route.params.username)
     data.value = res.data
   } catch (e) {
     error.value = e.response?.status === 404 ? 'Loyalty card not found.' : 'Unable to load loyalty card.'

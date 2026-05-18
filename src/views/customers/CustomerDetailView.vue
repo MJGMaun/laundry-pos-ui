@@ -82,11 +82,17 @@ onMounted(load)
           </div>
           <div class="flex gap-2 items-center">
             <a
-              :href="`/c/${customer.id}`"
+              v-if="customer.username"
+              :href="`/c/${customer.username}`"
               target="_blank"
               class="text-sm text-indigo-600 hover:text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded-lg flex items-center gap-1"
               title="Open loyalty card"
             >🎴 Loyalty Card</a>
+            <span
+              v-else
+              class="text-sm text-slate-400 border border-slate-200 px-3 py-1.5 rounded-lg cursor-default"
+              title="Set a username to enable the loyalty card link"
+            >🎴 No username</span>
             <button
               class="text-sm text-blue-600 hover:text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg"
               @click="editing = !editing"
