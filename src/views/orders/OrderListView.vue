@@ -181,7 +181,13 @@ onMounted(load)
             <td class="px-5 py-3.5 text-slate-500">
               {{ order.loads ? order.loads.reduce((s, l) => s + Number(l.quantity), 0) : (order.loads_count ?? '—') }}
             </td>
-            <td class="px-5 py-3.5 text-right font-bold text-slate-900">₱{{ fmt(order.total_amount) }}</td>
+            <td class="px-5 py-3.5 text-right">
+              <div class="font-bold text-slate-900">₱{{ fmt(order.total_amount) }}</div>
+              <div class="text-xs mt-0.5"
+                :class="Number(order.paid_amount) >= Number(order.total_amount) ? 'text-green-600 font-medium' : 'text-amber-500 font-medium'">
+                {{ Number(order.paid_amount) >= Number(order.total_amount) ? '✓ Paid' : 'Unpaid' }}
+              </div>
+            </td>
             <td class="px-5 py-3.5 text-slate-400 text-xs">{{ fmtDate(order.created_at) }}</td>
           </tr>
         </tbody>
