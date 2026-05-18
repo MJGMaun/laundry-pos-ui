@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
-import { getOrder, updateOrderStatus } from '@/api/orders.js'
+import { getOrder, updateOrderStatus, updateOrder } from '@/api/orders.js'
 import { updateLoadStatus } from '@/api/loads.js'
 import { createPayment } from '@/api/payments.js'
 import { useAuthStore } from '@/stores/auth.js'
@@ -147,6 +147,32 @@ async function advanceLoadStatus(loadId, current) {
     } else {
       toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed', life: 4000 })
     }
+  }
+}
+
+const showEditForm = ref(false)
+const editForm    = ref({ extra_fees: 0, notes: '' })
+const savingEdit  = ref(false)
+
+function openEditForm() {
+  editForm.value = {
+    extra_fees: Number(order.value.extra_fees || 0),
+    notes:      order.value.notes || '',
+  }
+  showEditForm.value = true
+}
+
+async function saveEdit() {
+  savingEdit.value = true
+  try {
+    await updateOrder(order.value.id, editForm.value)
+    showEditForm.value = false
+    await load()
+    toast.add({ severity: 'success', summary: 'Order updated', life: 2500 })
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to save', life: 4000 })
+  } finally {
+    savingEdit.value = false
   }
 }
 
@@ -389,19 +415,67 @@ onMounted(load)
         </div>
 
         <!-- Totals -->
-        <div class="bg-white rounded-2xl border border-slate-200 p-5 animate-slide-up stagger-2" style="box-shadow: var(--shadow-card);">
-          <h3 class="font-bold text-slate-900 mb-4">Summary</h3>
-          <div class="space-y-2.5 text-sm">
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden animate-slide-up stagger-2" style="box-shadow: var(--shadow-card);">
+          <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+            <h3 class="font-bold text-slate-900">Summary</h3>
+            <button
+              v-if="order.status !== 'completed' && auth.isCashier"
+              class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 border border-slate-200 hover:bg-slate-50 px-3 py-1.5 rounded-xl transition-all active:scale-95"
+              @click="showEditForm ? showEditForm = false : openEditForm()"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+              {{ showEditForm ? 'Cancel' : 'Edit' }}
+            </button>
+          </div>
+
+          <!-- Edit form -->
+          <Transition name="slide-down">
+            <div v-if="showEditForm" class="px-5 py-4 border-b border-slate-100 bg-slate-50 space-y-3">
+              <div class="flex items-center gap-3">
+                <label class="text-xs font-semibold text-slate-500 w-24 shrink-0">Extra fees</label>
+                <div class="relative flex-1">
+                  <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">₱</span>
+                  <input
+                    v-model="editForm.extra_fees"
+                    type="number" min="0" step="1"
+                    class="w-full border border-slate-200 rounded-xl pl-7 pr-3 py-2 text-sm text-right bg-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+                  />
+                </div>
+              </div>
+              <div class="flex items-start gap-3">
+                <label class="text-xs font-semibold text-slate-500 w-24 shrink-0 mt-2">Notes</label>
+                <textarea
+                  v-model="editForm.notes"
+                  rows="2"
+                  placeholder="e.g. Delivery requested"
+                  class="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all resize-none"
+                />
+              </div>
+              <div class="flex gap-2 pt-1">
+                <button
+                  class="flex-1 py-2 rounded-xl text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-white transition-all"
+                  @click="showEditForm = false"
+                >Cancel</button>
+                <button
+                  class="flex-1 py-2 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50"
+                  style="background: linear-gradient(135deg, #2563eb, #4f46e5);"
+                  :disabled="savingEdit"
+                  @click="saveEdit"
+                >{{ savingEdit ? 'Saving…' : 'Save' }}</button>
+              </div>
+            </div>
+          </Transition>
+
+          <div class="p-5 space-y-2.5 text-sm">
             <div class="flex justify-between text-slate-500"><span>Subtotal</span><span>₱{{ fmt(order.subtotal) }}</span></div>
-            <div v-if="Number(order.pickup_fee)" class="flex justify-between text-slate-500"><span>Pickup fee</span><span>₱{{ fmt(order.pickup_fee) }}</span></div>
-            <div v-if="Number(order.delivery_fee)" class="flex justify-between text-slate-500"><span>Delivery fee</span><span>₱{{ fmt(order.delivery_fee) }}</span></div>
+            <div v-if="Number(order.extra_fees)" class="flex justify-between text-slate-500"><span>Extra fees</span><span>₱{{ fmt(order.extra_fees) }}</span></div>
             <div v-if="Number(order.discount_amount)" class="flex justify-between text-slate-500"><span>Discount</span><span class="text-red-500">−₱{{ fmt(order.discount_amount) }}</span></div>
             <div class="flex justify-between font-bold text-base text-slate-900 pt-2.5 border-t border-slate-100">
               <span>Total</span><span>₱{{ fmt(order.total_amount) }}</span>
             </div>
-          </div>
-          <div v-if="order.notes" class="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-400">
-            Notes: {{ order.notes }}
+            <div v-if="order.notes" class="pt-2 border-t border-slate-100 text-xs text-slate-400">
+              Notes: {{ order.notes }}
+            </div>
           </div>
         </div>
       </div>
