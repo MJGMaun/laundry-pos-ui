@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import DatePicker from 'primevue/datepicker'
 import { getOrders } from '@/api/orders.js'
 
 const router = useRouter()
@@ -10,6 +11,12 @@ const page = ref(1)
 const total = ref(0)
 const perPage = ref(20)
 const filters = ref({ status: '', search: '', unpaid: false })
+const dateFrom = ref(null)
+const dateTo = ref(null)
+
+function toYMD(d) {
+  return d ? new Date(d).toISOString().slice(0, 10) : null
+}
 
 const totalPages = computed(() => Math.ceil(total.value / perPage.value))
 
@@ -28,6 +35,8 @@ async function load() {
     if (filters.value.status) params.status = filters.value.status
     if (filters.value.search) params.search = filters.value.search
     if (filters.value.unpaid) params.unpaid = 1
+    if (dateFrom.value) params.date_from = toYMD(dateFrom.value)
+    if (dateTo.value) params.date_to = toYMD(dateTo.value)
     const res = await getOrders(params)
     orders.value = res.data.data || res.data
     total.value = res.data.total || orders.value.length
@@ -81,6 +90,27 @@ onMounted(load)
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         Unpaid
       </button>
+
+      <DatePicker
+        v-model="dateFrom"
+        date-format="M dd, yy"
+        show-icon
+        icon-display="input"
+        placeholder="From"
+        class="orders-datepicker"
+        @update:model-value="applyFilters"
+      />
+      <span class="text-slate-400 text-sm">—</span>
+      <DatePicker
+        v-model="dateTo"
+        date-format="M dd, yy"
+        show-icon
+        icon-display="input"
+        placeholder="To"
+        :min-date="dateFrom"
+        class="orders-datepicker"
+        @update:model-value="applyFilters"
+      />
 
       <div class="relative ml-auto">
         <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
@@ -174,3 +204,19 @@ onMounted(load)
     </div>
   </div>
 </template>
+
+<style>
+.orders-datepicker .p-datepicker-input {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: 14px;
+  color: #1e293b;
+  width: 130px;
+}
+.orders-datepicker .p-datepicker-input:focus {
+  outline: none;
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+}
+</style>
