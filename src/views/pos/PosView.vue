@@ -202,7 +202,7 @@ const remainingAfterPayments = computed(() => Math.max(0, cart.total - paymentTo
 
 function openPayment() {
   const total = cart.total.toFixed(2)
-  payments.value = [{ method: 'cash', amount: total, tendered: total, reference_number: '' }]
+  payments.value = [{ method: 'cash', amount: total, tendered: '0', reference_number: '' }]
   paymentError.value = ''
   customerQuery.value = ''
   customerResults.value = []
