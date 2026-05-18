@@ -29,7 +29,12 @@ const customerQuery = ref('')
 const customerResults = ref([])
 const searchingCustomer = ref(false)
 const showNewCustomerForm = ref(false)
-const newCustomer = ref({ name: '', phone: '', email: '' })
+const newCustomer = ref({ name: '', phone: '', address: '' })
+const phoneError  = ref('')
+
+function validatePhone(phone) {
+  return /^\d{11}$/.test(phone)
+}
 const savingCustomer = ref(false)
 
 const showPayment = ref(false)
@@ -183,13 +188,18 @@ watchEffect(() => {
 })
 
 async function saveNewCustomer() {
+  phoneError.value = ''
+  if (!validatePhone(newCustomer.value.phone)) {
+    phoneError.value = 'Phone must be exactly 11 digits.'
+    return
+  }
   savingCustomer.value = true
   try {
     const { createCustomer } = await import('@/api/customers.js')
     const res = await createCustomer(newCustomer.value)
     selectCustomer(res.data.data || res.data)
     showNewCustomerForm.value = false
-    newCustomer.value = { name: '', phone: '', email: '' }
+    newCustomer.value = { name: '', phone: '', address: '' }; phoneError.value = ''
   } catch (e) {
     toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to save customer', life: 4000 })
   } finally {
@@ -207,7 +217,7 @@ function openPayment() {
   customerQuery.value = ''
   customerResults.value = []
   showNewCustomerForm.value = false
-  newCustomer.value = { name: '', phone: '', email: '' }
+  newCustomer.value = { name: '', phone: '', address: '' }; phoneError.value = ''
   showPayment.value = true
 }
 
@@ -459,8 +469,13 @@ watch(() => branch.currentBranchId, loadServices)
           <Transition name="dropdown">
             <div v-if="showNewCustomerForm" class="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
               <input v-model="newCustomer.name" placeholder="Name *" class="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:border-blue-400 transition-all" />
-              <input v-model="newCustomer.phone" placeholder="Phone *" class="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:border-blue-400 transition-all" />
-              <input v-model="newCustomer.email" placeholder="Email" class="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:border-blue-400 transition-all" />
+              <div>
+                <input v-model="newCustomer.phone" placeholder="Phone * (11 digits)" maxlength="11"
+                  class="w-full border rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:border-blue-400 transition-all"
+                  :class="phoneError ? 'border-red-300' : 'border-slate-200'" />
+                <p v-if="phoneError" class="text-xs text-red-500 mt-1 px-0.5">{{ phoneError }}</p>
+              </div>
+              <input v-model="newCustomer.address" placeholder="Address" class="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:border-blue-400 transition-all" />
               <div class="flex gap-2">
                 <button
                   class="flex-1 bg-blue-600 text-white text-xs font-semibold py-2 rounded-lg disabled:opacity-50 hover:bg-blue-700 active:scale-95 transition-all"
@@ -657,8 +672,13 @@ watch(() => branch.currentBranchId, loadServices)
                     <Transition name="slide-down">
                       <div v-if="showNewCustomerForm" class="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
                         <input v-model="newCustomer.name" placeholder="Name *" class="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-none focus:border-blue-400 transition-all" />
-                        <input v-model="newCustomer.phone" placeholder="Phone *" class="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-none focus:border-blue-400 transition-all" />
-                        <input v-model="newCustomer.email" placeholder="Email" class="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-none focus:border-blue-400 transition-all" />
+                        <div>
+                          <input v-model="newCustomer.phone" placeholder="Phone * (11 digits)" maxlength="11"
+                            class="w-full border rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-none focus:border-blue-400 transition-all"
+                            :class="phoneError ? 'border-red-300' : 'border-slate-200'" />
+                          <p v-if="phoneError" class="text-xs text-red-500 mt-1 px-0.5">{{ phoneError }}</p>
+                        </div>
+                        <input v-model="newCustomer.address" placeholder="Address" class="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-none focus:border-blue-400 transition-all" />
                         <div class="flex gap-2">
                           <button
                             class="flex-1 bg-blue-600 text-white text-xs font-semibold py-2 rounded-lg disabled:opacity-50 hover:bg-blue-700 active:scale-95 transition-all"
