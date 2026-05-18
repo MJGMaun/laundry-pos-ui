@@ -141,7 +141,7 @@ async function selectCustomer(c) {
   } catch {}
 }
 
-// Auto-apply the first pending free_load reward when cart has items
+// Auto-apply free_load reward: either already pending or earned on this order
 watchEffect(() => {
   const loyalty = customerLoyalty.value
   if (!loyalty || !cart.items.length) {
@@ -149,11 +149,35 @@ watchEffect(() => {
     selectedReward.value = null
     return
   }
-  const freeLoad = loyalty.pending_rewards.find((r) => r.rule?.reward_type === 'free_load')
-  if (freeLoad && !cart.appliedLoyaltyReward) {
-    const discount = Math.max(...cart.items.map((i) => i.unit_price))
-    cart.applyLoyaltyReward(freeLoad, discount)
-    selectedReward.value = freeLoad
+
+  const discount = Math.max(...cart.items.map((i) => i.unit_price))
+
+  // 1. Already has a pending reward from a previous order
+  const existing = loyalty.pending_rewards.find((r) => r.rule?.reward_type === 'free_load')
+  if (existing) {
+    if (!cart.appliedLoyaltyReward) {
+      cart.applyLoyaltyReward(existing, discount)
+      selectedReward.value = existing
+    }
+    return
+  }
+
+  // 2. Will cross a milestone on this order
+  const cartStamps = Math.floor(cart.items.reduce((s, i) => s + Number(i.quantity), 0))
+  const prospective = loyalty.total_stamps + cartStamps
+  const earningRule = loyalty.rules.find((rule) => {
+    if (rule.reward_type !== 'free_load') return false
+    return Math.floor(prospective / rule.every_n_stamps) > Math.floor(loyalty.total_stamps / rule.every_n_stamps)
+  })
+
+  if (earningRule) {
+    if (!cart.appliedLoyaltyReward) {
+      cart.applyLoyaltyReward({ id: null, rule: earningRule }, discount)
+      selectedReward.value = cart.appliedLoyaltyReward
+    }
+  } else {
+    cart.clearLoyaltyReward()
+    selectedReward.value = null
   }
 })
 
@@ -214,13 +238,8 @@ async function processPayment() {
       await createPayment(order.id, payData)
     }
 
-    const appliedReward = cart.appliedLoyaltyReward
-    if (appliedReward) {
-      try { await redeemRewardApi(appliedReward.id, order.id) } catch {}
-    }
-
     lastOrder.value = order
-    lastRedeemedReward.value = appliedReward
+    lastRedeemedReward.value = cart.appliedLoyaltyReward
     cart.clear()
     customerLoyalty.value = null
     selectedReward.value = null
