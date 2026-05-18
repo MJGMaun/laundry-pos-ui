@@ -7,12 +7,26 @@ export const useCartStore = defineStore('cart', () => {
   const notes = ref('')
   const deliveryFee = ref(0)
   const pickupFee = ref(0)
+  const loyaltyDiscount = ref(0)
+  const appliedLoyaltyReward = ref(null)
 
   const subtotal = computed(() =>
     items.value.reduce((sum, item) => sum + item.unit_price * item.quantity, 0),
   )
 
-  const total = computed(() => subtotal.value + Number(deliveryFee.value) + Number(pickupFee.value))
+  const total = computed(() =>
+    subtotal.value + Number(deliveryFee.value) + Number(pickupFee.value) - loyaltyDiscount.value,
+  )
+
+  function applyLoyaltyReward(reward, discountAmount) {
+    appliedLoyaltyReward.value = reward
+    loyaltyDiscount.value = discountAmount
+  }
+
+  function clearLoyaltyReward() {
+    appliedLoyaltyReward.value = null
+    loyaltyDiscount.value = 0
+  }
 
   function addItem(service) {
     const existing = items.value.find((i) => i.service_id === service.id)
@@ -54,11 +68,15 @@ export const useCartStore = defineStore('cart', () => {
     notes.value = ''
     deliveryFee.value = 0
     pickupFee.value = 0
+    loyaltyDiscount.value = 0
+    appliedLoyaltyReward.value = null
   }
 
   return {
     items, customer, notes, deliveryFee, pickupFee,
+    loyaltyDiscount, appliedLoyaltyReward,
     subtotal, total,
-    addItem, removeItem, updateQuantity, setCustomer, clear,
+    addItem, removeItem, updateQuantity, setCustomer,
+    applyLoyaltyReward, clearLoyaltyReward, clear,
   }
 })

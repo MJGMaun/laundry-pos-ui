@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, watchEffect } from 'vue'
 import { useCartStore } from '@/stores/cart.js'
 import { useBranchStore } from '@/stores/branch.js'
 import { useQueueStore } from '@/stores/queue.js'
@@ -130,6 +130,7 @@ watch(customerQuery, (val) => {
 
 async function selectCustomer(c) {
   cart.setCustomer(c)
+  cart.clearLoyaltyReward()
   customerQuery.value = ''
   customerResults.value = []
   selectedReward.value = null
@@ -139,6 +140,22 @@ async function selectCustomer(c) {
     customerLoyalty.value = res.data
   } catch {}
 }
+
+// Auto-apply the first pending free_load reward when cart has items
+watchEffect(() => {
+  const loyalty = customerLoyalty.value
+  if (!loyalty || !cart.items.length) {
+    cart.clearLoyaltyReward()
+    selectedReward.value = null
+    return
+  }
+  const freeLoad = loyalty.pending_rewards.find((r) => r.rule?.reward_type === 'free_load')
+  if (freeLoad && !cart.appliedLoyaltyReward) {
+    const discount = Math.min(...cart.items.map((i) => i.unit_price))
+    cart.applyLoyaltyReward(freeLoad, discount)
+    selectedReward.value = freeLoad
+  }
+})
 
 async function saveNewCustomer() {
   savingCustomer.value = true
@@ -185,6 +202,7 @@ async function processPayment() {
       notes: cart.notes || '',
       pickup_fee: cart.pickupFee || 0,
       delivery_fee: cart.deliveryFee || 0,
+      discount_amount: cart.loyaltyDiscount || 0,
     })
     const order = orderRes.data.data || orderRes.data
 
@@ -196,14 +214,13 @@ async function processPayment() {
       await createPayment(order.id, payData)
     }
 
-    if (selectedReward.value) {
-      try {
-        await redeemRewardApi(selectedReward.value.id, order.id)
-      } catch {}
+    const appliedReward = cart.appliedLoyaltyReward
+    if (appliedReward) {
+      try { await redeemRewardApi(appliedReward.id, order.id) } catch {}
     }
 
     lastOrder.value = order
-    lastRedeemedReward.value = selectedReward.value
+    lastRedeemedReward.value = appliedReward
     cart.clear()
     customerLoyalty.value = null
     selectedReward.value = null
@@ -506,6 +523,14 @@ watch(() => branch.currentBranchId, loadServices)
         <div v-if="Number(cart.pickupFee) + Number(cart.deliveryFee) > 0" class="flex justify-between text-xs text-slate-500 mb-1">
           <span>Fees</span><span>₱{{ fmt(Number(cart.pickupFee) + Number(cart.deliveryFee)) }}</span>
         </div>
+        <div v-if="cart.loyaltyDiscount > 0" class="flex justify-between items-center text-xs mb-1">
+          <div class="flex items-center gap-1 text-green-600 font-medium">
+            <span>🎁 Free load</span>
+            <button class="text-slate-300 hover:text-red-400 transition-colors leading-none"
+              @click="cart.clearLoyaltyReward(); selectedReward = null">✕</button>
+          </div>
+          <span class="text-green-600 font-semibold">−₱{{ fmt(cart.loyaltyDiscount) }}</span>
+        </div>
         <div class="flex justify-between text-base font-bold text-slate-900 mb-3">
           <span>Total</span>
           <span class="text-lg transition-all duration-200">₱{{ fmt(cart.total) }}</span>
@@ -524,7 +549,7 @@ watch(() => branch.currentBranchId, loadServices)
         <button
           v-if="cart.items.length"
           class="w-full text-xs text-slate-400 hover:text-red-500 py-2 mt-1 transition-colors"
-          @click="cart.clear(); customerLoyalty.value = null; selectedReward.value = null"
+          @click="cart.clear(); customerLoyalty = null; selectedReward = null"
         >
           Clear cart
         </button>
