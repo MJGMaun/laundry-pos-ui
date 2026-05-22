@@ -329,6 +329,7 @@ const cartItemCount = computed(() => cart.items.reduce((s, i) => s + i.quantity,
 const inCart = (serviceId) => cart.items.some((i) => i.service_id === serviceId)
 
 const mobileTab = ref('catalog')
+const showExtras = ref(false)
 
 onMounted(loadServices)
 watch(() => branch.currentBranchId, loadServices)
@@ -576,17 +577,41 @@ watch(() => branch.currentBranchId, loadServices)
         </TransitionGroup>
       </div>
 
-      <!-- Extra fees -->
-      <div class="shrink-0 px-3 py-2.5 border-t border-slate-100 space-y-2">
-        <div class="flex items-center gap-2 text-xs text-slate-500">
-          <span class="w-20 shrink-0">Pickup fee</span>
-          <input v-model="cart.pickupFee" type="number" min="0" step="1" placeholder="0" class="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-right text-sm focus:outline-none focus:border-blue-400 transition-all" />
-        </div>
-        <div class="flex items-center gap-2 text-xs text-slate-500">
-          <span class="w-20 shrink-0">Delivery fee</span>
-          <input v-model="cart.deliveryFee" type="number" min="0" step="1" placeholder="0" class="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-right text-sm focus:outline-none focus:border-blue-400 transition-all" />
-        </div>
-        <textarea v-model="cart.notes" placeholder="Order notes…" rows="1" class="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm resize-none focus:outline-none focus:border-blue-400 transition-all" />
+      <!-- Extra fees (collapsible) -->
+      <div class="shrink-0 border-t border-slate-100">
+        <!-- Toggle row -->
+        <button
+          class="w-full flex items-center justify-between px-3 py-2 text-xs text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors"
+          @click="showExtras = !showExtras"
+        >
+          <span class="flex items-center gap-1.5 font-medium">
+            <span>Fees &amp; notes</span>
+            <span
+              v-if="Number(cart.pickupFee) + Number(cart.deliveryFee) > 0 || cart.notes"
+              class="inline-flex items-center justify-center w-1.5 h-1.5 rounded-full bg-blue-500"
+            />
+          </span>
+          <svg
+            class="w-3.5 h-3.5 transition-transform duration-200"
+            :class="showExtras ? 'rotate-180' : ''"
+            fill="none" stroke="currentColor" viewBox="0 0 24 24"
+          ><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+
+        <!-- Collapsible content -->
+        <Transition name="dropdown">
+          <div v-if="showExtras" class="px-3 pb-2.5 space-y-2">
+            <div class="flex items-center gap-2 text-xs text-slate-500">
+              <span class="w-20 shrink-0">Pickup fee</span>
+              <input v-model="cart.pickupFee" type="number" min="0" step="1" placeholder="0" class="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-right text-sm focus:outline-none focus:border-blue-400 transition-all" />
+            </div>
+            <div class="flex items-center gap-2 text-xs text-slate-500">
+              <span class="w-20 shrink-0">Delivery fee</span>
+              <input v-model="cart.deliveryFee" type="number" min="0" step="1" placeholder="0" class="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-right text-sm focus:outline-none focus:border-blue-400 transition-all" />
+            </div>
+            <textarea v-model="cart.notes" placeholder="Order notes…" rows="2" class="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm resize-none focus:outline-none focus:border-blue-400 transition-all" />
+          </div>
+        </Transition>
       </div>
 
       <!-- Total + Checkout -->
