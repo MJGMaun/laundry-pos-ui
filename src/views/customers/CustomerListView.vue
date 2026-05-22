@@ -16,6 +16,12 @@ const showForm = ref(false)
 const saving = ref(false)
 const form = ref({ name: '', username: '', phone: '', email: '', address: '', notes: '' })
 
+function capitalizeFirst(field) {
+  if (form.value[field]) {
+    form.value[field] = form.value[field].replace(/\b\w/g, c => c.toUpperCase())
+  }
+}
+
 async function load() {
   loading.value = true
   try {
@@ -109,7 +115,7 @@ onMounted(load)
         <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
           <h2 class="text-lg font-bold text-gray-900 mb-4">New Customer</h2>
           <div class="space-y-3">
-            <input v-model="form.name" placeholder="Name *" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+            <input v-model="form.name" @input="capitalizeFirst('name')" placeholder="Name *" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             <input v-model="form.phone" placeholder="Phone *" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             <input v-model="form.username" placeholder="Username (optional)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             <input v-model="form.email" placeholder="Email (optional)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />

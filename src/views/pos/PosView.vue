@@ -32,6 +32,12 @@ const showNewCustomerForm = ref(false)
 const newCustomer = ref({ name: '', phone: '', address: '' })
 const phoneError  = ref('')
 
+function capitalizeCustomerName() {
+  if (newCustomer.value.name) {
+    newCustomer.value.name = newCustomer.value.name.replace(/\b\w/g, c => c.toUpperCase())
+  }
+}
+
 function validatePhone(phone) {
   return /^\d{11}$/.test(phone)
 }
@@ -472,7 +478,7 @@ watch(() => branch.currentBranchId, loadServices)
 
           <Transition name="dropdown">
             <div v-if="showNewCustomerForm" class="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
-              <input v-model="newCustomer.name" placeholder="Name *" class="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:border-blue-400 transition-all" />
+              <input v-model="newCustomer.name" @input="capitalizeCustomerName" placeholder="Name *" class="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:border-blue-400 transition-all" />
               <div>
                 <input v-model="newCustomer.phone" placeholder="Phone * (11 digits)" maxlength="11"
                   class="w-full border rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:border-blue-400 transition-all"
