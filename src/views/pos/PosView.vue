@@ -334,7 +334,7 @@ watch(() => branch.currentBranchId, loadServices)
 
     <!-- ───── LEFT: Service Catalog ───── -->
     <div
-      class="flex flex-col bg-slate-50 sm:flex-1 sm:min-w-0"
+      class="flex flex-col bg-slate-50 min-h-0 overflow-hidden sm:flex-1 sm:min-w-0"
       :class="mobileTab === 'catalog' ? 'flex flex-1 min-w-0' : 'hidden sm:flex'"
     >
 
@@ -359,7 +359,7 @@ watch(() => branch.currentBranchId, loadServices)
       </div>
 
       <!-- Service grid -->
-      <div class="flex-1 overflow-y-auto p-4 pb-20 sm:pb-4">
+      <div class="flex-1 min-h-0 overflow-y-auto p-4">
 
         <!-- Skeleton loading -->
         <div v-if="loadingServices" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -405,12 +405,12 @@ watch(() => branch.currentBranchId, loadServices)
 
     <!-- ───── RIGHT: Cart ───── -->
     <div
-      class="flex flex-col bg-white border-l border-slate-200 sm:w-72 lg:w-80 xl:w-96 sm:shrink-0"
+      class="flex flex-col bg-white border-l border-slate-200 min-h-0 overflow-hidden sm:w-72 lg:w-80 xl:w-96 sm:shrink-0"
       :class="mobileTab === 'cart' ? 'flex flex-1' : 'hidden sm:flex'"
     >
 
       <!-- Customer section -->
-      <div class="p-3 border-b border-slate-100">
+      <div class="shrink-0 p-3 border-b border-slate-100">
         <div v-if="cart.customer" class="space-y-2">
           <div class="flex items-center gap-2.5 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5 animate-scale-in">
             <div class="flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white text-xs font-bold shrink-0">
@@ -522,13 +522,13 @@ watch(() => branch.currentBranchId, loadServices)
       </div>
 
       <!-- Cart header -->
-      <div class="flex items-center justify-between px-3 py-2 border-b border-slate-100">
+      <div class="shrink-0 flex items-center justify-between px-3 py-2 border-b border-slate-100">
         <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Cart</span>
         <span v-if="cart.items.length" class="text-xs text-slate-400">{{ cart.items.length }} item{{ cart.items.length !== 1 ? 's' : '' }}</span>
       </div>
 
       <!-- Cart items -->
-      <div class="flex-1 overflow-y-auto">
+      <div class="flex-1 min-h-0 overflow-y-auto">
         <div v-if="!cart.items.length" class="flex flex-col items-center justify-center h-40 text-slate-300 gap-2">
           <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
           <span class="text-sm">Tap a service to add</span>
@@ -572,7 +572,7 @@ watch(() => branch.currentBranchId, loadServices)
       </div>
 
       <!-- Extra fees -->
-      <div class="px-3 py-2.5 border-t border-slate-100 space-y-2">
+      <div class="shrink-0 px-3 py-2.5 border-t border-slate-100 space-y-2">
         <div class="flex items-center gap-2 text-xs text-slate-500">
           <span class="w-20 shrink-0">Pickup fee</span>
           <input v-model="cart.pickupFee" type="number" min="0" step="1" placeholder="0" class="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-right text-sm focus:outline-none focus:border-blue-400 transition-all" />
@@ -585,7 +585,7 @@ watch(() => branch.currentBranchId, loadServices)
       </div>
 
       <!-- Total + Checkout -->
-      <div class="p-3 pb-20 sm:pb-3 border-t border-slate-200">
+      <div class="shrink-0 p-3 border-t border-slate-200">
         <div class="flex justify-between text-xs text-slate-500 mb-1">
           <span>Subtotal</span><span>₱{{ fmt(cart.subtotal) }}</span>
         </div>
