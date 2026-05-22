@@ -16,6 +16,7 @@ const showForm = ref(false)
 const saving = ref(false)
 const form = ref({ name: '', username: '', phone: '', email: '', address: '', notes: '' })
 const displayPhone = ref('')
+const usernameManual = ref(false)
 
 function onPhoneInput(e) {
   const raw = e.target.value.replace(/\D/g, '').slice(0, 11)
@@ -28,6 +29,9 @@ function onPhoneInput(e) {
 function capitalizeFirst(field) {
   if (form.value[field]) {
     form.value[field] = form.value[field].replace(/\b\w/g, c => c.toUpperCase())
+  }
+  if (field === 'name' && !usernameManual.value) {
+    form.value.username = form.value.name.toLowerCase().replace(/\s+/g, '')
   }
 }
 
@@ -53,6 +57,7 @@ async function saveCustomer() {
     showForm.value = false
     form.value = { name: '', username: '', phone: '', email: '', address: '', notes: '' }
     displayPhone.value = ''
+    usernameManual.value = false
     load()
   } catch (e) {
     toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to save customer', life: 4000 })
@@ -127,13 +132,13 @@ onMounted(load)
           <div class="space-y-3">
             <input v-model="form.name" @input="capitalizeFirst('name')" placeholder="Name *" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             <input :value="displayPhone" @input="onPhoneInput" placeholder="Phone *" maxlength="13" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-            <input v-model="form.username" placeholder="Username (optional)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+            <input v-model="form.username" @input="usernameManual = true" placeholder="Username (optional)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             <input v-model="form.email" placeholder="Email (optional)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             <input v-model="form.address" placeholder="Address (optional)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             <textarea v-model="form.notes" placeholder="Notes (optional)" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none" />
           </div>
           <div class="flex gap-3 mt-5">
-            <button class="flex-1 border border-gray-300 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-gray-50" @click="showForm = false">Cancel</button>
+            <button class="flex-1 border border-gray-300 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-gray-50" @click="showForm = false; usernameManual = false">Cancel</button>
             <button
               class="flex-1 bg-blue-600 text-white font-semibold py-2.5 rounded-xl text-sm disabled:opacity-60 hover:bg-blue-700"
               :disabled="saving || !form.name || !form.phone"
