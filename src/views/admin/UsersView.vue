@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
 import { useAuthStore } from '@/stores/auth.js'
@@ -18,12 +18,19 @@ const showForm = ref(false)
 const saving = ref(false)
 const editingUser = ref(null)
 
-const ROLES = [
+const ALL_ROLES = [
   { value: 'super_admin', label: 'Super Admin' },
   { value: 'admin',       label: 'Admin' },
   { value: 'cashier',     label: 'Cashier' },
   { value: 'staff',       label: 'Staff' },
 ]
+
+// Only show roles strictly below the current user's level
+const ROLE_RANK = { super_admin: 4, admin: 3, cashier: 2, staff: 1 }
+const ROLES = computed(() => {
+  const myRank = ROLE_RANK[auth.role] ?? 0
+  return ALL_ROLES.filter(r => ROLE_RANK[r.value] < myRank)
+})
 
 const ROLE_STYLES = {
   super_admin: 'bg-purple-100 text-purple-700',
@@ -169,7 +176,7 @@ onMounted(async () => {
             <td class="px-4 py-3 text-gray-600">{{ u.username ? '@' + u.username : '—' }}</td>
             <td class="px-4 py-3">
               <span class="px-2 py-0.5 rounded-full text-xs font-medium capitalize" :class="ROLE_STYLES[u.role]">
-                {{ ROLES.find(r => r.value === u.role)?.label || u.role }}
+                {{ ALL_ROLES.find(r => r.value === u.role)?.label || u.role }}
               </span>
             </td>
             <td v-if="auth.isSuperAdmin" class="px-4 py-3 text-gray-500 text-sm">{{ userBranch(u) }}</td>
