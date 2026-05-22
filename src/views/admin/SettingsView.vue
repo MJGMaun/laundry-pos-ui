@@ -114,8 +114,8 @@ onMounted(async () => {
 					<h3 class="font-semibold text-gray-900">{{ group.label }}</h3>
 				</div>
 				<div class="divide-y divide-gray-100">
-					<div v-for="field in group.fields" :key="field.key" class="flex items-center gap-4 px-5 py-4">
-						<label class="text-sm text-gray-700 w-48 shrink-0">{{ field.label }}</label>
+					<div v-for="field in group.fields" :key="field.key" class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-5 py-4">
+						<label class="text-sm font-medium text-gray-700 sm:w-48 sm:shrink-0">{{ field.label }}</label>
 
 						<div class="flex flex-1 items-center gap-2">
 							<template v-if="field.type === 'toggle'">
