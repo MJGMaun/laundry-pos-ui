@@ -161,9 +161,9 @@ onMounted(async () => {
         <thead class="bg-gray-50 border-b border-gray-200">
           <tr>
             <th class="text-left px-4 py-3 font-medium text-gray-600">Name</th>
-            <th class="text-left px-4 py-3 font-medium text-gray-600">Username</th>
+            <th class="hidden sm:table-cell text-left px-4 py-3 font-medium text-gray-600">Username</th>
             <th class="text-left px-4 py-3 font-medium text-gray-600">Role</th>
-            <th v-if="auth.isSuperAdmin" class="text-left px-4 py-3 font-medium text-gray-600">Branch</th>
+            <th v-if="auth.isSuperAdmin" class="hidden md:table-cell text-left px-4 py-3 font-medium text-gray-600">Branch</th>
             <th class="px-4 py-3" />
           </tr>
         </thead>
@@ -173,13 +173,13 @@ onMounted(async () => {
               <div class="font-medium text-gray-900">{{ u.name }}</div>
               <div v-if="u.email" class="text-xs text-gray-400">{{ u.email }}</div>
             </td>
-            <td class="px-4 py-3 text-gray-600">{{ u.username ? '@' + u.username : '—' }}</td>
+            <td class="hidden sm:table-cell px-4 py-3 text-gray-600">{{ u.username ? '@' + u.username : '—' }}</td>
             <td class="px-4 py-3">
               <span class="px-2 py-0.5 rounded-full text-xs font-medium capitalize" :class="ROLE_STYLES[u.role]">
                 {{ ALL_ROLES.find(r => r.value === u.role)?.label || u.role }}
               </span>
             </td>
-            <td v-if="auth.isSuperAdmin" class="px-4 py-3 text-gray-500 text-sm">{{ userBranch(u) }}</td>
+            <td v-if="auth.isSuperAdmin" class="hidden md:table-cell px-4 py-3 text-gray-500 text-sm">{{ userBranch(u) }}</td>
             <td class="px-4 py-3 text-right">
               <div class="flex items-center justify-end gap-2">
                 <button class="text-sm text-blue-600 hover:text-blue-700 font-medium" @click="openEdit(u)">Edit</button>

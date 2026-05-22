@@ -62,11 +62,11 @@ async function logout() {
 
     <!-- Branch selector -->
     <div v-if="branch.branches.length > 1 || auth.isSuperAdmin" class="flex items-center gap-2">
-      <div class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
+      <div class="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
         <span class="text-xs text-slate-400">🏪</span>
         <select
           :value="branch.currentBranchId"
-          class="text-sm font-medium text-slate-700 bg-transparent border-none outline-none cursor-pointer"
+          class="text-sm font-medium text-slate-700 bg-transparent border-none outline-none cursor-pointer max-w-[90px] sm:max-w-none"
           @change="branch.selectBranch($event.target.value ? Number($event.target.value) : null)"
         >
           <option v-if="auth.isSuperAdmin" :value="null">All branches</option>
@@ -76,9 +76,9 @@ async function logout() {
     </div>
 
     <div v-else-if="branch.currentBranch">
-      <div class="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-100 rounded-lg">
+      <div class="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 bg-blue-50 border border-blue-100 rounded-lg">
         <span class="text-xs">🏪</span>
-        <span class="text-sm font-medium text-blue-700">{{ branch.currentBranch.name }}</span>
+        <span class="text-sm font-medium text-blue-700 max-w-[90px] sm:max-w-none truncate">{{ branch.currentBranch.name }}</span>
       </div>
     </div>
 

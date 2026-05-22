@@ -4,7 +4,7 @@ import AppSidebar from '@/components/AppSidebar.vue'
 import AppHeader from '@/components/AppHeader.vue'
 import { useBranchStore } from '@/stores/branch.js'
 
-const sidebarOpen = ref(true)
+const sidebarOpen = ref(window.innerWidth >= 1024)
 const branch = useBranchStore()
 </script>
 

@@ -277,10 +277,10 @@ onMounted(load)
             </div>
           </div>
 
-          <div v-if="orderStatusNext[order.status] && auth.isCashier" class="flex flex-col items-end gap-2">
+          <div v-if="orderStatusNext[order.status] && auth.isCashier" class="flex flex-col items-start sm:items-end gap-2 w-full sm:w-auto">
             <button
               :disabled="updatingStatus"
-              class="btn btn-primary"
+              class="btn btn-primary w-full sm:w-auto"
               @click="advanceOrderStatus"
             >
               <svg v-if="updatingStatus" class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.3)" stroke-width="3"/><path d="M12 2a10 10 0 0110 10" stroke="white" stroke-width="3" stroke-linecap="round"/></svg>
@@ -310,7 +310,7 @@ onMounted(load)
           <div
             v-for="(load, i) in order.loads"
             :key="load.id"
-            class="flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50 transition-colors animate-slide-up"
+            class="flex flex-wrap items-center gap-2 px-4 sm:px-5 py-3 hover:bg-slate-50 transition-colors animate-slide-up"
             :style="`animation-delay: ${i * 30}ms`"
           >
             <div class="flex-1 min-w-0">

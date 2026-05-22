@@ -65,61 +65,67 @@ onMounted(load)
     </div>
 
     <!-- Filters -->
-    <div class="flex flex-wrap items-center gap-2 mb-4 animate-slide-up stagger-1">
-      <div class="flex gap-1 bg-white border border-slate-200 rounded-xl p-1">
+    <div class="flex flex-col gap-2 mb-4 animate-slide-up stagger-1">
+      <!-- Row 1: status tabs + unpaid pill -->
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 overflow-x-auto shrink-0" style="scrollbar-width:none;">
+          <button
+            v-for="s in statusOptions"
+            :key="s.value"
+            class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150 whitespace-nowrap"
+            :class="filters.status === s.value
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'"
+            @click="filters.status = s.value; applyFilters()"
+          >
+            {{ s.label }}
+          </button>
+        </div>
+
         <button
-          v-for="s in statusOptions"
-          :key="s.value"
-          class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150"
-          :class="filters.status === s.value
-            ? 'bg-blue-600 text-white shadow-sm'
-            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'"
-          @click="filters.status = s.value; applyFilters()"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border transition-all duration-150 whitespace-nowrap"
+          :class="filters.unpaid
+            ? 'bg-amber-50 border-amber-300 text-amber-700'
+            : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700'"
+          @click="filters.unpaid = !filters.unpaid; applyFilters()"
         >
-          {{ s.label }}
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          Unpaid
         </button>
       </div>
 
-      <button
-        class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border transition-all duration-150"
-        :class="filters.unpaid
-          ? 'bg-amber-50 border-amber-300 text-amber-700'
-          : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700'"
-        @click="filters.unpaid = !filters.unpaid; applyFilters()"
-      >
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-        Unpaid
-      </button>
-
-      <DatePicker
-        v-model="dateFrom"
-        date-format="M dd, yy"
-        show-icon
-        icon-display="input"
-        placeholder="From"
-        class="orders-datepicker"
-        @update:model-value="applyFilters"
-      />
-      <span class="text-slate-400 text-sm">—</span>
-      <DatePicker
-        v-model="dateTo"
-        date-format="M dd, yy"
-        show-icon
-        icon-display="input"
-        placeholder="To"
-        :min-date="dateFrom"
-        class="orders-datepicker"
-        @update:model-value="applyFilters"
-      />
-
-      <div class="relative ml-auto">
-        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-        <input
-          v-model="filters.search"
-          placeholder="Search order # or customer…"
-          class="border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-sm w-60 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all hover:border-slate-300"
-          @keyup.enter="applyFilters"
+      <!-- Row 2: date pickers + search -->
+      <div class="flex flex-wrap items-center gap-2">
+        <DatePicker
+          v-model="dateFrom"
+          date-format="M dd, yy"
+          show-icon
+          icon-display="input"
+          placeholder="From"
+          class="orders-datepicker"
+          @update:model-value="applyFilters"
         />
+        <span class="text-slate-400 text-sm">—</span>
+        <DatePicker
+          v-model="dateTo"
+          date-format="M dd, yy"
+          show-icon
+          icon-display="input"
+          placeholder="To"
+          :min-date="dateFrom"
+          class="orders-datepicker"
+          @update:model-value="applyFilters"
+        />
+
+        <div class="relative flex-1 min-w-[160px] sm:flex-none sm:ml-auto">
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input
+            v-model="filters.search"
+            placeholder="Search order # or customer…"
+            class="w-full sm:w-60 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all hover:border-slate-300"
+            @keyup.enter="applyFilters"
+          />
+        </div>
       </div>
     </div>
 
@@ -146,12 +152,12 @@ onMounted(load)
       <table v-else class="w-full text-sm">
         <thead style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
           <tr>
-            <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Order #</th>
-            <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Customer</th>
-            <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
-            <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Loads</th>
-            <th class="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Total</th>
-            <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Date</th>
+            <th class="text-left px-4 sm:px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Order #</th>
+            <th class="text-left px-4 sm:px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Customer</th>
+            <th class="text-left px-4 sm:px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
+            <th class="hidden sm:table-cell text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Loads</th>
+            <th class="text-right px-4 sm:px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Total</th>
+            <th class="hidden md:table-cell text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Date</th>
           </tr>
         </thead>
         <tbody>
@@ -162,33 +168,33 @@ onMounted(load)
             :style="`animation-delay: ${i * 25}ms`"
             @click="router.push('/orders/' + order.id)"
           >
-            <td class="px-5 py-3.5 font-mono text-xs text-slate-600 font-medium">{{ order.order_number }}</td>
-            <td class="px-5 py-3.5">
+            <td class="px-4 sm:px-5 py-3.5 font-mono text-xs text-slate-600 font-medium">{{ order.order_number }}</td>
+            <td class="px-4 sm:px-5 py-3.5">
               <div v-if="order.customer" class="flex items-center gap-2">
                 <div class="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
                   :style="`background: hsl(${(order.customer.name?.charCodeAt(0) * 7) % 360}, 65%, 55%);`">
                   {{ order.customer.name?.charAt(0).toUpperCase() }}
                 </div>
-                <span class="text-slate-700 font-medium">{{ order.customer.name }}</span>
+                <span class="text-slate-700 font-medium truncate max-w-[80px] sm:max-w-none">{{ order.customer.name }}</span>
               </div>
               <span v-else class="text-slate-400">—</span>
             </td>
-            <td class="px-5 py-3.5">
+            <td class="px-4 sm:px-5 py-3.5">
               <span :class="['badge', `badge-${order.status}`]">
                 {{ order.status?.replace('_', ' ') }}
               </span>
             </td>
-            <td class="px-5 py-3.5 text-slate-500">
+            <td class="hidden sm:table-cell px-5 py-3.5 text-slate-500">
               {{ order.loads ? order.loads.reduce((s, l) => s + Number(l.quantity), 0) : (order.loads_count ?? '—') }}
             </td>
-            <td class="px-5 py-3.5 text-right">
+            <td class="px-4 sm:px-5 py-3.5 text-right">
               <div class="font-bold text-slate-900">₱{{ fmt(order.total_amount) }}</div>
               <div class="text-xs mt-0.5"
                 :class="Number(order.paid_amount) >= Number(order.total_amount) ? 'text-green-600 font-medium' : 'text-amber-500 font-medium'">
                 {{ Number(order.paid_amount) >= Number(order.total_amount) ? '✓ Paid' : 'Unpaid' }}
               </div>
             </td>
-            <td class="px-5 py-3.5 text-slate-400 text-xs">{{ fmtDate(order.created_at) }}</td>
+            <td class="hidden md:table-cell px-5 py-3.5 text-slate-400 text-xs">{{ fmtDate(order.created_at) }}</td>
           </tr>
         </tbody>
       </table>

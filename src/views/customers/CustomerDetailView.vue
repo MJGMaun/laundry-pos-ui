@@ -68,10 +68,10 @@ onMounted(load)
     <div v-else-if="customer" class="space-y-4">
       <!-- Customer info card -->
       <div class="bg-white rounded-xl border border-gray-200 p-5">
-        <div class="flex items-start justify-between mb-4">
+        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
           <div>
             <h2 class="text-xl font-bold text-gray-900">{{ customer.name }}</h2>
-            <div class="text-sm text-gray-500 mt-0.5">{{ customer.phone }}{{ customer.username ? ' · @' + customer.username : '' }}{{ customer.email ? ' · ' + customer.email : '' }}</div>
+            <div class="text-sm text-gray-500 mt-0.5 break-all sm:break-normal">{{ customer.phone }}{{ customer.username ? ' · @' + customer.username : '' }}{{ customer.email ? ' · ' + customer.email : '' }}</div>
             <div v-if="customer.address" class="text-sm text-gray-500 mt-0.5">{{ customer.address }}</div>
             <div v-if="customer.notes" class="text-sm text-gray-400 mt-1 italic">{{ customer.notes }}</div>
             <div v-if="customer.loyalty_tier" class="mt-1">
@@ -80,7 +80,7 @@ onMounted(load)
               </span>
             </div>
           </div>
-          <div class="flex gap-2 items-center">
+          <div class="flex gap-2 items-center shrink-0">
             <a
               v-if="customer.username"
               :href="`/c/${customer.username}`"
@@ -145,10 +145,10 @@ onMounted(load)
         <table v-else class="w-full text-sm">
           <thead class="bg-gray-50 border-b border-gray-200">
             <tr>
-              <th class="text-left px-5 py-2.5 font-medium text-gray-600">Order #</th>
-              <th class="text-left px-5 py-2.5 font-medium text-gray-600">Status</th>
-              <th class="text-right px-5 py-2.5 font-medium text-gray-600">Total</th>
-              <th class="text-left px-5 py-2.5 font-medium text-gray-600">Date</th>
+              <th class="text-left px-4 sm:px-5 py-2.5 font-medium text-gray-600">Order #</th>
+              <th class="text-left px-4 sm:px-5 py-2.5 font-medium text-gray-600">Status</th>
+              <th class="text-right px-4 sm:px-5 py-2.5 font-medium text-gray-600">Total</th>
+              <th class="hidden sm:table-cell text-left px-5 py-2.5 font-medium text-gray-600">Date</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
@@ -158,14 +158,14 @@ onMounted(load)
               class="hover:bg-gray-50 cursor-pointer"
               @click="router.push('/orders/' + o.id)"
             >
-              <td class="px-5 py-3 font-mono text-gray-900">{{ o.order_number }}</td>
-              <td class="px-5 py-3">
+              <td class="px-4 sm:px-5 py-3 font-mono text-gray-900">{{ o.order_number }}</td>
+              <td class="px-4 sm:px-5 py-3">
                 <span class="px-2 py-0.5 rounded-full text-xs font-medium capitalize bg-gray-100 text-gray-700">
                   {{ o.status?.replace('_', ' ') }}
                 </span>
               </td>
-              <td class="px-5 py-3 text-right font-semibold text-gray-900">₱{{ fmt(o.total_amount) }}</td>
-              <td class="px-5 py-3 text-gray-500">{{ fmtDate(o.created_at) }}</td>
+              <td class="px-4 sm:px-5 py-3 text-right font-semibold text-gray-900">₱{{ fmt(o.total_amount) }}</td>
+              <td class="hidden sm:table-cell px-5 py-3 text-gray-500">{{ fmtDate(o.created_at) }}</td>
             </tr>
           </tbody>
         </table>

@@ -323,15 +323,20 @@ function formatPrice(svc) {
 const cartItemCount = computed(() => cart.items.reduce((s, i) => s + i.quantity, 0))
 const inCart = (serviceId) => cart.items.some((i) => i.service_id === serviceId)
 
+const mobileTab = ref('catalog')
+
 onMounted(loadServices)
 watch(() => branch.currentBranchId, loadServices)
 </script>
 
 <template>
-  <div class="flex h-full overflow-hidden">
+  <div class="flex flex-col sm:flex-row h-full overflow-hidden">
 
     <!-- ───── LEFT: Service Catalog ───── -->
-    <div class="flex flex-col flex-1 min-w-0 bg-slate-50">
+    <div
+      class="flex flex-col bg-slate-50 sm:flex-1 sm:min-w-0"
+      :class="mobileTab === 'catalog' ? 'flex flex-1 min-w-0' : 'hidden sm:flex'"
+    >
 
       <!-- Category tabs -->
       <div class="flex items-center gap-1.5 px-4 py-3 bg-white border-b border-slate-200 overflow-x-auto shrink-0" style="scrollbar-width: none;">
@@ -354,10 +359,10 @@ watch(() => branch.currentBranchId, loadServices)
       </div>
 
       <!-- Service grid -->
-      <div class="flex-1 overflow-y-auto p-4">
+      <div class="flex-1 overflow-y-auto p-4 pb-20 sm:pb-4">
 
         <!-- Skeleton loading -->
-        <div v-if="loadingServices" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+        <div v-if="loadingServices" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           <div v-for="n in 8" :key="n" class="skeleton h-24 rounded-2xl" />
         </div>
 
@@ -366,7 +371,7 @@ watch(() => branch.currentBranchId, loadServices)
           <span class="text-sm">No services in this category</span>
         </div>
 
-        <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+        <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           <button
             v-for="(svc, i) in filteredServices"
             :key="svc.id"
@@ -399,7 +404,10 @@ watch(() => branch.currentBranchId, loadServices)
     </div>
 
     <!-- ───── RIGHT: Cart ───── -->
-    <div class="flex flex-col w-80 xl:w-96 bg-white border-l border-slate-200 shrink-0">
+    <div
+      class="flex flex-col bg-white border-l border-slate-200 sm:w-72 lg:w-80 xl:w-96 sm:shrink-0"
+      :class="mobileTab === 'cart' ? 'flex flex-1' : 'hidden sm:flex'"
+    >
 
       <!-- Customer section -->
       <div class="p-3 border-b border-slate-100">
@@ -577,7 +585,7 @@ watch(() => branch.currentBranchId, loadServices)
       </div>
 
       <!-- Total + Checkout -->
-      <div class="p-3 border-t border-slate-200">
+      <div class="p-3 pb-20 sm:pb-3 border-t border-slate-200">
         <div class="flex justify-between text-xs text-slate-500 mb-1">
           <span>Subtotal</span><span>₱{{ fmt(cart.subtotal) }}</span>
         </div>
@@ -615,6 +623,30 @@ watch(() => branch.currentBranchId, loadServices)
           Clear cart
         </button>
       </div>
+    </div>
+
+    <!-- ───── Mobile Tab Bar ───── -->
+    <div class="sm:hidden shrink-0 flex border-t border-slate-200 bg-white z-10">
+      <button
+        class="flex-1 py-2.5 flex flex-col items-center gap-0.5 text-xs font-semibold transition-colors"
+        :class="mobileTab === 'catalog' ? 'text-blue-600' : 'text-slate-400'"
+        @click="mobileTab = 'catalog'"
+      >
+        <span class="text-lg leading-none">🧺</span>
+        <span>Services</span>
+      </button>
+      <button
+        class="flex-1 py-2.5 flex flex-col items-center gap-0.5 text-xs font-semibold transition-colors relative"
+        :class="mobileTab === 'cart' ? 'text-blue-600' : 'text-slate-400'"
+        @click="mobileTab = 'cart'"
+      >
+        <span class="text-lg leading-none">🛒</span>
+        <span>Cart</span>
+        <span
+          v-if="cartItemCount > 0"
+          class="absolute top-1.5 right-[calc(50%-22px)] min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center"
+        >{{ cartItemCount }}</span>
+      </button>
     </div>
 
     <!-- ───── Payment Modal ───── -->

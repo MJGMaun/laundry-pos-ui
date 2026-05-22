@@ -102,9 +102,9 @@ onMounted(load)
           <tr>
             <th class="text-left px-4 py-3 font-medium text-gray-600">Name</th>
             <th class="text-left px-4 py-3 font-medium text-gray-600">Phone</th>
-            <th class="text-left px-4 py-3 font-medium text-gray-600">Username</th>
-            <th class="text-right px-4 py-3 font-medium text-gray-600">Total Spent</th>
-            <th class="text-right px-4 py-3 font-medium text-gray-600">Visits</th>
+            <th class="hidden md:table-cell text-left px-4 py-3 font-medium text-gray-600">Username</th>
+            <th class="hidden sm:table-cell text-right px-4 py-3 font-medium text-gray-600">Total Spent</th>
+            <th class="hidden sm:table-cell text-right px-4 py-3 font-medium text-gray-600">Visits</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100">
@@ -116,9 +116,9 @@ onMounted(load)
           >
             <td class="px-4 py-3 font-medium text-gray-900">{{ c.name }}</td>
             <td class="px-4 py-3 text-gray-700">{{ c.phone }}</td>
-            <td class="px-4 py-3 text-gray-500">{{ c.username || '—' }}</td>
-            <td class="px-4 py-3 text-right text-gray-900">₱{{ fmt(c.total_spent) }}</td>
-            <td class="px-4 py-3 text-right text-gray-600">{{ c.total_visits }}</td>
+            <td class="hidden md:table-cell px-4 py-3 text-gray-500">{{ c.username || '—' }}</td>
+            <td class="hidden sm:table-cell px-4 py-3 text-right text-gray-900">₱{{ fmt(c.total_spent) }}</td>
+            <td class="hidden sm:table-cell px-4 py-3 text-right text-gray-600">{{ c.total_visits }}</td>
           </tr>
         </tbody>
       </table>
