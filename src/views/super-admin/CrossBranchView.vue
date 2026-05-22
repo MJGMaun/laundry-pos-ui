@@ -196,19 +196,19 @@ onMounted(async () => {
 <template>
   <div class="p-4 sm:p-6 max-w-6xl mx-auto">
     <!-- Header -->
-    <div class="flex items-center justify-between mb-5">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
       <h1 class="text-xl font-bold text-gray-900">
         {{ selectedBranchId === 'all' ? 'All Branches Overview' : selectedBranch?.name }}
       </h1>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 shrink-0">
         <select
           v-model="selectedBranchId"
-          class="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[160px] sm:max-w-none truncate"
         >
           <option value="all">All Branches</option>
           <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
         </select>
-        <button class="text-sm text-blue-600 hover:text-blue-700" @click="selectedBranchId === 'all' ? loadComparison() : loadBranch()">Refresh</button>
+        <button class="text-sm text-blue-600 hover:text-blue-700 shrink-0" @click="selectedBranchId === 'all' ? loadComparison() : loadBranch()">Refresh</button>
       </div>
     </div>
 
@@ -216,7 +216,7 @@ onMounted(async () => {
 
     <!-- ── All Branches ── -->
     <div v-else-if="selectedBranchId === 'all'" class="space-y-5">
-      <div class="grid grid-cols-3 gap-3">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div class="bg-white rounded-xl border border-gray-200 p-4">
           <div class="text-xs text-gray-500 mb-1">Total Revenue</div>
           <div class="text-xl font-bold text-green-700">₱{{ fmt(compApiTotals?.revenue ?? compTotals.revenue) }}</div>
@@ -248,9 +248,9 @@ onMounted(async () => {
           <thead class="bg-gray-50 border-b border-gray-200">
             <tr>
               <th class="text-left px-5 py-2.5 font-medium text-gray-600">Branch</th>
-              <th class="text-right px-5 py-2.5 font-medium text-gray-600">Orders</th>
+              <th class="hidden sm:table-cell text-right px-5 py-2.5 font-medium text-gray-600">Orders</th>
               <th class="text-right px-5 py-2.5 font-medium text-gray-600">Revenue</th>
-              <th class="text-right px-5 py-2.5 font-medium text-gray-600">Expenses</th>
+              <th class="hidden sm:table-cell text-right px-5 py-2.5 font-medium text-gray-600">Expenses</th>
               <th class="text-right px-5 py-2.5 font-medium text-gray-600">Net Profit</th>
             </tr>
           </thead>
@@ -262,9 +262,9 @@ onMounted(async () => {
               @click="selectedBranchId = b.branch_id || b.id"
             >
               <td class="px-5 py-3 font-medium text-gray-900">{{ b.branch_name || b.name }}</td>
-              <td class="px-5 py-3 text-right text-gray-600">{{ b.order_count || b.orders || 0 }}</td>
+              <td class="hidden sm:table-cell px-5 py-3 text-right text-gray-600">{{ b.order_count || b.orders || 0 }}</td>
               <td class="px-5 py-3 text-right font-semibold text-green-700">₱{{ fmt(b.revenue || b.total_revenue) }}</td>
-              <td class="px-5 py-3 text-right text-red-600">₱{{ fmt(b.expenses || b.total_expenses) }}</td>
+              <td class="hidden sm:table-cell px-5 py-3 text-right text-red-600">₱{{ fmt(b.expenses || b.total_expenses) }}</td>
               <td class="px-5 py-3 text-right font-bold" :class="Number(b.net_profit || 0) >= 0 ? 'text-green-700' : 'text-red-600'">₱{{ fmt(b.net_profit) }}</td>
             </tr>
           </tbody>
@@ -281,7 +281,7 @@ onMounted(async () => {
       </div>
 
       <!-- P&L summary -->
-      <div v-if="pl" class="grid grid-cols-3 gap-3">
+      <div v-if="pl" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div class="bg-white rounded-xl border border-gray-200 p-4">
           <div class="text-xs text-gray-500 mb-1">Revenue</div>
           <div class="text-xl font-bold text-green-700">₱{{ fmt(pl.revenue) }}</div>
@@ -308,7 +308,7 @@ onMounted(async () => {
             <tr>
               <th class="text-left px-5 py-2.5 font-medium text-gray-600">Date</th>
               <th class="text-left px-5 py-2.5 font-medium text-gray-600">Category</th>
-              <th class="text-left px-5 py-2.5 font-medium text-gray-600">Description</th>
+              <th class="hidden sm:table-cell text-left px-5 py-2.5 font-medium text-gray-600">Description</th>
               <th class="text-right px-5 py-2.5 font-medium text-gray-600">Amount</th>
               <th class="px-5 py-2.5" />
             </tr>
@@ -317,7 +317,7 @@ onMounted(async () => {
             <tr v-for="e in expenses" :key="e.id">
               <td class="px-5 py-3 text-gray-600">{{ fmtDate(e.expense_date) }}</td>
               <td class="px-5 py-3 text-gray-800">{{ e.category?.name || '—' }}</td>
-              <td class="px-5 py-3 text-gray-500 max-w-xs truncate">{{ e.description || '—' }}</td>
+              <td class="hidden sm:table-cell px-5 py-3 text-gray-500 max-w-xs truncate">{{ e.description || '—' }}</td>
               <td class="px-5 py-3 text-right font-semibold text-gray-900">₱{{ fmt(e.amount) }}</td>
               <td class="px-5 py-3 text-right">
                 <div class="flex gap-1 justify-end">

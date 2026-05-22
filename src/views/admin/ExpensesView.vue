@@ -183,7 +183,7 @@ onMounted(() => { load(); loadCategories() })
           <tr>
             <th class="text-left px-4 py-3 font-medium text-gray-600">Date</th>
             <th class="text-left px-4 py-3 font-medium text-gray-600">Category</th>
-            <th class="text-left px-4 py-3 font-medium text-gray-600">Description</th>
+            <th class="hidden sm:table-cell text-left px-4 py-3 font-medium text-gray-600">Description</th>
             <th class="text-right px-4 py-3 font-medium text-gray-600">Amount</th>
             <th class="px-4 py-3" />
           </tr>
@@ -192,7 +192,7 @@ onMounted(() => { load(); loadCategories() })
           <tr v-for="e in expenses" :key="e.id">
             <td class="px-4 py-3 text-gray-600">{{ fmtDate(e.expense_date) }}</td>
             <td class="px-4 py-3 text-gray-800">{{ e.category?.name || '—' }}</td>
-            <td class="px-4 py-3 text-gray-500 max-w-xs truncate">{{ e.description || '—' }}</td>
+            <td class="hidden sm:table-cell px-4 py-3 text-gray-500 max-w-xs truncate">{{ e.description || '—' }}</td>
             <td class="px-4 py-3 text-right font-semibold text-gray-900">₱{{ fmt(e.amount) }}</td>
             <td class="px-4 py-3 text-right">
               <div class="flex gap-1 justify-end">

@@ -164,8 +164,8 @@ onMounted(load)
         <thead class="bg-gray-50 border-b border-gray-200">
           <tr>
             <th class="text-left px-4 py-3 font-medium text-gray-600">Branch</th>
-            <th class="text-left px-4 py-3 font-medium text-gray-600">Address</th>
-            <th class="text-left px-4 py-3 font-medium text-gray-600">Phone</th>
+            <th class="hidden sm:table-cell text-left px-4 py-3 font-medium text-gray-600">Address</th>
+            <th class="hidden md:table-cell text-left px-4 py-3 font-medium text-gray-600">Phone</th>
             <th class="text-center px-4 py-3 font-medium text-gray-600">Status</th>
             <th class="px-4 py-3" />
           </tr>
@@ -176,8 +176,8 @@ onMounted(load)
               {{ b.name }}
               <span v-if="b.is_test" class="ml-1.5 px-1.5 py-0.5 text-xs font-medium bg-orange-100 text-orange-700 rounded">Test</span>
             </td>
-            <td class="px-4 py-3 text-gray-500">{{ b.address || '—' }}</td>
-            <td class="px-4 py-3 text-gray-600">{{ b.phone || '—' }}</td>
+            <td class="hidden sm:table-cell px-4 py-3 text-gray-500">{{ b.address || '—' }}</td>
+            <td class="hidden md:table-cell px-4 py-3 text-gray-600">{{ b.phone || '—' }}</td>
             <td class="px-4 py-3 text-center">
               <span class="px-2 py-0.5 rounded-full text-xs font-medium"
                 :class="b.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'">
@@ -185,7 +185,7 @@ onMounted(load)
               </span>
             </td>
             <td class="px-4 py-3">
-              <div class="flex gap-1 justify-end">
+              <div class="flex flex-wrap gap-1 justify-end">
                 <button class="text-xs text-blue-600 hover:text-blue-700 px-2 py-1" @click="viewUsers(b)">Users</button>
                 <button class="text-xs text-blue-600 hover:text-blue-700 px-2 py-1" @click="openForm(b)">Edit</button>
                 <button class="text-xs text-red-500 hover:text-red-700 px-2 py-1" @click="deactivate(b.id)">Deactivate</button>

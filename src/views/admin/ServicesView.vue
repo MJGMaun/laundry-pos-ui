@@ -245,10 +245,10 @@ onMounted(load)
 				<thead class="bg-gray-50 border-b border-gray-200">
 					<tr>
 						<th class="text-left px-4 py-3 font-medium text-gray-600">Name</th>
-						<th class="text-left px-4 py-3 font-medium text-gray-600">Category</th>
-						<th class="text-left px-4 py-3 font-medium text-gray-600">Pricing</th>
+						<th class="hidden sm:table-cell text-left px-4 py-3 font-medium text-gray-600">Category</th>
+						<th class="hidden md:table-cell text-left px-4 py-3 font-medium text-gray-600">Pricing</th>
 						<th class="text-right px-4 py-3 font-medium text-gray-600">Price</th>
-						<th class="text-center px-4 py-3 font-medium text-gray-600">Loyalty</th>
+						<th class="hidden md:table-cell text-center px-4 py-3 font-medium text-gray-600">Loyalty</th>
 						<th class="text-center px-4 py-3 font-medium text-gray-600">Active</th>
 						<th class="px-4 py-3" />
 					</tr>
@@ -256,13 +256,13 @@ onMounted(load)
 				<tbody class="divide-y divide-gray-100">
 					<tr v-for="s in filtered" :key="s.id" :class="!s.is_active ? 'opacity-50' : ''">
 						<td class="px-4 py-3 font-medium text-gray-900">{{ s.name }}</td>
-						<td class="px-4 py-3">
+						<td class="hidden sm:table-cell px-4 py-3">
 							<span v-if="s.category" class="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">{{ s.category.name }}</span>
 							<span v-else class="text-gray-300 text-xs">—</span>
 						</td>
-						<td class="px-4 py-3 text-gray-500 capitalize">{{ s.pricing_type?.replace('_', ' ') }}</td>
+						<td class="hidden md:table-cell px-4 py-3 text-gray-500 capitalize">{{ s.pricing_type?.replace('_', ' ') }}</td>
 						<td class="px-4 py-3 text-right font-semibold text-gray-900">₱{{ Number(s.price).toFixed(2) }}</td>
-						<td class="px-4 py-3 text-center">
+						<td class="hidden md:table-cell px-4 py-3 text-center">
 							<span v-if="s.is_loyalty_eligible" class="text-base" title="Earns loyalty stamps">🎫</span>
 							<span v-else class="text-gray-300 text-xs">—</span>
 						</td>

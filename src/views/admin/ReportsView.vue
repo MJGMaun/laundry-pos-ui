@@ -237,16 +237,16 @@ onMounted(load)
 					<thead class="bg-gray-50 border-b border-gray-200">
 						<tr>
 							<th class="text-left px-5 py-2.5 font-medium text-gray-600">Service</th>
-							<th class="text-right px-5 py-2.5 font-medium text-gray-600">Orders</th>
-							<th class="text-right px-5 py-2.5 font-medium text-gray-600">Qty</th>
+							<th class="hidden sm:table-cell text-right px-5 py-2.5 font-medium text-gray-600">Orders</th>
+							<th class="hidden sm:table-cell text-right px-5 py-2.5 font-medium text-gray-600">Qty</th>
 							<th class="text-right px-5 py-2.5 font-medium text-gray-600">Revenue</th>
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-gray-100">
 						<tr v-for="s in services" :key="s.service_id || s.id">
 							<td class="px-5 py-3 text-gray-900">{{ s.service_name || s.name }}</td>
-							<td class="px-5 py-3 text-right text-gray-600">{{ s.order_count || s.orders || 0 }}</td>
-							<td class="px-5 py-3 text-right text-gray-600">{{ s.total_quantity || s.quantity || 0 }}</td>
+							<td class="hidden sm:table-cell px-5 py-3 text-right text-gray-600">{{ s.order_count || s.orders || 0 }}</td>
+							<td class="hidden sm:table-cell px-5 py-3 text-right text-gray-600">{{ s.total_quantity || s.quantity || 0 }}</td>
 							<td class="px-5 py-3 text-right font-semibold text-gray-900">₱{{ fmt(s.revenue) }}</td>
 						</tr>
 					</tbody>
