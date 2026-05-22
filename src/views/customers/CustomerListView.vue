@@ -15,6 +15,15 @@ const total = ref(0)
 const showForm = ref(false)
 const saving = ref(false)
 const form = ref({ name: '', username: '', phone: '', email: '', address: '', notes: '' })
+const displayPhone = ref('')
+
+function onPhoneInput(e) {
+  const raw = e.target.value.replace(/\D/g, '').slice(0, 11)
+  form.value.phone = raw
+  if (raw.length <= 4) displayPhone.value = raw
+  else if (raw.length <= 7) displayPhone.value = raw.slice(0, 4) + '-' + raw.slice(4)
+  else displayPhone.value = raw.slice(0, 4) + '-' + raw.slice(4, 7) + '-' + raw.slice(7)
+}
 
 function capitalizeFirst(field) {
   if (form.value[field]) {
@@ -43,6 +52,7 @@ async function saveCustomer() {
     toast.add({ severity: 'success', summary: 'Saved', detail: 'Customer created successfully', life: 3000 })
     showForm.value = false
     form.value = { name: '', username: '', phone: '', email: '', address: '', notes: '' }
+    displayPhone.value = ''
     load()
   } catch (e) {
     toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to save customer', life: 4000 })
@@ -116,7 +126,7 @@ onMounted(load)
           <h2 class="text-lg font-bold text-gray-900 mb-4">New Customer</h2>
           <div class="space-y-3">
             <input v-model="form.name" @input="capitalizeFirst('name')" placeholder="Name *" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-            <input v-model="form.phone" placeholder="Phone *" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+            <input :value="displayPhone" @input="onPhoneInput" placeholder="Phone *" maxlength="13" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             <input v-model="form.username" placeholder="Username (optional)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             <input v-model="form.email" placeholder="Email (optional)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             <input v-model="form.address" placeholder="Address (optional)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />

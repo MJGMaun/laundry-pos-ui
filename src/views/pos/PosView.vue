@@ -31,6 +31,15 @@ const searchingCustomer = ref(false)
 const showNewCustomerForm = ref(false)
 const newCustomer = ref({ name: '', phone: '', address: '' })
 const phoneError  = ref('')
+const displayPhone = ref('')
+
+function onPhoneInput(e) {
+  const raw = e.target.value.replace(/\D/g, '').slice(0, 11)
+  newCustomer.value.phone = raw
+  if (raw.length <= 4) displayPhone.value = raw
+  else if (raw.length <= 7) displayPhone.value = raw.slice(0, 4) + '-' + raw.slice(4)
+  else displayPhone.value = raw.slice(0, 4) + '-' + raw.slice(4, 7) + '-' + raw.slice(7)
+}
 
 function capitalizeCustomerName() {
   if (newCustomer.value.name) {
@@ -206,7 +215,7 @@ async function saveNewCustomer() {
     const res = await createCustomer(newCustomer.value)
     selectCustomer(res.data.data || res.data)
     showNewCustomerForm.value = false
-    newCustomer.value = { name: '', phone: '', address: '' }; phoneError.value = ''
+    newCustomer.value = { name: '', phone: '', address: '' }; phoneError.value = ''; displayPhone.value = ''
   } catch (e) {
     toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to save customer', life: 4000 })
   } finally {
@@ -480,7 +489,7 @@ watch(() => branch.currentBranchId, loadServices)
             <div v-if="showNewCustomerForm" class="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
               <input v-model="newCustomer.name" @input="capitalizeCustomerName" placeholder="Name *" class="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:border-blue-400 transition-all" />
               <div>
-                <input v-model="newCustomer.phone" placeholder="Phone * (11 digits)" maxlength="11"
+                <input :value="displayPhone" @input="onPhoneInput" placeholder="Phone * (11 digits)" maxlength="13"
                   class="w-full border rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:border-blue-400 transition-all"
                   :class="phoneError ? 'border-red-300' : 'border-slate-200'" />
                 <p v-if="phoneError" class="text-xs text-red-500 mt-1 px-0.5">{{ phoneError }}</p>
@@ -683,7 +692,7 @@ watch(() => branch.currentBranchId, loadServices)
                       <div v-if="showNewCustomerForm" class="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
                         <input v-model="newCustomer.name" placeholder="Name *" class="w-full border border-slate-200 rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-none focus:border-blue-400 transition-all" />
                         <div>
-                          <input v-model="newCustomer.phone" placeholder="Phone * (11 digits)" maxlength="11"
+                          <input :value="displayPhone" @input="onPhoneInput" placeholder="Phone * (11 digits)" maxlength="13"
                             class="w-full border rounded-lg px-2.5 py-2 text-sm bg-white focus:outline-none focus:border-blue-400 transition-all"
                             :class="phoneError ? 'border-red-300' : 'border-slate-200'" />
                           <p v-if="phoneError" class="text-xs text-red-500 mt-1 px-0.5">{{ phoneError }}</p>
