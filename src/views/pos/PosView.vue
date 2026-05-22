@@ -174,8 +174,10 @@ watchEffect(() => {
   // Existing pending free_load rewards
   const existingCount = loyalty.pending_rewards.filter((r) => r.rule?.reward_type === 'free_load').length
 
-  // Rewards earned on this order across all free_load rules
-  const cartStamps = Math.floor(cart.items.reduce((s, i) => s + Number(i.quantity), 0))
+  // Only eligible services earn stamps; ineligible ones are ignored (not blocking)
+  const cartStamps = Math.floor(
+    cart.items.filter((i) => i.is_loyalty_eligible).reduce((s, i) => s + Number(i.quantity), 0)
+  )
   const prospective = loyalty.total_stamps + cartStamps
   const newCount = loyalty.rules
     .filter((r) => r.reward_type === 'free_load')
@@ -378,6 +380,9 @@ watch(() => branch.currentBranchId, loadServices)
               <div class="text-sm font-semibold text-slate-800 leading-tight line-clamp-2">{{ svc.name }}</div>
               <div class="text-xs font-bold mt-1" style="color: #2563eb;">{{ formatPrice(svc) }}</div>
             </div>
+
+            <!-- Loyalty stamp indicator -->
+            <div v-if="svc.is_loyalty_eligible" class="absolute top-1.5 left-1.5 text-[10px] leading-none" title="Earns loyalty stamps">🎫</div>
 
             <!-- In-cart indicator -->
             <div v-if="inCart(svc.id)" class="service-card-check">

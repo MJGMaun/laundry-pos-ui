@@ -38,6 +38,7 @@ export const useCartStore = defineStore('cart', () => {
         service_name: service.name,
         pricing_type: service.pricing_type,
         unit_price: Number(service.price),
+        is_loyalty_eligible: !!service.is_loyalty_eligible,
         quantity: 1,
       })
     }

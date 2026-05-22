@@ -33,7 +33,7 @@ const filtered = computed(() => {
 	return services.value.filter((s) => s.category_id === Number(filterCat.value))
 })
 
-const form = ref({ name: '', category_id: '', pricing_type: 'flat_rate', price: '' })
+const form = ref({ name: '', category_id: '', pricing_type: 'flat_rate', price: '', is_loyalty_eligible: false })
 
 async function load() {
 	loading.value = true
@@ -92,10 +92,10 @@ function remove(id) {
 function openForm(svc = null) {
 	if (svc) {
 		editingId.value = svc.id
-		form.value = { name: svc.name, category_id: svc.category_id || '', pricing_type: svc.pricing_type, price: svc.price }
+		form.value = { name: svc.name, category_id: svc.category_id || '', pricing_type: svc.pricing_type, price: svc.price, is_loyalty_eligible: !!svc.is_loyalty_eligible }
 	} else {
 		editingId.value = null
-		form.value = { name: '', category_id: '', pricing_type: 'flat_rate', price: '' }
+		form.value = { name: '', category_id: '', pricing_type: 'flat_rate', price: '', is_loyalty_eligible: false }
 	}
 	showForm.value = true
 }
@@ -248,6 +248,7 @@ onMounted(load)
 						<th class="text-left px-4 py-3 font-medium text-gray-600">Category</th>
 						<th class="text-left px-4 py-3 font-medium text-gray-600">Pricing</th>
 						<th class="text-right px-4 py-3 font-medium text-gray-600">Price</th>
+						<th class="text-center px-4 py-3 font-medium text-gray-600">Loyalty</th>
 						<th class="text-center px-4 py-3 font-medium text-gray-600">Active</th>
 						<th class="px-4 py-3" />
 					</tr>
@@ -261,6 +262,10 @@ onMounted(load)
 						</td>
 						<td class="px-4 py-3 text-gray-500 capitalize">{{ s.pricing_type?.replace('_', ' ') }}</td>
 						<td class="px-4 py-3 text-right font-semibold text-gray-900">₱{{ Number(s.price).toFixed(2) }}</td>
+						<td class="px-4 py-3 text-center">
+							<span v-if="s.is_loyalty_eligible" class="text-base" title="Earns loyalty stamps">🎫</span>
+							<span v-else class="text-gray-300 text-xs">—</span>
+						</td>
 						<td class="px-4 py-3 text-center">
 							<button class="text-xs px-2 py-0.5 rounded-full font-medium"
 								:class="s.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
@@ -298,6 +303,17 @@ onMounted(load)
 						</select>
 						<input v-model="form.price" type="number" step="0.01" min="0" placeholder="Price *"
 							class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+						<label class="flex items-center gap-3 cursor-pointer select-none pt-1">
+							<div
+								class="w-10 h-5 rounded-full transition-all relative"
+								:class="form.is_loyalty_eligible ? 'bg-blue-600' : 'bg-gray-200'"
+								@click="form.is_loyalty_eligible = !form.is_loyalty_eligible"
+							>
+								<div class="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all"
+									:class="form.is_loyalty_eligible ? 'left-5' : 'left-0.5'" />
+							</div>
+							<span class="text-sm text-gray-700">🎫 Earns loyalty stamps</span>
+						</label>
 					</div>
 					<div class="flex gap-3 mt-5">
 						<button
