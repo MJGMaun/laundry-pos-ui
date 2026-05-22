@@ -25,7 +25,7 @@ async function logout() {
 
 <template>
   <header
-    class="flex items-center gap-3 h-16 px-4 shrink-0 border-b relative z-50"
+    class="flex items-center gap-3 h-16 px-4 shrink-0 border-b sticky top-0 z-50"
     style="background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); border-color: #e2e8f0;"
   >
     <!-- Hamburger -->

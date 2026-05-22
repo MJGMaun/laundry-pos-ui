@@ -12,7 +12,7 @@ const branch = useBranchStore()
   <div class="flex overflow-hidden" style="background: #f8fafc; height: 100dvh;">
     <AppSidebar :open="sidebarOpen" @close="sidebarOpen = false" />
 
-    <div class="flex flex-col flex-1 min-w-0 overflow-hidden">
+    <div class="flex flex-col flex-1 min-w-0">
       <AppHeader @toggle-sidebar="sidebarOpen = !sidebarOpen" />
 
       <main class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
