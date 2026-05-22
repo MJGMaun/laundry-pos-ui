@@ -15,7 +15,7 @@ const branch = useBranchStore()
     <div class="flex flex-col flex-1 min-w-0 overflow-hidden">
       <AppHeader @toggle-sidebar="sidebarOpen = !sidebarOpen" />
 
-      <main class="flex-1 overflow-y-auto">
+      <main class="flex-1 min-h-0 overflow-y-auto">
         <RouterView v-slot="{ Component, route }">
           <Transition name="page" mode="out-in">
             <component :is="Component" :key="route.path + '_' + branch.currentBranchId" />

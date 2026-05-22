@@ -335,7 +335,7 @@ watch(() => branch.currentBranchId, loadServices)
     <!-- ───── LEFT: Service Catalog ───── -->
     <div
       class="flex flex-col bg-slate-50 min-h-0 overflow-hidden sm:flex-1 sm:min-w-0"
-      :class="mobileTab === 'catalog' ? 'flex flex-1 min-w-0' : 'hidden sm:flex'"
+      :class="mobileTab === 'catalog' ? 'flex flex-1 min-w-0 pb-14 sm:pb-0' : 'hidden sm:flex'"
     >
 
       <!-- Category tabs -->
@@ -406,7 +406,7 @@ watch(() => branch.currentBranchId, loadServices)
     <!-- ───── RIGHT: Cart ───── -->
     <div
       class="flex flex-col bg-white border-l border-slate-200 min-h-0 overflow-hidden sm:w-72 lg:w-80 xl:w-96 sm:shrink-0"
-      :class="mobileTab === 'cart' ? 'flex flex-1' : 'hidden sm:flex'"
+      :class="mobileTab === 'cart' ? 'flex flex-1 pb-14 sm:pb-0' : 'hidden sm:flex'"
     >
 
       <!-- Customer section -->
@@ -626,7 +626,7 @@ watch(() => branch.currentBranchId, loadServices)
     </div>
 
     <!-- ───── Mobile Tab Bar ───── -->
-    <div class="sm:hidden shrink-0 flex border-t border-slate-200 bg-white z-10">
+    <div class="fixed bottom-0 left-0 right-0 sm:hidden flex border-t border-slate-200 bg-white z-20">
       <button
         class="flex-1 py-2.5 flex flex-col items-center gap-0.5 text-xs font-semibold transition-colors"
         :class="mobileTab === 'catalog' ? 'text-blue-600' : 'text-slate-400'"
