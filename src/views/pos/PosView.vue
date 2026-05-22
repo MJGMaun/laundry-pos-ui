@@ -248,7 +248,12 @@ async function processPayment() {
   if (!cart.items.length) { paymentError.value = 'Cart is empty.'; return }
   processingPayment.value = true
   paymentError.value = ''
-  const clientId = crypto.randomUUID()
+  const clientId = crypto.randomUUID
+    ? crypto.randomUUID()
+    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0
+        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16)
+      })
   try {
     const orderRes = await createOrder({
       client_id: clientId,
