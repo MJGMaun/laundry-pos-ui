@@ -22,7 +22,7 @@ const showUsers = ref(false)
 const newUserId = ref('')
 const assigningUser = ref(false)
 
-const form = ref({ name: '', address: '', phone: '', email: '', tin: '' })
+const form = ref({ name: '', address: '', phone: '', email: '', tin: '', is_test: false })
 
 async function load() {
   loading.value = true
@@ -128,10 +128,10 @@ function removeUserFromBranch(user) {
 function openForm(branch = null) {
   if (branch) {
     editingId.value = branch.id
-    form.value = { name: branch.name, address: branch.address || '', phone: branch.phone || '', email: branch.email || '', tin: branch.tin || '' }
+    form.value = { name: branch.name, address: branch.address || '', phone: branch.phone || '', email: branch.email || '', tin: branch.tin || '', is_test: !!branch.is_test }
   } else {
     editingId.value = null
-    form.value = { name: '', address: '', phone: '', email: '', tin: '' }
+    form.value = { name: '', address: '', phone: '', email: '', tin: '', is_test: false }
   }
   showForm.value = true
 }
@@ -172,7 +172,10 @@ onMounted(load)
         </thead>
         <tbody class="divide-y divide-gray-100">
           <tr v-for="b in branches" :key="b.id">
-            <td class="px-4 py-3 font-medium text-gray-900">{{ b.name }}</td>
+            <td class="px-4 py-3 font-medium text-gray-900">
+              {{ b.name }}
+              <span v-if="b.is_test" class="ml-1.5 px-1.5 py-0.5 text-xs font-medium bg-orange-100 text-orange-700 rounded">Test</span>
+            </td>
             <td class="px-4 py-3 text-gray-500">{{ b.address || '—' }}</td>
             <td class="px-4 py-3 text-gray-600">{{ b.phone || '—' }}</td>
             <td class="px-4 py-3 text-center">
@@ -204,6 +207,20 @@ onMounted(load)
             <input v-model="form.phone" placeholder="Phone" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             <input v-model="form.email" placeholder="Email" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             <input v-model="form.tin" placeholder="TIN" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+            <label class="flex items-center gap-3 cursor-pointer select-none pt-1">
+              <button
+                type="button"
+                class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
+                :class="form.is_test ? 'bg-orange-500' : 'bg-gray-300'"
+                @click="form.is_test = !form.is_test"
+              >
+                <span
+                  class="inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform"
+                  :class="form.is_test ? 'translate-x-4.5' : 'translate-x-0.5'"
+                />
+              </button>
+              <span class="text-sm text-gray-700">Test branch <span class="text-gray-400 text-xs">(excluded from reports)</span></span>
+            </label>
           </div>
           <div class="flex gap-3 mt-5">
             <button class="flex-1 border border-gray-300 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-gray-50" @click="closeForm">Cancel</button>
