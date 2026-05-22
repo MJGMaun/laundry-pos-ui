@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Prevent double-tap zoom on touch devices */
+html {
+  touch-action: manipulation;
+}
+
 /* ─────────────────────────────────────────
    Design tokens
 ───────────────────────────────────────── */
