@@ -8,6 +8,7 @@ import { updateLoadStatus, addLoads } from '@/api/loads.js'
 import { getBranchServices } from '@/api/branches.js'
 import { useBranchStore } from '@/stores/branch.js'
 import { createPayment } from '@/api/payments.js'
+import { getCustomerLoyalty } from '@/api/loyalty.js'
 import { useAuthStore } from '@/stores/auth.js'
 import { useQueueStore } from '@/stores/queue.js'
 import { isOfflineError } from '@/offline/isOfflineError.js'
@@ -192,6 +193,52 @@ const addLoadsRows  = ref([])
 const addLoadsError = ref('')
 const savingLoads   = ref(false)
 const services      = ref([])
+const addLoadsLoyalty = ref(null)
+
+// Step size per service (0.5 for per_kilo, 1 for everything else)
+function rowStep(serviceId) {
+  const svc = services.value.find((s) => s.id === Number(serviceId))
+  return svc?.pricing_type === 'per_kilo' ? 0.5 : 1
+}
+
+// Mirror the POS watchEffect: compute free loads + discount for the rows being added
+const addLoadsLoyaltyResult = computed(() => {
+  const loyalty = addLoadsLoyalty.value
+  if (!loyalty) return null
+  const rows = addLoadsRows.value.filter((r) => r.service_id)
+  if (!rows.length) return null
+
+  const newStamps = Math.floor(
+    rows.reduce((sum, r) => {
+      const svc = services.value.find((s) => s.id === Number(r.service_id))
+      return svc?.is_loyalty_eligible ? sum + Number(r.quantity || 0) : sum
+    }, 0)
+  )
+
+  const prospective = loyalty.total_stamps + newStamps
+  const existingCount = loyalty.pending_rewards.filter((r) => r.rule?.reward_type === 'free_load').length
+  const newCount = loyalty.rules
+    .filter((r) => r.reward_type === 'free_load')
+    .reduce((sum, rule) => {
+      const prev = Math.floor(loyalty.total_stamps / rule.every_n_stamps)
+      const next = Math.floor(prospective / rule.every_n_stamps)
+      return sum + Math.max(0, next - prev)
+    }, 0)
+
+  const totalFreeLoads = existingCount + newCount
+  if (totalFreeLoads === 0) return null
+
+  const expandedPrices = rows
+    .flatMap((r) => {
+      const svc = services.value.find((s) => s.id === Number(r.service_id))
+      if (!svc) return []
+      return Array(Math.max(1, Math.floor(Number(r.quantity || 1)))).fill(Number(svc.price))
+    })
+    .sort((a, b) => b - a)
+
+  const discount = expandedPrices.slice(0, totalFreeLoads).reduce((s, p) => s + p, 0)
+  return { count: totalFreeLoads, discount }
+})
 
 async function openAddLoads() {
   if (!services.value.length) {
@@ -202,6 +249,14 @@ async function openAddLoads() {
       toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to load services', life: 4000 })
       return
     }
+  }
+  // Fetch loyalty for the order's customer
+  addLoadsLoyalty.value = null
+  if (order.value?.customer?.id) {
+    try {
+      const res = await getCustomerLoyalty(order.value.customer.id)
+      addLoadsLoyalty.value = res.data
+    } catch {}
   }
   addLoadsRows.value = [{ service_id: '', quantity: 1 }]
   addLoadsError.value = ''
@@ -220,7 +275,11 @@ async function saveLoads() {
   savingLoads.value = true
   addLoadsError.value = ''
   try {
-    await addLoads(order.value.id, { loads: addLoadsRows.value })
+    const loyalty = addLoadsLoyaltyResult.value
+    await addLoads(order.value.id, {
+      loads: addLoadsRows.value,
+      ...(loyalty ? { discount_amount: loyalty.discount, loyalty_free_loads: loyalty.count } : {}),
+    })
     showAddLoads.value = false
     await load()
     toast.add({ severity: 'success', summary: 'Loads added', life: 2500 })
@@ -390,11 +449,24 @@ onMounted(load)
                   {{ s.name }} — ₱{{ fmt(s.price) }}
                 </option>
               </select>
-              <input
-                v-model="row.quantity"
-                type="number" min="0.01" step="0.5"
-                class="w-20 border border-slate-200 rounded-xl px-3 py-2 text-sm text-center focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
-              />
+
+              <!-- Qty stepper -->
+              <div class="flex items-center gap-1 shrink-0">
+                <button
+                  class="al-qty-btn"
+                  @click="row.quantity = Math.max(rowStep(row.service_id), Number(row.quantity) - rowStep(row.service_id))"
+                >−</button>
+                <input
+                  v-model.number="row.quantity"
+                  type="number" min="0.01" step="0.5"
+                  class="w-14 text-center border border-slate-200 rounded-lg px-1 py-1.5 text-sm focus:outline-none focus:border-blue-400 transition-all"
+                />
+                <button
+                  class="al-qty-btn"
+                  @click="row.quantity = Number(row.quantity) + rowStep(row.service_id)"
+                >+</button>
+              </div>
+
               <button
                 v-if="addLoadsRows.length > 1"
                 class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all shrink-0"
@@ -406,6 +478,32 @@ onMounted(load)
               class="text-xs text-blue-600 font-medium hover:text-blue-700 transition-colors"
               @click="addLoadRow"
             >+ Add another service</button>
+
+            <!-- Loyalty preview (mirrors POS stamp card) -->
+            <div v-if="addLoadsLoyalty" class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 space-y-2">
+              <div v-for="rule in addLoadsLoyalty.rules" :key="rule.id" class="space-y-1">
+                <div class="flex justify-between items-center">
+                  <span class="text-xs text-slate-500">{{ rule.reward_description }}</span>
+                  <span class="text-xs font-semibold text-slate-700">
+                    {{ addLoadsLoyalty.total_stamps % rule.every_n_stamps }}/{{ rule.every_n_stamps }}
+                  </span>
+                </div>
+                <div class="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                  <div
+                    class="h-full rounded-full transition-all duration-500"
+                    style="background: linear-gradient(90deg, #3b82f6, #6366f1);"
+                    :style="`width: ${((addLoadsLoyalty.total_stamps % rule.every_n_stamps) / rule.every_n_stamps) * 100}%`"
+                  />
+                </div>
+              </div>
+              <div
+                v-if="addLoadsLoyaltyResult"
+                class="flex items-center justify-between text-xs font-semibold text-green-700 bg-green-50 border border-green-200 rounded-lg px-2.5 py-2"
+              >
+                <span>🎁 {{ addLoadsLoyaltyResult.count > 1 ? `${addLoadsLoyaltyResult.count}× free loads` : '1 free load' }} will apply</span>
+                <span>−₱{{ fmt(addLoadsLoyaltyResult.discount) }}</span>
+              </div>
+            </div>
 
             <div v-if="addLoadsError" class="text-xs text-red-500 font-medium px-1">{{ addLoadsError }}</div>
 
@@ -638,6 +736,25 @@ onMounted(load)
 <style scoped>
 .animate-spin { animation: spin 800ms linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+.al-qty-btn {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #f1f5f9;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: #475569;
+  transition: all 120ms ease;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.al-qty-btn:hover { background: #e2e8f0; color: #0f172a; }
+.al-qty-btn:active { transform: scale(0.88); }
 
 .slide-down-enter-active, .slide-down-leave-active { transition: all 220ms ease; overflow: hidden; }
 .slide-down-enter-from, .slide-down-leave-to { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; }
