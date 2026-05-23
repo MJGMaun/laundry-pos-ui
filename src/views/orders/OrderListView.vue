@@ -54,6 +54,23 @@ function fmtDate(d) {
   return new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
+function isPaid(order) {
+  return Number(order.paid_amount) >= Number(order.total_amount)
+}
+
+function isDone(order) {
+  return ['completed', 'picked_up'].includes(order.status)
+}
+
+// Left-border accent colour driven by urgency: unpaid > status
+function accentClass(order) {
+  if (!isPaid(order) && !isDone(order)) return 'border-l-4 border-amber-400'
+  if (order.status === 'ready')      return 'border-l-4 border-green-400'
+  if (order.status === 'in_process') return 'border-l-4 border-blue-400'
+  if (order.status === 'pending')    return 'border-l-4 border-slate-300'
+  return 'border-l-4 border-transparent' // completed / picked_up
+}
+
 onMounted(load)
 </script>
 
@@ -156,41 +173,49 @@ onMounted(load)
           <div
             v-for="(order, i) in orders"
             :key="order.id"
-            class="px-4 py-3.5 cursor-pointer hover:bg-blue-50/40 active:bg-blue-50 transition-colors animate-slide-up"
+            class="pl-0 pr-4 py-3.5 cursor-pointer transition-colors animate-slide-up"
+            :class="[
+              accentClass(order),
+              isDone(order)
+                ? 'opacity-50 hover:opacity-75 bg-slate-50/60'
+                : (!isPaid(order) ? 'bg-amber-50/40 hover:bg-amber-50/70' : 'hover:bg-blue-50/40 active:bg-blue-50'),
+            ]"
             :style="`animation-delay: ${i * 25}ms`"
             @click="router.push('/orders/' + order.id)"
           >
-            <!-- Row 1: order number + status badge -->
-            <div class="flex items-center justify-between gap-2 mb-1.5">
-              <span class="font-mono text-xs font-semibold text-slate-600">{{ order.order_number }}</span>
-              <span :class="['badge', `badge-${order.status}`]">{{ order.status?.replace('_', ' ') }}</span>
-            </div>
-
-            <!-- Row 2: customer -->
-            <div class="flex items-center gap-1.5 mb-2">
-              <template v-if="order.customer">
-                <div
-                  class="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
-                  :style="`background: hsl(${(order.customer.name?.charCodeAt(0) * 7) % 360}, 65%, 55%);`"
-                >{{ order.customer.name?.charAt(0).toUpperCase() }}</div>
-                <span class="text-sm font-medium text-slate-700">{{ order.customer.name }}</span>
-              </template>
-              <span v-else class="text-sm text-slate-400">Walk-in</span>
-            </div>
-
-            <!-- Row 3: loads · date  |  total + paid badge -->
-            <div class="flex items-end justify-between gap-2">
-              <div class="text-xs text-slate-400 leading-snug">
-                <span>{{ order.loads ? order.loads.reduce((s, l) => s + Number(l.quantity), 0) : (order.loads_count ?? 0) }} load(s)</span>
-                <span class="mx-1">·</span>
-                <span>{{ fmtDate(order.created_at) }}</span>
+            <div class="pl-3">
+              <!-- Row 1: order number + status badge -->
+              <div class="flex items-center justify-between gap-2 mb-1.5">
+                <span class="font-mono text-xs font-semibold" :class="isDone(order) ? 'text-slate-400' : 'text-slate-600'">{{ order.order_number }}</span>
+                <span :class="['badge', `badge-${order.status}`]">{{ order.status?.replace('_', ' ') }}</span>
               </div>
-              <div class="text-right shrink-0">
-                <div class="font-bold text-slate-900 text-sm">₱{{ fmt(order.total_amount) }}</div>
-                <div
-                  class="text-[11px] font-semibold mt-0.5"
-                  :class="Number(order.paid_amount) >= Number(order.total_amount) ? 'text-green-600' : 'text-amber-500'"
-                >{{ Number(order.paid_amount) >= Number(order.total_amount) ? '✓ Paid' : 'Unpaid' }}</div>
+
+              <!-- Row 2: customer -->
+              <div class="flex items-center gap-1.5 mb-2">
+                <template v-if="order.customer">
+                  <div
+                    class="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
+                    :style="`background: hsl(${(order.customer.name?.charCodeAt(0) * 7) % 360}, 65%, 55%);`"
+                  >{{ order.customer.name?.charAt(0).toUpperCase() }}</div>
+                  <span class="text-sm font-medium" :class="isDone(order) ? 'text-slate-400' : 'text-slate-700'">{{ order.customer.name }}</span>
+                </template>
+                <span v-else class="text-sm text-slate-400">Walk-in</span>
+              </div>
+
+              <!-- Row 3: loads · date  |  total + paid badge -->
+              <div class="flex items-end justify-between gap-2">
+                <div class="text-xs text-slate-400 leading-snug">
+                  <span>{{ order.loads ? order.loads.reduce((s, l) => s + Number(l.quantity), 0) : (order.loads_count ?? 0) }} load(s)</span>
+                  <span class="mx-1">·</span>
+                  <span>{{ fmtDate(order.created_at) }}</span>
+                </div>
+                <div class="text-right shrink-0">
+                  <div class="font-bold text-sm" :class="isDone(order) ? 'text-slate-400' : 'text-slate-900'">₱{{ fmt(order.total_amount) }}</div>
+                  <div
+                    class="text-[11px] font-semibold mt-0.5"
+                    :class="isPaid(order) ? 'text-green-600' : 'text-amber-600'"
+                  >{{ isPaid(order) ? '✓ Paid' : '⚠ Unpaid' }}</div>
+                </div>
               </div>
             </div>
           </div>
@@ -212,35 +237,44 @@ onMounted(load)
             <tr
               v-for="(order, i) in orders"
               :key="order.id"
-              class="border-b border-slate-50 last:border-0 hover:bg-blue-50/40 cursor-pointer transition-colors duration-100 animate-slide-up"
+              class="border-b border-slate-50 last:border-0 cursor-pointer transition-colors duration-100 animate-slide-up"
+              :class="[
+                isDone(order)
+                  ? 'opacity-50 hover:opacity-75 bg-slate-50/60'
+                  : (!isPaid(order) ? 'bg-amber-50/50 hover:bg-amber-50' : 'hover:bg-blue-50/40'),
+              ]"
               :style="`animation-delay: ${i * 25}ms`"
               @click="router.push('/orders/' + order.id)"
             >
-              <td class="px-5 py-3.5 font-mono text-xs text-slate-600 font-medium">{{ order.order_number }}</td>
+              <!-- Accent bar via first cell left border -->
+              <td
+                class="py-3.5 font-mono text-xs font-medium"
+                :class="[accentClass(order), isDone(order) ? 'text-slate-400 pl-4 pr-3' : 'text-slate-600 pl-4 pr-3']"
+              >{{ order.order_number }}</td>
               <td class="px-5 py-3.5">
                 <div v-if="order.customer" class="flex items-center gap-2">
                   <div class="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
                     :style="`background: hsl(${(order.customer.name?.charCodeAt(0) * 7) % 360}, 65%, 55%);`">
                     {{ order.customer.name?.charAt(0).toUpperCase() }}
                   </div>
-                  <span class="text-slate-700 font-medium">{{ order.customer.name }}</span>
+                  <span class="font-medium" :class="isDone(order) ? 'text-slate-400' : 'text-slate-700'">{{ order.customer.name }}</span>
                 </div>
                 <span v-else class="text-slate-400">—</span>
               </td>
               <td class="px-5 py-3.5">
                 <span :class="['badge', `badge-${order.status}`]">{{ order.status?.replace('_', ' ') }}</span>
               </td>
-              <td class="px-5 py-3.5 text-slate-500">
+              <td class="px-5 py-3.5" :class="isDone(order) ? 'text-slate-400' : 'text-slate-500'">
                 {{ order.loads ? order.loads.reduce((s, l) => s + Number(l.quantity), 0) : (order.loads_count ?? '—') }}
               </td>
               <td class="px-5 py-3.5 text-right">
-                <div class="font-bold text-slate-900">₱{{ fmt(order.total_amount) }}</div>
-                <div class="text-xs mt-0.5"
-                  :class="Number(order.paid_amount) >= Number(order.total_amount) ? 'text-green-600 font-medium' : 'text-amber-500 font-medium'">
-                  {{ Number(order.paid_amount) >= Number(order.total_amount) ? '✓ Paid' : 'Unpaid' }}
+                <div class="font-bold" :class="isDone(order) ? 'text-slate-400' : 'text-slate-900'">₱{{ fmt(order.total_amount) }}</div>
+                <div class="text-xs mt-0.5 font-semibold"
+                  :class="isPaid(order) ? 'text-green-600' : 'text-amber-600'">
+                  {{ isPaid(order) ? '✓ Paid' : '⚠ Unpaid' }}
                 </div>
               </td>
-              <td class="hidden md:table-cell px-5 py-3.5 text-slate-400 text-xs">{{ fmtDate(order.created_at) }}</td>
+              <td class="hidden md:table-cell px-5 py-3.5 text-xs" :class="isDone(order) ? 'text-slate-300' : 'text-slate-400'">{{ fmtDate(order.created_at) }}</td>
             </tr>
           </tbody>
         </table>
