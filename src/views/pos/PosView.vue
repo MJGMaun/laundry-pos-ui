@@ -57,6 +57,21 @@ const payments = ref([{ method: 'cash', amount: '', tendered: '', reference_numb
 const paymentError = ref('')
 const processingPayment = ref(false)
 const payLater = ref(false)
+const savedPayments = ref(null)
+
+function enablePayLater() {
+  savedPayments.value = JSON.parse(JSON.stringify(payments.value))
+  payLater.value = true
+  payments.value = [{ method: 'cash', amount: '', tendered: '', reference_number: '' }]
+}
+
+function disablePayLater() {
+  payLater.value = false
+  if (savedPayments.value) {
+    payments.value = savedPayments.value
+    savedPayments.value = null
+  }
+}
 
 const lastOrder = ref(null)
 const showSuccess = ref(false)
@@ -267,11 +282,28 @@ async function processPayment() {
     })
     const order = orderRes.data.data || orderRes.data
 
-    if (!payLater.value) {
+    if (payLater.value) {
+      // In pay later mode the single field is "tendered" (the down payment).
+      // Validate it doesn't exceed the order total.
+      const totalDown = payments.value.reduce((s, p) => s + Number(p.tendered || 0), 0)
+      if (totalDown > cart.total) {
+        paymentError.value = `Down payment (₱${fmt(totalDown)}) cannot exceed total of ₱${fmt(cart.total)}.`
+        processingPayment.value = false
+        return
+      }
+      // Record only rows where the cashier actually entered a down payment
+      for (const p of payments.value.filter((p) => Number(p.tendered) > 0)) {
+        const down = Number(p.tendered)
+        const payData = { method: p.method, amount: down, type: 'payment' }
+        if (p.method === 'cash') payData.tendered = down
+        else payData.reference_number = p.reference_number || ''
+        await createPayment(order.id, payData)
+      }
+    } else {
       const payableRows = payments.value.filter((p) => Number(p.amount) > 0)
       for (const p of payableRows) {
         const payData = { method: p.method, amount: Number(p.amount), type: 'payment' }
-        if (p.method === 'cash') payData.tendered = Number(p.tendered || p.amount)
+        if (p.method === 'cash') payData.tendered = Number(p.tendered) || Number(p.amount)
         else payData.reference_number = p.reference_number || ''
         await createPayment(order.id, payData)
       }
@@ -797,71 +829,120 @@ watch(() => branch.currentBranchId, loadServices)
                     <button v-if="payments.length > 1" class="w-7 h-7 flex items-center justify-center rounded-full bg-red-100 text-red-500 hover:bg-red-200 transition-colors text-xs" @click="payments.splice(i, 1)">✕</button>
                   </div>
 
-                  <div class="flex items-center gap-2">
-                    <span class="text-xs text-slate-500 w-16 shrink-0">Amount</span>
-                    <div class="relative flex-1">
-                      <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">₱</span>
-                      <input
-                        v-model="p.amount"
-                        type="number" step="0.01" min="0"
-                        class="w-full border border-slate-200 rounded-xl pl-7 pr-3 py-2 text-sm text-right focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
-                      />
-                    </div>
-                  </div>
-
-                  <!-- Cash: tendered + change -->
-                  <template v-if="p.method === 'cash'">
+                  <!-- ── PAY LATER: single "Down payment" field ── -->
+                  <template v-if="payLater">
                     <div class="flex items-center gap-2">
-                      <span class="text-xs text-slate-500 w-16 shrink-0">Tendered</span>
+                      <span class="text-xs text-slate-500 w-20 shrink-0">Down payment</span>
                       <div class="relative flex-1">
                         <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">₱</span>
                         <input
                           v-model="p.tendered"
                           type="number" step="1" min="0"
-                          placeholder="Amount given"
-                          class="w-full border border-slate-200 rounded-xl pl-7 pr-3 py-2 text-sm text-right focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
-                          @focus="() => { if (!p.tendered) p.tendered = p.amount }"
+                          placeholder="0"
+                          class="w-full border rounded-xl pl-7 pr-3 py-2 text-sm text-right focus:outline-none focus:ring-2 transition-all"
+                          :class="Number(p.tendered) > cart.total
+                            ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
+                            : 'border-slate-200 focus:border-blue-400 focus:ring-blue-100'"
                         />
                       </div>
                     </div>
-                    <div class="flex gap-1 flex-wrap">
+                    <!-- Over-payment warning -->
+                    <div v-if="Number(p.tendered) > cart.total" class="flex items-center gap-1.5 text-xs text-red-500 font-medium px-1">
+                      <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                      Down payment cannot exceed total of ₱{{ fmt(cart.total) }}
+                    </div>
+                    <!-- Quick cash buttons (cash only) -->
+                    <div v-if="p.method === 'cash'" class="flex gap-1 flex-wrap">
                       <button
                         v-for="d in [20, 50, 100, 200, 500, 1000]"
                         :key="d"
                         class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-slate-600 hover:border-blue-400 hover:text-blue-600 active:scale-95 transition-all"
-                        @click="p.tendered = String(Number(p.tendered || 0) + d)"
+                        @click="p.tendered = String(Math.min(Number(p.tendered || 0) + d, cart.total))"
                       >+{{ d }}</button>
                       <button
                         class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-red-400 hover:border-red-300 hover:text-red-500 active:scale-95 transition-all"
                         @click="p.tendered = ''"
                       >Clear</button>
                     </div>
-                    <Transition name="scale-in">
-                      <div
-                        v-if="Number(p.tendered) >= Number(p.amount) && Number(p.amount) > 0"
-                        class="flex items-center justify-between px-3 py-2 rounded-xl"
-                        style="background: linear-gradient(135deg, #dcfce7, #bbf7d0);"
-                      >
-                        <span class="text-sm font-medium text-green-700">Change</span>
-                        <span class="text-lg font-bold text-green-700">₱{{ fmt(Number(p.tendered) - Number(p.amount)) }}</span>
-                      </div>
-                    </Transition>
+                    <!-- Digital: reference -->
+                    <div v-if="p.method !== 'cash'" class="flex items-center gap-2">
+                      <span class="text-xs text-slate-500 w-20 shrink-0">Ref #</span>
+                      <input
+                        v-model="p.reference_number"
+                        placeholder="Transaction reference"
+                        class="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+                      />
+                    </div>
                   </template>
 
-                  <!-- Digital: reference -->
-                  <div v-else class="flex items-center gap-2">
-                    <span class="text-xs text-slate-500 w-16 shrink-0">Ref #</span>
-                    <input
-                      v-model="p.reference_number"
-                      placeholder="Transaction reference"
-                      class="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
-                    />
-                  </div>
+                  <!-- ── NORMAL: Amount + Tendered ── -->
+                  <template v-else>
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs text-slate-500 w-16 shrink-0">Amount</span>
+                      <div class="relative flex-1">
+                        <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">₱</span>
+                        <input
+                          v-model="p.amount"
+                          type="number" step="0.01" min="0"
+                          class="w-full border border-slate-200 rounded-xl pl-7 pr-3 py-2 text-sm text-right focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <!-- Cash: tendered + change -->
+                    <template v-if="p.method === 'cash'">
+                      <div class="flex items-center gap-2">
+                        <span class="text-xs text-slate-500 w-16 shrink-0">Tendered</span>
+                        <div class="relative flex-1">
+                          <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">₱</span>
+                          <input
+                            v-model="p.tendered"
+                            type="number" step="1" min="0"
+                            placeholder="Amount given"
+                            class="w-full border border-slate-200 rounded-xl pl-7 pr-3 py-2 text-sm text-right focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+                            @focus="() => { if (!p.tendered) p.tendered = p.amount }"
+                          />
+                        </div>
+                      </div>
+                      <div class="flex gap-1 flex-wrap">
+                        <button
+                          v-for="d in [20, 50, 100, 200, 500, 1000]"
+                          :key="d"
+                          class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-slate-600 hover:border-blue-400 hover:text-blue-600 active:scale-95 transition-all"
+                          @click="p.tendered = String(Number(p.tendered || 0) + d)"
+                        >+{{ d }}</button>
+                        <button
+                          class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-red-400 hover:border-red-300 hover:text-red-500 active:scale-95 transition-all"
+                          @click="p.tendered = ''"
+                        >Clear</button>
+                      </div>
+                      <Transition name="scale-in">
+                        <div
+                          v-if="Number(p.tendered) >= Number(p.amount) && Number(p.amount) > 0"
+                          class="flex items-center justify-between px-3 py-2 rounded-xl"
+                          style="background: linear-gradient(135deg, #dcfce7, #bbf7d0);"
+                        >
+                          <span class="text-sm font-medium text-green-700">Change</span>
+                          <span class="text-lg font-bold text-green-700">₱{{ fmt(Number(p.tendered) - Number(p.amount)) }}</span>
+                        </div>
+                      </Transition>
+                    </template>
+
+                    <!-- Digital: reference -->
+                    <div v-else class="flex items-center gap-2">
+                      <span class="text-xs text-slate-500 w-16 shrink-0">Ref #</span>
+                      <input
+                        v-model="p.reference_number"
+                        placeholder="Transaction reference"
+                        class="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+                      />
+                    </div>
+                  </template>
                 </div>
 
-                <!-- Split payment button -->
+                <!-- Split payment button (not shown in pay later mode) -->
                 <button
-                  v-if="remainingAfterPayments > 0.01"
+                  v-if="!payLater && remainingAfterPayments > 0.01"
                   class="w-full text-sm text-blue-600 font-medium py-2.5 border-2 border-dashed border-blue-200 rounded-2xl hover:bg-blue-50 hover:border-blue-300 transition-all active:scale-[0.98]"
                   @click="addPaymentRow"
                 >
@@ -896,13 +977,13 @@ watch(() => branch.currentBranchId, loadServices)
                   v-if="!payLater"
                   class="w-full py-2.5 rounded-2xl text-sm font-medium text-slate-400 hover:text-slate-600 hover:bg-slate-50 border border-dashed border-slate-200 transition-all active:scale-[0.98]"
                   :disabled="processingPayment"
-                  @click="payLater = true; payments = [{ method: 'cash', amount: cart.total.toFixed(2), tendered: '0', reference_number: '' }]"
+                  @click="enablePayLater"
                 >
                   Pay later — create order without payment
                 </button>
                 <div v-else class="flex items-center justify-between px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-700 font-medium">
                   <span>Order will be created unpaid</span>
-                  <button class="text-amber-500 hover:text-amber-700 transition-colors" @click="payLater = false">Undo</button>
+                  <button class="text-amber-500 hover:text-amber-700 transition-colors" @click="disablePayLater">Undo</button>
                 </div>
               </div>
             </div>
