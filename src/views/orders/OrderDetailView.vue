@@ -2,7 +2,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
-import { getOrder, updateOrderStatus, updateOrder } from '@/api/orders.js'
+import { useConfirm } from 'primevue/useconfirm'
+import { getOrder, updateOrderStatus, updateOrder, deleteOrder } from '@/api/orders.js'
 import { updateLoadStatus, addLoads } from '@/api/loads.js'
 import { getBranchServices } from '@/api/branches.js'
 import { useBranchStore } from '@/stores/branch.js'
@@ -11,10 +12,11 @@ import { useAuthStore } from '@/stores/auth.js'
 import { useQueueStore } from '@/stores/queue.js'
 import { isOfflineError } from '@/offline/isOfflineError.js'
 
-const route  = useRoute()
-const router = useRouter()
-const toast  = useToast()
-const auth   = useAuthStore()
+const route   = useRoute()
+const router  = useRouter()
+const toast   = useToast()
+const confirm = useConfirm()
+const auth    = useAuthStore()
 const queue  = useQueueStore()
 const branch = useBranchStore()
 
@@ -38,6 +40,38 @@ const outstandingBalance = computed(() => {
   }, 0)
   return Math.max(0, Number(order.value.total_amount) - paid)
 })
+
+// Admins can always delete; cashiers/staff only within 15 minutes of creation
+const canDelete = computed(() => {
+  if (!order.value) return false
+  if (auth.isAdmin) return true
+  const cutoff = new Date(new Date(order.value.created_at).getTime() + 15 * 60 * 1000)
+  return new Date() < cutoff
+})
+
+const deletingOrder = ref(false)
+
+function confirmDelete() {
+  confirm.require({
+    message: `Delete order ${order.value.order_number}? This cannot be undone.`,
+    header: 'Delete Order',
+    icon: 'pi pi-exclamation-triangle',
+    rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
+    acceptProps: { label: 'Delete', severity: 'danger' },
+    accept: async () => {
+      deletingOrder.value = true
+      try {
+        await deleteOrder(order.value.id)
+        toast.add({ severity: 'success', summary: 'Order deleted', life: 3000 })
+        router.replace('/orders')
+      } catch (e) {
+        toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to delete order.', life: 4000 })
+      } finally {
+        deletingOrder.value = false
+      }
+    },
+  })
+}
 
 const orderStatusNext = { pending: 'in_process', in_process: 'ready', ready: 'completed' }
 const loadStatusNext  = { in_process: 'ready', ready: 'picked_up' }
@@ -237,6 +271,16 @@ onMounted(load)
         @click="router.back()"
       >←</button>
       <h1 class="text-2xl font-bold text-slate-900">Order Detail</h1>
+      <div class="flex-1" />
+      <button
+        v-if="canDelete"
+        :disabled="deletingOrder"
+        class="flex items-center gap-1.5 text-xs font-semibold text-red-500 border border-red-200 hover:bg-red-50 px-3 py-2 rounded-xl transition-all active:scale-95 disabled:opacity-50"
+        @click="confirmDelete"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+        Delete
+      </button>
     </div>
 
     <!-- Skeleton -->
