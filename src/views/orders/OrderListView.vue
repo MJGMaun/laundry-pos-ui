@@ -3,8 +3,10 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import DatePicker from 'primevue/datepicker'
 import { getOrders } from '@/api/orders.js'
+import { useAuthStore } from '@/stores/auth.js'
 
 const router = useRouter()
+const auth = useAuthStore()
 const orders = ref([])
 const loading = ref(false)
 const page = ref(1)
@@ -100,6 +102,7 @@ onMounted(load)
         </div>
 
         <button
+          v-if="auth.isSuperAdmin"
           class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border transition-all duration-150 whitespace-nowrap"
           :class="filters.unpaid
             ? 'bg-amber-50 border-amber-300 text-amber-700'
