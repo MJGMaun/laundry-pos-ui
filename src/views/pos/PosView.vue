@@ -416,7 +416,7 @@ watch(() => branch.currentBranchId, loadServices)
             class="service-card animate-scale-in"
             :class="inCart(svc.id) ? 'service-card-active' : ''"
             :style="`animation-delay: ${i * 20}ms`"
-            @click="cart.addItem(svc)"
+            @click="inCart(svc.id) ? cart.removeItem(svc.id) : cart.addItem(svc)"
           >
             <div class="service-card-emoji">{{ serviceEmoji(svc) }}</div>
             <div class="text-left min-w-0 w-full">
@@ -427,10 +427,13 @@ watch(() => branch.currentBranchId, loadServices)
             <!-- Loyalty stamp indicator -->
             <div v-if="svc.is_loyalty_eligible" class="absolute top-1.5 left-1.5 text-[10px] leading-none" title="Earns loyalty stamps">🎫</div>
 
-            <!-- In-cart indicator -->
+            <!-- In-cart indicator: shows ✓ normally, ✕ on hover to hint removal -->
             <div v-if="inCart(svc.id)" class="service-card-check">
-              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="check-icon w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+              </svg>
+              <svg class="remove-icon w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/>
               </svg>
             </div>
 
@@ -1089,6 +1092,17 @@ watch(() => branch.currentBranchId, loadServices)
   border-color: #2563eb !important;
   background: #eff6ff !important;
 }
+.service-card-active:hover {
+  border-color: #f87171 !important;
+  background: #fff1f2 !important;
+  box-shadow: 0 8px 24px rgba(239,68,68,0.12) !important;
+}
+.service-card-active:hover .service-card-check {
+  background: #dc2626;
+}
+.remove-icon { display: none; }
+.service-card-active:hover .check-icon { display: none; }
+.service-card-active:hover .remove-icon { display: block; }
 .service-card-emoji {
   font-size: 28px;
   line-height: 1;
