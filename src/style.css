@@ -172,14 +172,13 @@ body {
   text-transform: capitalize;
 }
 .badge-pending    { background: #fef3c7; color: #92400e; }
-.badge-in_process { background: #dbeafe; color: #1d4ed8; }
 .badge-ready      { background: #dcfce7; color: #166534; }
+.badge-to_collect { background: #fff7ed; color: #c2410c; }
 .badge-completed  { background: #f1f5f9; color: #64748b; }
-.badge-picked_up  { background: #ede9fe; color: #6d28d9; }
 
 /* Pulse dot for active statuses */
-.badge-in_process::before,
-.badge-ready::before {
+.badge-ready::before,
+.badge-to_collect::before {
   content: '';
   width: 6px;
   height: 6px;

@@ -23,8 +23,8 @@ const totalPages = computed(() => Math.ceil(total.value / perPage.value))
 const statusOptions = [
   { value: '', label: 'All' },
   { value: 'pending', label: 'Pending' },
-  { value: 'in_process', label: 'In Process' },
   { value: 'ready', label: 'Ready' },
+  { value: 'to_collect', label: 'To Collect' },
   { value: 'completed', label: 'Completed' },
 ]
 
@@ -59,16 +59,16 @@ function isPaid(order) {
 }
 
 function isDone(order) {
-  return ['completed', 'picked_up'].includes(order.status)
+  return order.status === 'completed'
 }
 
 // Left-border accent colour driven by urgency: unpaid > status
 function accentClass(order) {
   if (!isPaid(order) && !isDone(order)) return 'border-l-4 border-amber-400'
+  if (order.status === 'to_collect') return 'border-l-4 border-orange-400'
   if (order.status === 'ready')      return 'border-l-4 border-green-400'
-  if (order.status === 'in_process') return 'border-l-4 border-blue-400'
   if (order.status === 'pending')    return 'border-l-4 border-slate-300'
-  return 'border-l-4 border-transparent' // completed / picked_up
+  return 'border-l-4 border-transparent' // completed
 }
 
 onMounted(load)

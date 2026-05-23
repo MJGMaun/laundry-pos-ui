@@ -1,9 +1,8 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
-import { getOrders } from '@/api/orders.js'
-import { updateLoadStatus } from '@/api/loads.js'
+import { getOrders, updateOrderStatus } from '@/api/orders.js'
 import { useQueueStore } from '@/stores/queue.js'
 import { isOfflineError } from '@/offline/isOfflineError.js'
 
@@ -12,57 +11,38 @@ const toast = useToast()
 const offlineQueue = useQueueStore()
 const loading = ref(false)
 const orders = ref([])
-const markingLoad = ref(null)
-
-// Orders grouped with only their ready loads
-const queue = computed(() =>
-  orders.value
-    .map((o) => ({ ...o, ready_loads: (o.loads || []).filter((l) => l.status === 'ready') }))
-    .filter((o) => o.ready_loads.length > 0)
-)
+const markingOrder = ref(null)
 
 async function load() {
   loading.value = true
   try {
-    const [inProcessRes, readyRes, completedRes] = await Promise.all([
-      getOrders({ status: 'in_process', per_page: 100 }),
-      getOrders({ status: 'ready', per_page: 100 }),
-      getOrders({ status: 'completed', per_page: 100 }),
-    ])
-    const inProcess = inProcessRes.data.data || inProcessRes.data
-    const ready = readyRes.data.data || readyRes.data
-    const completed = completedRes.data.data || completedRes.data
-    // Merge, dedupe by id
-    const map = new Map()
-    ;[...inProcess, ...ready, ...completed].forEach((o) => map.set(o.id, o))
-    orders.value = Array.from(map.values()).sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    const res = await getOrders({ status: 'ready', per_page: 100 })
+    orders.value = (res.data.data || res.data).sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
   } finally {
     loading.value = false
   }
 }
 
-async function markPickedUp(loadId) {
-  markingLoad.value = loadId
+async function markPickedUp(orderId) {
+  markingOrder.value = orderId
   try {
-    await updateLoadStatus(loadId, { status: 'picked_up' })
+    await updateOrderStatus(orderId, { status: 'to_collect' })
     toast.add({ severity: 'success', summary: 'Done', detail: 'Marked as picked up', life: 2500 })
     await load()
   } catch (e) {
     if (isOfflineError(e)) {
-      await offlineQueue.enqueueRequest('PATCH', `/loads/${loadId}/status`, { status: 'picked_up' })
-      // Optimistically remove the load from local state
-      orders.value = orders.value.map((o) => ({
-        ...o,
-        loads: o.loads.map((l) => l.id === loadId ? { ...l, status: 'picked_up' } : l),
-      }))
+      await offlineQueue.enqueueRequest('PATCH', `/orders/${orderId}/status`, { status: 'to_collect' })
+      orders.value = orders.value.filter((o) => o.id !== orderId)
       toast.add({ severity: 'warn', summary: 'Saved offline', detail: 'Pickup queued — will sync when connected', life: 5000 })
     } else {
       toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed', life: 4000 })
     }
   } finally {
-    markingLoad.value = null
+    markingOrder.value = null
   }
 }
+
+function fmt(n) { return Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 
 function timeAgo(dateStr) {
   const diff = (Date.now() - new Date(dateStr)) / 1000
@@ -72,7 +52,6 @@ function timeAgo(dateStr) {
   return `${Math.floor(diff / 86400)}d ago`
 }
 
-// Auto-refresh every 30s
 let timer = null
 onMounted(() => { load(); timer = setInterval(load, 30000) })
 onUnmounted(() => clearInterval(timer))
@@ -85,14 +64,14 @@ onUnmounted(() => clearInterval(timer))
     <div class="flex items-center justify-between mb-6 animate-slide-up">
       <div>
         <h1 class="text-2xl font-bold text-slate-900">Pickup Queue</h1>
-        <p class="text-sm text-slate-400 mt-0.5">Loads ready for customer pickup</p>
+        <p class="text-sm text-slate-400 mt-0.5">Orders ready for customer pickup</p>
       </div>
       <div class="flex items-center gap-3">
         <div
-          v-if="queue.length"
+          v-if="orders.length"
           class="flex items-center justify-center min-w-8 h-8 px-2.5 rounded-full text-sm font-bold text-white"
-          style="background: linear-gradient(135deg, #f59e0b, #f97316);"
-        >{{ queue.length }}</div>
+          style="background: linear-gradient(135deg, #16a34a, #15803d);"
+        >{{ orders.length }}</div>
         <button
           class="flex items-center gap-2 px-3 py-2 text-sm text-slate-500 border border-slate-200 rounded-xl hover:bg-slate-50 hover:text-slate-700 transition-all active:scale-95"
           :class="loading ? 'opacity-60 pointer-events-none' : ''"
@@ -107,23 +86,23 @@ onUnmounted(() => clearInterval(timer))
     </div>
 
     <!-- Skeleton -->
-    <div v-if="loading && !queue.length" class="space-y-4">
+    <div v-if="loading && !orders.length" class="space-y-4">
       <div v-for="n in 3" :key="n" class="skeleton rounded-2xl h-36" :class="`stagger-${n}`" />
     </div>
 
     <!-- Empty -->
-    <div v-else-if="!queue.length" class="flex flex-col items-center justify-center py-24 text-slate-300 gap-3 animate-slide-up">
+    <div v-else-if="!orders.length" class="flex flex-col items-center justify-center py-24 text-slate-300 gap-3 animate-slide-up">
       <div class="text-6xl">🧺</div>
       <div class="text-center">
         <div class="text-lg font-semibold text-slate-400">All clear!</div>
-        <div class="text-sm mt-1">No loads waiting for pickup right now.</div>
+        <div class="text-sm mt-1">No orders waiting for pickup right now.</div>
       </div>
     </div>
 
     <!-- Queue cards -->
     <div v-else class="space-y-4">
       <div
-        v-for="(order, i) in queue"
+        v-for="(order, i) in orders"
         :key="order.id"
         class="bg-white rounded-2xl border border-slate-200 overflow-hidden animate-slide-up"
         :style="`box-shadow: var(--shadow-card); animation-delay: ${i * 40}ms`"
@@ -134,10 +113,9 @@ onUnmounted(() => clearInterval(timer))
           @click="router.push('/orders/' + order.id)"
         >
           <div class="flex items-center gap-3">
-            <!-- Pulsing dot -->
             <div class="relative w-2.5 h-2.5 shrink-0">
-              <div class="absolute inset-0 rounded-full bg-amber-400 animate-ping opacity-75" />
-              <div class="relative w-2.5 h-2.5 rounded-full bg-amber-400" />
+              <div class="absolute inset-0 rounded-full bg-green-400 animate-ping opacity-75" />
+              <div class="relative w-2.5 h-2.5 rounded-full bg-green-400" />
             </div>
             <div>
               <div class="flex items-center gap-2">
@@ -155,36 +133,36 @@ onUnmounted(() => clearInterval(timer))
               <div v-else class="text-xs text-slate-400 mt-0.5">Walk-in customer</div>
             </div>
           </div>
-          <div class="flex items-center gap-2">
-            <span class="text-xs text-amber-600 font-semibold bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-              {{ order.ready_loads.length }} ready
-            </span>
-            <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-          </div>
+          <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </div>
 
-        <!-- Ready loads -->
+        <!-- Loads list -->
         <div class="divide-y divide-slate-50">
           <div
-            v-for="load in order.ready_loads"
-            :key="load.id"
-            class="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors"
+            v-for="lItem in order.loads"
+            :key="lItem.id"
+            class="flex items-center gap-3 px-5 py-3"
           >
             <div class="w-2 h-2 rounded-full bg-green-400 shrink-0" />
             <div class="flex-1 min-w-0">
-              <div class="text-sm font-semibold text-slate-800">{{ load.service_name_snapshot }}</div>
-              <div class="text-xs text-slate-400">{{ load.quantity }} × ₱{{ Number(load.unit_price_snapshot || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 }) }}</div>
+              <div class="text-sm font-semibold text-slate-800">{{ lItem.service_name_snapshot }}</div>
+              <div class="text-xs text-slate-400">{{ lItem.quantity }} × ₱{{ fmt(lItem.unit_price_snapshot) }}</div>
             </div>
-            <button
-              class="flex items-center gap-1.5 text-xs font-semibold text-white px-3 py-1.5 rounded-xl transition-all active:scale-95 disabled:opacity-50 shrink-0"
-              style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); box-shadow: 0 2px 8px rgba(139,92,246,0.35);"
-              :disabled="markingLoad === load.id"
-              @click="markPickedUp(load.id)"
-            >
-              <svg v-if="markingLoad === load.id" class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.3)" stroke-width="3"/><path d="M12 2a10 10 0 0110 10" stroke="white" stroke-width="3" stroke-linecap="round"/></svg>
-              <span v-else>✓ Picked up</span>
-            </button>
           </div>
+        </div>
+
+        <!-- Action row -->
+        <div class="px-5 py-3 border-t border-slate-100 flex items-center justify-between">
+          <span class="text-xs text-slate-400">₱{{ fmt(order.total_amount) }} total</span>
+          <button
+            class="flex items-center gap-1.5 text-xs font-semibold text-white px-4 py-2 rounded-xl transition-all active:scale-95 disabled:opacity-50"
+            style="background: linear-gradient(135deg, #16a34a, #15803d); box-shadow: 0 2px 8px rgba(22,163,74,0.35);"
+            :disabled="markingOrder === order.id"
+            @click="markPickedUp(order.id)"
+          >
+            <svg v-if="markingOrder === order.id" class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.3)" stroke-width="3"/><path d="M12 2a10 10 0 0110 10" stroke="white" stroke-width="3" stroke-linecap="round"/></svg>
+            <span v-else>✓ Mark Picked Up</span>
+          </button>
         </div>
       </div>
     </div>
