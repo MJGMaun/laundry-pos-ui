@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { getCustomer, updateCustomer } from '@/api/customers.js'
-import { getOrders } from '@/api/orders.js'
+import { getOrders, updateOrderStatus } from '@/api/orders.js'
 import { createPayment } from '@/api/payments.js'
 
 const route = useRoute()
@@ -71,6 +71,9 @@ async function confirmPayAll() {
         payData.reference_number = payAllRef.value || ''
       }
       await createPayment(o.id, payData)
+      if (o.status !== 'completed') {
+        await updateOrderStatus(o.id, { status: 'completed' })
+      }
       payAllProgress.value.done++
     }
     showPayAll.value = false
