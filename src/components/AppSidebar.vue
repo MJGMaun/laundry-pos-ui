@@ -22,11 +22,9 @@ const navItems = computed(() => {
   if (auth.isCashier) {
     items.push({ to: '/pos',           emoji: '🛒', label: 'POS',          color: '#60a5fa' })
     items.push({ to: '/orders',        emoji: '📋', label: 'Orders',       color: '#a78bfa' })
-    items.push({ to: '/pickup-queue',  emoji: '🧾', label: 'Pickup Queue', color: '#f59e0b' })
     items.push({ to: '/customers',     emoji: '👥', label: 'Customers',    color: '#34d399' })
   } else {
     items.push({ to: '/orders',        emoji: '📋', label: 'Orders',       color: '#a78bfa' })
-    items.push({ to: '/pickup-queue',  emoji: '🧾', label: 'Pickup Queue', color: '#f59e0b' })
   }
   if (auth.isAdmin) {
     items.push({ to: '/dashboard', emoji: '📊', label: 'Dashboard',    color: '#fbbf24' })
@@ -38,6 +36,7 @@ const navItems = computed(() => {
     items.push({ to: '/settings',  emoji: '⚙️', label: 'Settings',     color: '#94a3b8' })
   }
   if (auth.isSuperAdmin) {
+    items.push({ to: '/pickup-queue',  emoji: '🧾', label: 'Pickup Queue', color: '#f59e0b' })
     items.push({ to: '/branches',     emoji: '🏪', label: 'Branches',     color: '#c084fc' })
     items.push({ to: '/cross-branch', emoji: '🌐', label: 'All Branches', color: '#38bdf8' })
   }

@@ -43,7 +43,7 @@ const router = createRouter({
           path: 'pickup-queue',
           name: 'pickup-queue',
           component: () => import('@/views/orders/PickupQueueView.vue'),
-          meta: { roles: ['super_admin', 'admin', 'cashier', 'staff'] },
+          meta: { roles: ['super_admin'] },
         },
         {
           path: 'customers',

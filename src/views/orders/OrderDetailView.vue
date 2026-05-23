@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
 import { getOrder, updateOrderStatus, updateOrder, deleteOrder } from '@/api/orders.js'
-import { updateLoadStatus, addLoads } from '@/api/loads.js'
+import { addLoads } from '@/api/loads.js'
 import { getBranchServices } from '@/api/branches.js'
 import { useBranchStore } from '@/stores/branch.js'
 import { createPayment } from '@/api/payments.js'
@@ -23,6 +23,7 @@ const branch = useBranchStore()
 
 const order = ref(null)
 const loading = ref(true)
+const loadError = ref('')
 const updatingStatus = ref(false)
 const statusError = ref('')
 
@@ -74,22 +75,25 @@ function confirmDelete() {
   })
 }
 
-const orderStatusNext = { pending: 'in_process', in_process: 'ready', ready: 'completed' }
-const loadStatusNext  = { in_process: 'ready', ready: 'picked_up' }
+const orderStatusNext = { pending: 'ready', ready: 'to_collect', to_collect: 'completed' }
 
 const statusColor = {
   pending:    { bg: '#fef3c7', text: '#92400e', dot: '#f59e0b' },
-  in_process: { bg: '#dbeafe', text: '#1d4ed8', dot: '#3b82f6' },
   ready:      { bg: '#dcfce7', text: '#166534', dot: '#16a34a' },
+  to_collect: { bg: '#fff7ed', text: '#c2410c', dot: '#f97316' },
   completed:  { bg: '#f1f5f9', text: '#64748b', dot: '#94a3b8' },
-  picked_up:  { bg: '#ede9fe', text: '#5b21b6', dot: '#8b5cf6' },
 }
 
 async function load() {
   loading.value = true
+  loadError.value = ''
   try {
     const res = await getOrder(route.params.id)
     order.value = res.data.data || res.data
+  } catch (e) {
+    loadError.value = e.response?.status === 404
+      ? 'Order not found.'
+      : e.response?.data?.message || 'Failed to load order.'
   } finally {
     loading.value = false
   }
@@ -143,7 +147,7 @@ async function recordPayment() {
     await createPayment(order.value.id, payData)
     showPaymentForm.value = false
     await load()
-    if (isPaid.value && order.value.status !== 'completed') {
+    if (isPaid.value && order.value.status === 'to_collect') {
       await updateOrderStatus(order.value.id, { status: 'completed' })
       await load()
     }
@@ -155,7 +159,7 @@ async function recordPayment() {
       else payData.reference_number = p.reference_number || ''
       await queue.enqueueRequest('POST', `/orders/${order.value.id}/payments`, payData)
       // If this payment covers the balance, also queue the status completion
-      if (Number(p.amount) >= outstandingBalance.value - 0.01 && order.value.status !== 'completed') {
+      if (Number(p.amount) >= outstandingBalance.value - 0.01 && order.value.status === 'to_collect') {
         await queue.enqueueRequest('PATCH', `/orders/${order.value.id}/status`, { status: 'completed' })
       }
       showPaymentForm.value = false
@@ -168,25 +172,6 @@ async function recordPayment() {
   }
 }
 
-async function advanceLoadStatus(loadId, current) {
-  const next = loadStatusNext[current]
-  if (!next) return
-  try {
-    await updateLoadStatus(loadId, { status: next })
-    await load()
-  } catch (e) {
-    if (isOfflineError(e)) {
-      await queue.enqueueRequest('PATCH', `/loads/${loadId}/status`, { status: next })
-      order.value = {
-        ...order.value,
-        loads: order.value.loads.map((l) => l.id === loadId ? { ...l, status: next } : l),
-      }
-      toast.add({ severity: 'warn', summary: 'Saved offline', detail: 'Load status queued — will sync when connected', life: 5000 })
-    } else {
-      toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed', life: 4000 })
-    }
-  }
-}
 
 const showAddLoads  = ref(false)
 const addLoadsRows  = ref([])
@@ -352,6 +337,25 @@ onMounted(load)
       </div>
     </div>
 
+    <!-- Error state -->
+    <div v-else-if="loadError" class="flex flex-col items-center justify-center py-24 gap-4 text-center">
+      <div class="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center text-2xl">⚠️</div>
+      <div>
+        <p class="font-semibold text-slate-700">{{ loadError }}</p>
+        <p class="text-sm text-slate-400 mt-1">Check the order ID or try again.</p>
+      </div>
+      <div class="flex gap-3">
+        <button
+          class="text-sm font-semibold text-blue-600 border border-blue-200 hover:bg-blue-50 px-4 py-2 rounded-xl transition-all"
+          @click="load"
+        >Retry</button>
+        <button
+          class="text-sm font-semibold text-slate-500 border border-slate-200 hover:bg-slate-50 px-4 py-2 rounded-xl transition-all"
+          @click="router.push('/orders')"
+        >Back to Orders</button>
+      </div>
+    </div>
+
     <div v-else-if="order" class="space-y-4">
 
       <!-- Header card -->
@@ -420,14 +424,6 @@ onMounted(load)
               <div class="text-sm font-semibold text-slate-800">{{ load.service_name_snapshot }}</div>
               <div class="text-xs text-slate-400 mt-0.5">{{ load.quantity }} × ₱{{ fmt(load.unit_price_snapshot) }} = ₱{{ fmt(load.line_total) }}</div>
             </div>
-            <span :class="['badge', `badge-${load.status}`]">{{ load.status?.replace('_', ' ') }}</span>
-            <button
-              v-if="loadStatusNext[load.status]"
-              class="text-xs text-blue-600 font-medium border border-blue-200 hover:bg-blue-50 px-2.5 py-1.5 rounded-lg transition-all active:scale-95 shrink-0"
-              @click="advanceLoadStatus(load.id, load.status)"
-            >
-              → {{ loadStatusNext[load.status]?.replace('_', ' ') }}
-            </button>
           </div>
         </div>
       </div>
