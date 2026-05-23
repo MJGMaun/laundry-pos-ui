@@ -149,55 +149,103 @@ onMounted(load)
         <span class="text-sm">No orders found</span>
       </div>
 
-      <table v-else class="w-full text-sm">
-        <thead style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
-          <tr>
-            <th class="text-left px-4 sm:px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Order #</th>
-            <th class="text-left px-4 sm:px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Customer</th>
-            <th class="text-left px-4 sm:px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
-            <th class="hidden sm:table-cell text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Loads</th>
-            <th class="text-right px-4 sm:px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Total</th>
-            <th class="hidden md:table-cell text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
+      <template v-else>
+
+        <!-- ── Mobile cards (< sm) ── -->
+        <div class="sm:hidden divide-y divide-slate-100">
+          <div
             v-for="(order, i) in orders"
             :key="order.id"
-            class="border-b border-slate-50 last:border-0 hover:bg-blue-50/40 cursor-pointer transition-colors duration-100 animate-slide-up"
+            class="px-4 py-3.5 cursor-pointer hover:bg-blue-50/40 active:bg-blue-50 transition-colors animate-slide-up"
             :style="`animation-delay: ${i * 25}ms`"
             @click="router.push('/orders/' + order.id)"
           >
-            <td class="px-4 sm:px-5 py-3.5 font-mono text-xs text-slate-600 font-medium">{{ order.order_number }}</td>
-            <td class="px-4 sm:px-5 py-3.5">
-              <div v-if="order.customer" class="flex items-center gap-2">
-                <div class="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-                  :style="`background: hsl(${(order.customer.name?.charCodeAt(0) * 7) % 360}, 65%, 55%);`">
-                  {{ order.customer.name?.charAt(0).toUpperCase() }}
+            <!-- Row 1: order number + status badge -->
+            <div class="flex items-center justify-between gap-2 mb-1.5">
+              <span class="font-mono text-xs font-semibold text-slate-600">{{ order.order_number }}</span>
+              <span :class="['badge', `badge-${order.status}`]">{{ order.status?.replace('_', ' ') }}</span>
+            </div>
+
+            <!-- Row 2: customer -->
+            <div class="flex items-center gap-1.5 mb-2">
+              <template v-if="order.customer">
+                <div
+                  class="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
+                  :style="`background: hsl(${(order.customer.name?.charCodeAt(0) * 7) % 360}, 65%, 55%);`"
+                >{{ order.customer.name?.charAt(0).toUpperCase() }}</div>
+                <span class="text-sm font-medium text-slate-700">{{ order.customer.name }}</span>
+              </template>
+              <span v-else class="text-sm text-slate-400">Walk-in</span>
+            </div>
+
+            <!-- Row 3: loads · date  |  total + paid badge -->
+            <div class="flex items-end justify-between gap-2">
+              <div class="text-xs text-slate-400 leading-snug">
+                <span>{{ order.loads ? order.loads.reduce((s, l) => s + Number(l.quantity), 0) : (order.loads_count ?? 0) }} load(s)</span>
+                <span class="mx-1">·</span>
+                <span>{{ fmtDate(order.created_at) }}</span>
+              </div>
+              <div class="text-right shrink-0">
+                <div class="font-bold text-slate-900 text-sm">₱{{ fmt(order.total_amount) }}</div>
+                <div
+                  class="text-[11px] font-semibold mt-0.5"
+                  :class="Number(order.paid_amount) >= Number(order.total_amount) ? 'text-green-600' : 'text-amber-500'"
+                >{{ Number(order.paid_amount) >= Number(order.total_amount) ? '✓ Paid' : 'Unpaid' }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Desktop table (≥ sm) ── -->
+        <table class="hidden sm:table w-full text-sm">
+          <thead style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+            <tr>
+              <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Order #</th>
+              <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Customer</th>
+              <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
+              <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Loads</th>
+              <th class="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Total</th>
+              <th class="hidden md:table-cell text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="(order, i) in orders"
+              :key="order.id"
+              class="border-b border-slate-50 last:border-0 hover:bg-blue-50/40 cursor-pointer transition-colors duration-100 animate-slide-up"
+              :style="`animation-delay: ${i * 25}ms`"
+              @click="router.push('/orders/' + order.id)"
+            >
+              <td class="px-5 py-3.5 font-mono text-xs text-slate-600 font-medium">{{ order.order_number }}</td>
+              <td class="px-5 py-3.5">
+                <div v-if="order.customer" class="flex items-center gap-2">
+                  <div class="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                    :style="`background: hsl(${(order.customer.name?.charCodeAt(0) * 7) % 360}, 65%, 55%);`">
+                    {{ order.customer.name?.charAt(0).toUpperCase() }}
+                  </div>
+                  <span class="text-slate-700 font-medium">{{ order.customer.name }}</span>
                 </div>
-                <span class="text-slate-700 font-medium truncate max-w-[80px] sm:max-w-none">{{ order.customer.name }}</span>
-              </div>
-              <span v-else class="text-slate-400">—</span>
-            </td>
-            <td class="px-4 sm:px-5 py-3.5">
-              <span :class="['badge', `badge-${order.status}`]">
-                {{ order.status?.replace('_', ' ') }}
-              </span>
-            </td>
-            <td class="hidden sm:table-cell px-5 py-3.5 text-slate-500">
-              {{ order.loads ? order.loads.reduce((s, l) => s + Number(l.quantity), 0) : (order.loads_count ?? '—') }}
-            </td>
-            <td class="px-4 sm:px-5 py-3.5 text-right">
-              <div class="font-bold text-slate-900">₱{{ fmt(order.total_amount) }}</div>
-              <div class="text-xs mt-0.5"
-                :class="Number(order.paid_amount) >= Number(order.total_amount) ? 'text-green-600 font-medium' : 'text-amber-500 font-medium'">
-                {{ Number(order.paid_amount) >= Number(order.total_amount) ? '✓ Paid' : 'Unpaid' }}
-              </div>
-            </td>
-            <td class="hidden md:table-cell px-5 py-3.5 text-slate-400 text-xs">{{ fmtDate(order.created_at) }}</td>
-          </tr>
-        </tbody>
-      </table>
+                <span v-else class="text-slate-400">—</span>
+              </td>
+              <td class="px-5 py-3.5">
+                <span :class="['badge', `badge-${order.status}`]">{{ order.status?.replace('_', ' ') }}</span>
+              </td>
+              <td class="px-5 py-3.5 text-slate-500">
+                {{ order.loads ? order.loads.reduce((s, l) => s + Number(l.quantity), 0) : (order.loads_count ?? '—') }}
+              </td>
+              <td class="px-5 py-3.5 text-right">
+                <div class="font-bold text-slate-900">₱{{ fmt(order.total_amount) }}</div>
+                <div class="text-xs mt-0.5"
+                  :class="Number(order.paid_amount) >= Number(order.total_amount) ? 'text-green-600 font-medium' : 'text-amber-500 font-medium'">
+                  {{ Number(order.paid_amount) >= Number(order.total_amount) ? '✓ Paid' : 'Unpaid' }}
+                </div>
+              </td>
+              <td class="hidden md:table-cell px-5 py-3.5 text-slate-400 text-xs">{{ fmtDate(order.created_at) }}</td>
+            </tr>
+          </tbody>
+        </table>
+
+      </template>
     </div>
 
     <!-- Pagination -->
