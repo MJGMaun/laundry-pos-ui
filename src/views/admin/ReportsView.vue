@@ -293,13 +293,11 @@ onMounted(load)
 				<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
 					<div class="px-5 py-3.5 border-b border-gray-100 flex items-center gap-2">
 						<span class="text-base">📱</span>
-						<h3 class="font-semibold text-gray-900">Digital Payments</h3>
+						<h3 class="font-semibold text-gray-900">GCash</h3>
 					</div>
 					<div class="divide-y divide-gray-50">
 						<div v-for="m in [
 							{ key: 'gcash_in', label: 'GCash', color: '#005eaa' },
-							{ key: 'maya_in',  label: 'Maya',  color: '#2aa050' },
-							{ key: 'card_in',  label: 'Card',  color: '#6366f1' },
 						]" :key="m.key" class="flex items-center justify-between px-5 py-3">
 							<div class="flex items-center gap-2">
 								<span class="text-xs font-bold px-2 py-0.5 rounded-md text-white" :style="`background: ${m.color};`">{{ m.label }}</span>
@@ -329,11 +327,11 @@ onMounted(load)
 						</div>
 					</div>
 					<div class="bg-blue-50 border border-blue-200 rounded-xl p-5">
-						<div class="text-xs font-semibold text-blue-700 mb-1">📱 To Remit (Digital)</div>
+						<div class="text-xs font-semibold text-blue-700 mb-1">📱 To Remit (GCash)</div>
 						<div class="text-2xl font-bold text-blue-900">
-							₱{{ fmt((cashData.gcash_in || 0) + (cashData.maya_in || 0) + (cashData.card_in || 0)) }}
+							₱{{ fmt(cashData.gcash_in || 0) }}
 						</div>
-						<div class="text-xs text-blue-500 mt-1">GCash + Maya + Card combined</div>
+						<div class="text-xs text-blue-500 mt-1">GCash total</div>
 					</div>
 				</div>
 			</div>

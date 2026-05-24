@@ -403,7 +403,7 @@ onMounted(load)
               <!-- Method -->
               <div class="flex gap-1">
                 <button
-                  v-for="m in ['cash','gcash','maya','card']"
+                  v-for="m in ['cash','gcash']"
                   :key="m"
                   class="flex-1 py-2 rounded-xl text-xs font-semibold transition-all"
                   :class="payAllMethod === m

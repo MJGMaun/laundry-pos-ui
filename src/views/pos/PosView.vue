@@ -820,7 +820,7 @@ watch(() => branch.currentBranchId, loadServices)
                     <!-- Method tabs -->
                     <div class="flex gap-1 flex-1">
                       <button
-                        v-for="m in ['cash','gcash','maya','card']"
+                        v-for="m in ['cash','gcash']"
                         :key="m"
                         class="flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all"
                         :class="p.method === m
@@ -867,12 +867,12 @@ watch(() => branch.currentBranchId, loadServices)
                         @click="p.tendered = ''"
                       >Clear</button>
                     </div>
-                    <!-- Digital: reference -->
+                    <!-- GCash: reference (optional) -->
                     <div v-if="p.method !== 'cash'" class="flex items-center gap-2">
-                      <span class="text-xs text-slate-500 w-20 shrink-0">Ref #</span>
+                      <span class="text-xs text-slate-500 w-20 shrink-0">Ref # <span class="text-slate-400">(opt)</span></span>
                       <input
                         v-model="p.reference_number"
-                        placeholder="Transaction reference"
+                        placeholder="Transaction reference (optional)"
                         class="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
                       />
                     </div>
@@ -931,12 +931,12 @@ watch(() => branch.currentBranchId, loadServices)
                       </Transition>
                     </template>
 
-                    <!-- Digital: reference -->
+                    <!-- GCash: reference (optional) -->
                     <div v-else class="flex items-center gap-2">
-                      <span class="text-xs text-slate-500 w-16 shrink-0">Ref #</span>
+                      <span class="text-xs text-slate-500 w-16 shrink-0">Ref # <span class="text-slate-400">(opt)</span></span>
                       <input
                         v-model="p.reference_number"
-                        placeholder="Transaction reference"
+                        placeholder="Transaction reference (optional)"
                         class="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
                       />
                     </div>
