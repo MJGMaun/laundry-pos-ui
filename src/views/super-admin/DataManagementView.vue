@@ -132,6 +132,7 @@ function clearAll() {
 }
 
 function openConfirm() {
+  if (!readyToPurge.value) return
   confirmInput.value = ''
   showConfirm.value  = true
 }
@@ -360,7 +361,7 @@ function resultRows(deleted) {
               :style="readyToPurge
                 ? 'background: linear-gradient(135deg, #ef4444, #dc2626); color: white; box-shadow: 0 4px 14px rgba(239,68,68,0.35); cursor: pointer;'
                 : 'background: rgba(255,255,255,0.05); color: rgba(148,163,184,0.35); cursor: not-allowed; border: 1px solid rgba(255,255,255,0.07);'"
-              @click="readyToPurge && openConfirm()"
+              @click="openConfirm"
             >
               <i class="pi pi-trash text-sm" />
               Purge Selected
@@ -408,94 +409,98 @@ function resultRows(deleted) {
       </div>
     </Transition>
 
-    <!-- Confirmation Dialog ---------------------------------------------------->
-    <Dialog
-      v-model:visible="showConfirm"
-      modal
-      :closable="!purging"
-      :style="{ width: '480px' }"
-      :pt="{
-        root: { style: 'background: #0f172a; border: 1px solid rgba(239,68,68,0.3); border-radius: 20px;' },
-        header: { style: 'background: transparent; border-bottom: 1px solid rgba(239,68,68,0.15); padding: 20px 24px 16px;' },
-        content: { style: 'background: transparent; padding: 24px;' },
-        footer: { style: 'display: none;' },
-      }"
-    >
-      <template #header>
-        <div class="flex items-center gap-3">
-          <div
-            class="w-9 h-9 rounded-xl flex items-center justify-center text-lg"
-            style="background: rgba(239,68,68,0.15);"
-          >⚠️</div>
-          <div>
-            <div class="font-bold text-white text-base">Confirm Permanent Deletion</div>
-            <div class="text-xs mt-0.5" style="color: rgba(239,68,68,0.8);">This cannot be undone</div>
-          </div>
-        </div>
-      </template>
-
-      <div class="space-y-4">
-        <!-- What will be deleted -->
+    <!-- Confirmation Modal ---------------------------------------------------->
+    <Teleport to="body">
+      <div
+        v-if="showConfirm"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style="background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);"
+        @click.self="!purging && closeConfirm()"
+      >
         <div
-          class="rounded-xl p-4"
-          style="background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.2);"
+          class="w-full max-w-md rounded-2xl overflow-hidden shadow-2xl"
+          style="background: #0f172a; border: 1px solid rgba(239,68,68,0.3);"
         >
-          <div class="text-xs font-semibold uppercase tracking-wide mb-2" style="color: rgba(239,68,68,0.7);">
-            You are about to delete from <span class="text-white">{{ selectedBranch?.name }}</span>:
+          <!-- Modal header -->
+          <div
+            class="flex items-center gap-3 px-6 py-5"
+            style="border-bottom: 1px solid rgba(239,68,68,0.15);"
+          >
+            <div
+              class="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0"
+              style="background: rgba(239,68,68,0.15);"
+            >⚠️</div>
+            <div>
+              <div class="font-bold text-white text-base">Confirm Permanent Deletion</div>
+              <div class="text-xs mt-0.5" style="color: rgba(239,68,68,0.8);">This cannot be undone</div>
+            </div>
           </div>
-          <div class="flex flex-wrap gap-2">
-            <span
-              v-for="key in selectedTypes"
-              :key="key"
-              class="px-2.5 py-1 rounded-lg text-xs font-medium"
-              style="background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.25);"
+
+          <!-- Modal body -->
+          <div class="px-6 py-5 space-y-4">
+            <!-- What will be deleted -->
+            <div
+              class="rounded-xl p-4"
+              style="background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.2);"
             >
-              {{ CATEGORIES.find(c => c.key === key)?.emoji }}
-              {{ CATEGORIES.find(c => c.key === key)?.label }}
-            </span>
+              <div class="text-xs font-semibold uppercase tracking-wide mb-2" style="color: rgba(239,68,68,0.7);">
+                You are about to delete from <span class="text-white">{{ selectedBranch?.name }}</span>:
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <span
+                  v-for="key in selectedTypes"
+                  :key="key"
+                  class="px-2.5 py-1 rounded-lg text-xs font-medium"
+                  style="background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.25);"
+                >
+                  {{ CATEGORIES.find(c => c.key === key)?.emoji }}
+                  {{ CATEGORIES.find(c => c.key === key)?.label }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Confirmation input -->
+            <div>
+              <label class="block text-sm mb-2" style="color: rgba(148,163,184,0.7);">
+                Type <span class="font-mono font-bold px-1.5 py-0.5 rounded" style="background: rgba(255,255,255,0.08); color: white;">{{ confirmationWord }}</span> to confirm:
+              </label>
+              <input
+                v-model="confirmInput"
+                :placeholder="confirmationWord"
+                :disabled="purging"
+                class="w-full rounded-xl px-3 py-2.5 text-sm font-mono"
+                style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: white;"
+                @keydown.enter="executePurge"
+              />
+            </div>
+
+            <!-- Action buttons -->
+            <div class="flex gap-3 pt-1">
+              <button
+                class="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all duration-150"
+                style="background: rgba(255,255,255,0.05); color: rgba(148,163,184,0.8); border: 1px solid rgba(255,255,255,0.1);"
+                :disabled="purging"
+                @click="closeConfirm"
+              >
+                Cancel
+              </button>
+              <button
+                class="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 flex items-center justify-center gap-2"
+                :disabled="confirmInput !== confirmationWord || purging"
+                :style="confirmInput === confirmationWord && !purging
+                  ? 'background: linear-gradient(135deg, #ef4444, #dc2626); color: white; box-shadow: 0 4px 14px rgba(239,68,68,0.3); cursor: pointer;'
+                  : 'background: rgba(255,255,255,0.05); color: rgba(148,163,184,0.3); cursor: not-allowed;'"
+                @click="executePurge"
+              >
+                <i v-if="purging" class="pi pi-spin pi-spinner text-sm" />
+                <i v-else class="pi pi-trash text-sm" />
+                {{ purging ? 'Purging…' : 'Yes, Delete Everything' }}
+              </button>
+            </div>
           </div>
-        </div>
-
-        <!-- Confirmation input -->
-        <div>
-          <label class="block text-sm mb-2" style="color: rgba(148,163,184,0.7);">
-            Type <span class="font-mono font-bold px-1.5 py-0.5 rounded" style="background: rgba(255,255,255,0.08); color: white;">{{ confirmationWord }}</span> to confirm:
-          </label>
-          <InputText
-            v-model="confirmInput"
-            :placeholder="confirmationWord"
-            class="w-full font-mono"
-            :disabled="purging"
-            style="background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.15); color: white;"
-            @keydown.enter="executePurge"
-          />
-        </div>
-
-        <!-- Action buttons -->
-        <div class="flex gap-3 pt-2">
-          <button
-            class="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all duration-150"
-            style="background: rgba(255,255,255,0.05); color: rgba(148,163,184,0.8); border: 1px solid rgba(255,255,255,0.1);"
-            :disabled="purging"
-            @click="closeConfirm"
-          >
-            Cancel
-          </button>
-          <button
-            class="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 flex items-center justify-center gap-2"
-            :disabled="confirmInput !== confirmationWord || purging"
-            :style="confirmInput === confirmationWord && !purging
-              ? 'background: linear-gradient(135deg, #ef4444, #dc2626); color: white; box-shadow: 0 4px 14px rgba(239,68,68,0.3); cursor: pointer;'
-              : 'background: rgba(255,255,255,0.05); color: rgba(148,163,184,0.3); cursor: not-allowed;'"
-            @click="executePurge"
-          >
-            <i v-if="purging" class="pi pi-spin pi-spinner text-sm" />
-            <i v-else class="pi pi-trash text-sm" />
-            {{ purging ? 'Purging…' : 'Yes, Delete Everything' }}
-          </button>
         </div>
       </div>
-    </Dialog>
+    </Teleport>
 
   </div>
 </template>
