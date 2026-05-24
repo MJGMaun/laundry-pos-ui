@@ -10,3 +10,10 @@ db.version(2).stores({
   customers: 'id, branch_id, name, phone',
   sync_meta: 'key',
 })
+db.version(3).stores({
+  queue:     '++id, status, createdAt',
+  services:  'id, branch_id',
+  customers: 'id, branch_id, name, phone',
+  sync_meta: 'key',
+  settings:  'key',          // flat {key, value} for offline use
+})

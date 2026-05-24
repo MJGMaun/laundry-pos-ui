@@ -33,6 +33,28 @@ async function pullCustomers() {
   await setLastSynced('customers')
 }
 
+async function pullSettings() {
+  const res = await api.get('/settings')
+  const settings = res.data.settings ?? []
+  // Store as flat {key, value} pairs — branch-merged values already resolved by API
+  const rows = settings.map(s => ({ key: s.key, value: s.value, group: s.group }))
+  await db.transaction('rw', db.settings, async () => {
+    await db.settings.clear()
+    await db.settings.bulkPut(rows)
+  })
+  await setLastSynced('settings')
+}
+
 export async function runPull() {
-  await Promise.all([pullServices(), pullCustomers()])
+  await Promise.all([
+    pullServices(),
+    pullCustomers(),
+    pullSettings().catch(() => {}), // silently skip if role doesn't allow (e.g. cashier 403)
+  ])
+}
+
+/** Read a single setting value from local IndexedDB */
+export async function getOfflineSetting(key) {
+  const row = await db.settings.get(key)
+  return row?.value ?? null
 }

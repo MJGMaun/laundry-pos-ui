@@ -24,6 +24,26 @@ export const useQueueStore = defineStore('queue', () => {
     await refresh()
   }
 
+  /**
+   * Queue a new-customer POST that was made while offline.
+   * tempId is the local placeholder id (e.g. 'offline_<timestamp>') stored in
+   * IndexedDB so the customer is immediately searchable on the POS screen.
+   * sync.js resolves the real server id and patches any dependent order in the queue.
+   */
+  async function enqueueCustomer(customerData, tempId, branchId) {
+    await db.queue.add({
+      type: 'create_customer',
+      data: customerData,
+      tempId,
+      branchId: branchId ?? localStorage.getItem('branch_id'),
+      createdAt: Date.now(),
+      status: 'pending',
+      retries: 0,
+      lastError: null,
+    })
+    await refresh()
+  }
+
   async function enqueueRequest(method, url, data, branchId) {
     await db.queue.add({
       type: 'request',
@@ -45,5 +65,5 @@ export const useQueueStore = defineStore('queue', () => {
     return await runSync()
   }
 
-  return { pendingCount, refresh, enqueueOrder, enqueueRequest, sync }
+  return { pendingCount, refresh, enqueueOrder, enqueueCustomer, enqueueRequest, sync }
 })

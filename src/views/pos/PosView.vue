@@ -230,11 +230,36 @@ async function saveNewCustomer() {
   try {
     const { createCustomer } = await import('@/api/customers.js')
     const res = await createCustomer(newCustomer.value)
-    selectCustomer(res.data.data || res.data)
+    const customer = res.data.data || res.data
+    // Cache in local db so this customer is findable in future offline searches
+    await db.customers.put({ ...customer, branch_id: Number(localStorage.getItem('branch_id')) || customer.branch_id })
+    selectCustomer(customer)
     showNewCustomerForm.value = false
     newCustomer.value = { name: '', phone: '', address: '' }; phoneError.value = ''; displayPhone.value = ''
   } catch (e) {
-    toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to save customer', life: 4000 })
+    if (isOfflineError(e)) {
+      // Create a temporary local customer so the cashier can attach them to the order
+      const tempId = 'offline_' + Date.now()
+      const tempCustomer = {
+        id: tempId,
+        name: newCustomer.value.name,
+        phone: newCustomer.value.phone,
+        address: newCustomer.value.address || '',
+        branch_id: Number(localStorage.getItem('branch_id')) || 0,
+        loyalty_points: 0,
+        total_visits: 0,
+        total_spent: '0.00',
+        _offline: true,   // flag so the order knows to use offline_customer_temp_id
+      }
+      await db.customers.put(tempCustomer)
+      await queue.enqueueCustomer(newCustomer.value, tempId)
+      selectCustomer(tempCustomer)
+      showNewCustomerForm.value = false
+      newCustomer.value = { name: '', phone: '', address: '' }; phoneError.value = ''; displayPhone.value = ''
+      toast.add({ severity: 'warn', summary: 'Saved offline', detail: 'Customer queued — will sync when connected', life: 5000 })
+    } else {
+      toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to save customer', life: 4000 })
+    }
   } finally {
     savingCustomer.value = false
   }
@@ -318,9 +343,12 @@ async function processPayment() {
     showSuccess.value = true
   } catch (e) {
     if (isOfflineError(e)) {
+      const isOfflineCustomer = !!cart.customer?._offline
       const orderData = {
         client_id: clientId,
-        customer_id: cart.customer?.id || null,
+        customer_id: isOfflineCustomer ? null : (cart.customer?.id || null),
+        // sync.js will resolve this temp id to the real customer id when back online
+        ...(isOfflineCustomer && { offline_customer_temp_id: cart.customer.id }),
         loads: cart.items.map((i) => ({ service_id: i.service_id, quantity: i.quantity, notes: '' })),
         notes: cart.notes || '',
         pickup_fee: cart.pickupFee || 0,
