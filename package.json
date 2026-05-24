@@ -8,12 +8,15 @@
     "build": "vite build",
     "preview": "vite preview",
     "android": "npm run build && npx cap sync android && npx cap open android",
-    "android:dev": "npx cap run android"
+    "android:dev": "npx cap run android",
+    "ios": "npm run build && npx cap sync ios && npx cap open ios",
+    "ios:dev": "npx cap run ios"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.4",
     "@capacitor/cli": "^8.3.4",
     "@capacitor/core": "^8.3.4",
+    "@capacitor/ios": "^8.3.4",
     "@primevue/themes": "^4.5.4",
     "@tailwindcss/vite": "^4.3.0",
     "@vueuse/core": "^14.3.0",

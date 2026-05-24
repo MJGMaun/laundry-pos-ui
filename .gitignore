@@ -12,3 +12,8 @@ CLAUDE.md
 android/.gradle/
 android/app/build/
 android/build/
+
+# Capacitor iOS build artifacts
+ios/App/Pods/
+ios/App/App.xcworkspace/xcuserdata/
+ios/.xcode.env.local
