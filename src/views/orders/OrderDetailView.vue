@@ -552,7 +552,9 @@ onMounted(load)
               </div>
               <div class="flex-1 min-w-0">
                 <div class="text-sm font-semibold text-slate-700 capitalize">{{ p.method }}</div>
-                <div class="text-xs text-slate-400 capitalize">{{ p.type }}</div>
+                <div class="text-xs text-slate-400 capitalize">
+                  {{ p.type }}<template v-if="p.reference_number"> · Ref: {{ p.reference_number }}</template>
+                </div>
               </div>
               <span :class="['text-sm font-bold', p.type === 'refund' ? 'text-red-600' : 'text-green-700']">
                 {{ p.type === 'refund' ? '−' : '+' }}₱{{ fmt(p.amount) }}
