@@ -22,7 +22,13 @@ const router = createRouter({
       component: () => import('@/layouts/AppLayout.vue'),
       meta: { requiresAuth: true },
       children: [
-        { path: '', redirect: '/pos' },
+        {
+          path: '',
+          redirect: () => {
+            const auth = useAuthStore()
+            return auth.isAdmin ? '/dashboard' : '/pos'
+          },
+        },
         {
           path: 'pos',
           name: 'pos',
@@ -146,7 +152,7 @@ router.beforeEach(async (to) => {
   }
 
   if (to.meta.guest && auth.isAuthenticated) {
-    return { name: 'pos' }
+    return { name: auth.isAdmin ? 'dashboard' : 'pos' }
   }
 
   if (to.meta.roles && !to.meta.roles.includes(auth.role)) {
