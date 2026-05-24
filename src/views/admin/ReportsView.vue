@@ -69,8 +69,7 @@ const period = ref('monthly')
 // each period mode uses a different picker value
 const monthDate = ref(new Date())   // monthly — single month
 const weekDate = ref(new Date())    // weekly  — single day in the week
-const dateFrom = ref(null)          // daily   — range start
-const dateTo = ref(null)            // daily   — range end
+const dateRange = ref(null)         // daily   — [start, end]
 
 const revenue = ref([])
 const pl = ref(null)
@@ -106,8 +105,8 @@ function buildParams() {
 	} else if (period.value === 'weekly' && weekDate.value) {
 		params.date_from = toYMD(weekDate.value)
 	} else {
-		if (dateFrom.value) params.date_from = toYMD(dateFrom.value)
-		if (dateTo.value) params.date_to = toYMD(dateTo.value)
+		if (dateRange.value?.[0]) params.date_from = toYMD(dateRange.value[0])
+		if (dateRange.value?.[1]) params.date_to   = toYMD(dateRange.value[1])
 	}
 	return params
 }
@@ -158,9 +157,8 @@ function buildChart() {
 // reset picker values and reload when period changes
 watch(period, () => {
 	monthDate.value = new Date()
-	weekDate.value = new Date()
-	dateFrom.value = null
-	dateTo.value = null
+	weekDate.value  = new Date()
+	dateRange.value = null
 	load()
 })
 
@@ -369,28 +367,27 @@ onMounted(load)
 				/>
 			</template>
 
-			<!-- Daily: from/to range -->
+			<!-- Daily: single range picker -->
 			<template v-else>
-				<DatePicker
-					v-model="dateFrom"
-					date-format="M dd, yy"
-					show-icon
-					icon-display="input"
-					placeholder="From"
-					class="reports-datepicker"
-					@update:model-value="load"
-				/>
-				<span class="text-gray-400 text-sm">—</span>
-				<DatePicker
-					v-model="dateTo"
-					date-format="M dd, yy"
-					show-icon
-					icon-display="input"
-					placeholder="To"
-					class="reports-datepicker"
-					:min-date="dateFrom"
-					@update:model-value="load"
-				/>
+				<div class="relative flex items-center">
+					<DatePicker
+						v-model="dateRange"
+						selection-mode="range"
+						:manual-input="false"
+						date-format="M dd, yy"
+						show-icon
+						icon-display="input"
+						placeholder="Date range…"
+						class="reports-datepicker reports-datepicker--range"
+						@update:model-value="(v) => { if (!v || (v[0] && v[1])) load() }"
+					/>
+					<button
+						v-if="dateRange"
+						class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors leading-none"
+						style="font-size: 16px; line-height: 1;"
+						@click.stop="dateRange = null; load()"
+					>×</button>
+				</div>
 			</template>
 		</div>
 
@@ -492,6 +489,10 @@ onMounted(load)
 	font-size: 14px;
 	color: #111827;
 	width: 150px;
+}
+.reports-datepicker.reports-datepicker--range .p-datepicker-input {
+	width: 210px;
+	padding-right: 28px;
 }
 .reports-datepicker .p-datepicker-input:focus {
 	outline: none;

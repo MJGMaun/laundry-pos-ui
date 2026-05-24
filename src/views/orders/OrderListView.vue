@@ -13,8 +13,7 @@ const page = ref(1)
 const total = ref(0)
 const perPage = ref(20)
 const filters = ref({ status: '', search: '', unpaid: false })
-const dateFrom = ref(null)
-const dateTo = ref(null)
+const dateRange = ref(null)  // [Date, Date] when both picked
 
 function toYMD(d) {
   return d ? new Date(d).toISOString().slice(0, 10) : null
@@ -37,8 +36,8 @@ async function load() {
     if (filters.value.status) params.status = filters.value.status
     if (filters.value.search) params.search = filters.value.search
     if (filters.value.unpaid) params.unpaid = 1
-    if (dateFrom.value) params.date_from = toYMD(dateFrom.value)
-    if (dateTo.value) params.date_to = toYMD(dateTo.value)
+    if (dateRange.value?.[0]) params.date_from = toYMD(dateRange.value[0])
+    if (dateRange.value?.[1]) params.date_to   = toYMD(dateRange.value[1])
     const res = await getOrders(params)
     orders.value = res.data.data || res.data
     total.value = res.data.total || orders.value.length
@@ -114,28 +113,27 @@ onMounted(load)
         </button>
       </div>
 
-      <!-- Row 2: date pickers + search -->
+      <!-- Row 2: date range + search -->
       <div class="flex flex-wrap items-center gap-2">
-        <DatePicker
-          v-model="dateFrom"
-          date-format="M dd, yy"
-          show-icon
-          icon-display="input"
-          placeholder="From"
-          class="orders-datepicker"
-          @update:model-value="applyFilters"
-        />
-        <span class="text-slate-400 text-sm">—</span>
-        <DatePicker
-          v-model="dateTo"
-          date-format="M dd, yy"
-          show-icon
-          icon-display="input"
-          placeholder="To"
-          :min-date="dateFrom"
-          class="orders-datepicker"
-          @update:model-value="applyFilters"
-        />
+        <div class="relative flex items-center">
+          <DatePicker
+            v-model="dateRange"
+            selection-mode="range"
+            :manual-input="false"
+            date-format="M dd, yy"
+            show-icon
+            icon-display="input"
+            placeholder="Date range…"
+            class="orders-datepicker"
+            @update:model-value="(v) => { if (!v || (v[0] && v[1])) applyFilters() }"
+          />
+          <button
+            v-if="dateRange"
+            class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors leading-none"
+            style="font-size: 16px; line-height: 1;"
+            @click.stop="dateRange = null; applyFilters()"
+          >×</button>
+        </div>
 
         <div class="relative flex-1 min-w-[160px] sm:flex-none sm:ml-auto">
           <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
@@ -308,10 +306,10 @@ onMounted(load)
 .orders-datepicker .p-datepicker-input {
   border: 1px solid #e2e8f0;
   border-radius: 10px;
-  padding: 6px 12px;
+  padding: 6px 28px 6px 12px;
   font-size: 14px;
   color: #1e293b;
-  width: 130px;
+  width: 210px;
 }
 .orders-datepicker .p-datepicker-input:focus {
   outline: none;
