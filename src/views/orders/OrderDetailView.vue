@@ -566,7 +566,7 @@ onMounted(load)
               <!-- Method -->
               <div class="flex gap-1">
                 <button
-                  v-for="m in ['cash','gcash','maya','card']"
+                  v-for="m in ['cash','gcash']"
                   :key="m"
                   class="flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all"
                   :class="newPayment.method === m
@@ -626,12 +626,12 @@ onMounted(load)
                 </div>
               </template>
 
-              <!-- Digital ref -->
+              <!-- GCash ref (optional) -->
               <div v-else class="flex items-center gap-2">
-                <span class="text-xs text-slate-500 w-16 shrink-0">Ref #</span>
+                <span class="text-xs text-slate-500 w-16 shrink-0">Ref # <span class="text-slate-400">(opt)</span></span>
                 <input
                   v-model="newPayment.reference_number"
-                  placeholder="Transaction reference"
+                  placeholder="Transaction reference (optional)"
                   class="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
                 />
               </div>
