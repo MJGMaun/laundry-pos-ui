@@ -229,10 +229,14 @@ onMounted(load)
 
 		<div v-else class="space-y-5">
 			<!-- P&L Summary -->
-			<div v-if="pl" class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+			<div v-if="pl" class="grid grid-cols-2 lg:grid-cols-5 gap-3">
 				<div class="bg-white rounded-xl border border-gray-200 p-4">
 					<div class="text-xs text-gray-500 mb-1">Total Revenue</div>
 					<div class="text-xl font-bold text-green-700">₱{{ fmt(pl.total_revenue || pl.revenue) }}</div>
+				</div>
+				<div class="bg-white rounded-xl border border-gray-200 p-4">
+					<div class="text-xs text-gray-500 mb-1">Uncollected</div>
+					<div class="text-xl font-bold text-amber-600">₱{{ fmt(pl.uncollected_revenue || 0) }}</div>
 				</div>
 				<div class="bg-white rounded-xl border border-gray-200 p-4">
 					<div class="text-xs text-gray-500 mb-1">Total Expenses</div>

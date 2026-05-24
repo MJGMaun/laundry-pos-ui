@@ -14,13 +14,15 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 const loading = ref(true)
 const period = ref('daily')
 
-const rawRevenue   = ref(0)
-const rawOrders    = ref(0)
-const rawAvg       = ref(0)
+const rawRevenue      = ref(0)
+const rawUncollected  = ref(0)
+const rawOrders       = ref(0)
+const rawAvg          = ref(0)
 
-const animRevenue  = useCountUp(rawRevenue, 1000, 2)
-const animOrders   = useCountUp(rawOrders,  800,  0)
-const animAvg      = useCountUp(rawAvg,     900,  2)
+const animRevenue      = useCountUp(rawRevenue,     1000, 2)
+const animUncollected  = useCountUp(rawUncollected,  950, 2)
+const animOrders       = useCountUp(rawOrders,        800, 0)
+const animAvg          = useCountUp(rawAvg,           900, 2)
 
 const revenueData  = ref([])
 const topCustomers = ref([])
@@ -82,10 +84,11 @@ async function load() {
     ])
 
     const sum = sumRes.data.data || sumRes.data
-    rawRevenue.value  = Number(sum?.total_revenue || sum?.revenue || 0)
-    rawOrders.value   = Number(sum?.order_count || sum?.orders || 0)
-    rawAvg.value      = Number(sum?.avg_order_value || sum?.average || 0)
-    topService.value  = sum?.top_service?.name || ''
+    rawRevenue.value     = Number(sum?.total_revenue || sum?.revenue || 0)
+    rawUncollected.value = Number(sum?.uncollected_revenue || 0)
+    rawOrders.value      = Number(sum?.order_count || sum?.orders || 0)
+    rawAvg.value         = Number(sum?.avg_order_value || sum?.average || 0)
+    topService.value     = sum?.top_service?.name || ''
 
     revenueData.value  = revRes.data.data || revRes.data
     topCustomers.value = custRes.data.data || custRes.data
@@ -162,8 +165,8 @@ onMounted(load)
 
     <!-- Skeleton -->
     <div v-if="loading" class="space-y-5">
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div v-for="n in 4" :key="n" class="skeleton h-28 rounded-2xl" :class="`stagger-${n}`" />
+      <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <div v-for="n in 5" :key="n" class="skeleton h-28 rounded-2xl" :class="`stagger-${n}`" />
       </div>
       <div class="grid lg:grid-cols-3 gap-4">
         <div class="lg:col-span-2 skeleton h-64 rounded-2xl" />
@@ -174,7 +177,7 @@ onMounted(load)
     <div v-else class="space-y-5">
 
       <!-- Stat cards -->
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <div class="stat-card animate-slide-up stagger-1">
           <div class="stat-icon" style="background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: #1d4ed8;">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -185,6 +188,15 @@ onMounted(load)
         </div>
 
         <div class="stat-card animate-slide-up stagger-2">
+          <div class="stat-icon" style="background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e;">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </div>
+          <div class="stat-label">Uncollected</div>
+          <div class="stat-value text-amber-600">₱{{ fmt(animUncollected) }}</div>
+          <div class="stat-bar" style="background: linear-gradient(90deg, #f59e0b, #fbbf24);" />
+        </div>
+
+        <div class="stat-card animate-slide-up stagger-3">
           <div class="stat-icon" style="background: linear-gradient(135deg, #dcfce7, #bbf7d0); color: #166534;">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
           </div>
@@ -193,16 +205,16 @@ onMounted(load)
           <div class="stat-bar" style="background: linear-gradient(90deg, #16a34a, #4ade80);" />
         </div>
 
-        <div class="stat-card animate-slide-up stagger-3">
-          <div class="stat-icon" style="background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e;">
+        <div class="stat-card animate-slide-up stagger-4">
+          <div class="stat-icon" style="background: linear-gradient(135deg, #e0f2fe, #bae6fd); color: #0369a1;">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
           </div>
           <div class="stat-label">Avg Order</div>
           <div class="stat-value">₱{{ fmt(animAvg) }}</div>
-          <div class="stat-bar" style="background: linear-gradient(90deg, #f59e0b, #fbbf24);" />
+          <div class="stat-bar" style="background: linear-gradient(90deg, #0ea5e9, #38bdf8);" />
         </div>
 
-        <div class="stat-card animate-slide-up stagger-4">
+        <div class="stat-card animate-slide-up stagger-5">
           <div class="stat-icon" style="background: linear-gradient(135deg, #ede9fe, #ddd6fe); color: #5b21b6;">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
           </div>
