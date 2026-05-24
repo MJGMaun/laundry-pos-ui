@@ -67,9 +67,33 @@ const loading = ref(false)
 const period = ref('monthly')
 
 // each period mode uses a different picker value
-const monthDate = ref(new Date())   // monthly — single month
-const weekDate = ref(new Date())    // weekly  — single day in the week
-const dateRange = ref(null)         // daily   — [start, end]
+const monthDate  = ref(new Date())  // monthly — single month
+const weekRange  = ref(null)        // weekly  — [Monday, Sunday] of selected week
+const dateRange  = ref(null)        // daily   — [start, end]
+
+// Given any date, return [Monday, Sunday] of its ISO week
+function getWeekRange(date) {
+	const d   = new Date(date)
+	const day = d.getDay()                         // 0=Sun … 6=Sat
+	const diffToMonday = day === 0 ? -6 : 1 - day  // shift back to Mon
+	const monday = new Date(d)
+	monday.setDate(d.getDate() + diffToMonday)
+	monday.setHours(0, 0, 0, 0)
+	const sunday = new Date(monday)
+	sunday.setDate(monday.getDate() + 6)
+	sunday.setHours(0, 0, 0, 0)
+	return [monday, sunday]
+}
+
+// Intercept any click in the weekly range picker and snap to full Mon–Sun week
+function onWeekPick(val) {
+	if (!val) { weekRange.value = null; load(); return }
+	// val arrives as [date, null] on first click — grab that date and snap
+	const picked = Array.isArray(val) ? val[0] : val
+	if (!picked) return
+	weekRange.value = getWeekRange(picked)
+	load()
+}
 
 const revenue = ref([])
 const pl = ref(null)
@@ -102,8 +126,9 @@ function buildParams() {
 		params.date_from = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
 		const last = new Date(d.getFullYear(), d.getMonth() + 1, 0)
 		params.date_to = toYMD(last)
-	} else if (period.value === 'weekly' && weekDate.value) {
-		params.date_from = toYMD(weekDate.value)
+	} else if (period.value === 'weekly' && weekRange.value) {
+		params.date_from = toYMD(weekRange.value[0])  // Monday
+		params.date_to   = toYMD(weekRange.value[1])  // Sunday
 	} else {
 		if (dateRange.value?.[0]) params.date_from = toYMD(dateRange.value[0])
 		if (dateRange.value?.[1]) params.date_to   = toYMD(dateRange.value[1])
@@ -157,15 +182,9 @@ function buildChart() {
 // reset picker values and reload when period changes
 watch(period, () => {
 	monthDate.value = new Date()
-	weekDate.value  = new Date()
+	weekRange.value = null
 	dateRange.value = null
 	load()
-})
-
-const pickerLabel = computed(() => {
-	if (period.value === 'monthly') return 'Select month'
-	if (period.value === 'weekly') return 'Select any day in the week'
-	return null
 })
 
 onMounted(load)
@@ -354,17 +373,28 @@ onMounted(load)
 				/>
 			</template>
 
-			<!-- Weekly: single day picker -->
+			<!-- Weekly: click any day → whole Mon–Sun week highlighted -->
 			<template v-else-if="period === 'weekly'">
-				<DatePicker
-					v-model="weekDate"
-					date-format="M dd, yy"
-					show-icon
-					icon-display="input"
-					placeholder="Any day in the week"
-					class="reports-datepicker"
-					@update:model-value="load"
-				/>
+				<div class="relative flex items-center">
+					<DatePicker
+						v-model="weekRange"
+						selection-mode="range"
+						:manual-input="false"
+						:first-day-of-week="1"
+						date-format="M dd, yy"
+						show-icon
+						icon-display="input"
+						placeholder="Select a week…"
+						class="reports-datepicker reports-datepicker--range"
+						@update:model-value="onWeekPick"
+					/>
+					<button
+						v-if="weekRange"
+						class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors leading-none"
+						style="font-size: 16px; line-height: 1;"
+						@click.stop="weekRange = null; load()"
+					>×</button>
+				</div>
 			</template>
 
 			<!-- Daily: single range picker -->
