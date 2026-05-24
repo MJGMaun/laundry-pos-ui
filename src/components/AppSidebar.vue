@@ -85,8 +85,8 @@ function isActive(path) {
 
     <!-- Logo -->
     <div
-      class="flex items-center gap-3 px-4 h-16 shrink-0 border-b"
-      style="border-color: rgba(255,255,255,0.07);"
+      class="flex items-center gap-3 px-4 shrink-0 border-b"
+      style="border-color: rgba(255,255,255,0.07); padding-top: env(safe-area-inset-top); min-height: calc(4rem + env(safe-area-inset-top));"
     >
       <img src="@/assets/logo-pos.png" alt="Laundry POS" class="w-9 h-9 rounded-xl shrink-0 object-contain" />
       <div v-if="open" class="overflow-hidden">

@@ -25,8 +25,8 @@ async function logout() {
 
 <template>
   <header
-    class="flex items-center gap-3 h-16 px-4 shrink-0 border-b sticky top-0 z-50"
-    style="background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); border-color: #e2e8f0;"
+    class="flex items-center gap-3 px-4 shrink-0 border-b sticky top-0 z-50"
+    style="background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); border-color: #e2e8f0; padding-top: env(safe-area-inset-top); min-height: calc(4rem + env(safe-area-inset-top));"
   >
     <!-- Hamburger -->
     <button
