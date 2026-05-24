@@ -1,7 +1,9 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: '/api',
+  // VITE_API_URL lets you point at a different domain in production (e.g. https://api.yourdomain.com).
+  // Falls back to /api so the Vite dev-server proxy still works with no config.
+  baseURL: import.meta.env.VITE_API_URL ?? '/api',
   headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
 })
 
