@@ -18,10 +18,14 @@ const form     = ref({})
 const saving   = ref(false)
 const filter   = ref('all') // 'all' | 'unpaid' | 'paid'
 
-// Orders that haven't reached 'completed' are considered unpaid
-const unpaidOrders  = computed(() => orders.value.filter((o) => o.status !== 'completed'))
-const paidOrders    = computed(() => orders.value.filter((o) => o.status === 'completed'))
-const unpaidTotal   = computed(() => unpaidOrders.value.reduce((s, o) => s + Number(o.total_amount || 0), 0))
+// Actual outstanding balance per order (accounts for partial payments)
+function orderBalance(o) {
+  return Math.max(0, Number(o.total_amount || 0) - Number(o.paid_amount || 0))
+}
+
+const unpaidOrders  = computed(() => orders.value.filter((o) => orderBalance(o) > 0.009))
+const paidOrders    = computed(() => orders.value.filter((o) => orderBalance(o) <= 0.009))
+const unpaidTotal   = computed(() => unpaidOrders.value.reduce((s, o) => s + orderBalance(o), 0))
 
 const filteredOrders = computed(() => {
   if (filter.value === 'unpaid') return unpaidOrders.value
@@ -29,14 +33,20 @@ const filteredOrders = computed(() => {
   return orders.value
 })
 
-// ── Pay All ──────────────────────────────────────────────────────────────────
-const showPayAll      = ref(false)
-const payAllMethod    = ref('cash')
-const payAllTendered  = ref('')
-const payAllRef       = ref('')
-const payAllError     = ref('')
-const payingAll       = ref(false)
-const payAllProgress  = ref({ done: 0, total: 0 })
+// ── Pay All ───────────────────────────────────────────────────────────────────
+const showPayAll     = ref(false)
+const payAllMethod   = ref('cash')
+const payAllTendered = ref('')
+const payAllRef      = ref('')
+const payAllError    = ref('')
+const payingAll      = ref(false)
+const payAllProgress = ref({ done: 0, total: 0 })
+
+const payAllChange = computed(() =>
+  payAllMethod.value === 'cash'
+    ? Math.max(0, Number(payAllTendered.value || 0) - unpaidTotal.value)
+    : 0
+)
 
 function openPayAll() {
   payAllMethod.value   = 'cash'
@@ -46,41 +56,28 @@ function openPayAll() {
   showPayAll.value     = true
 }
 
-const payAllChange = computed(() => {
-  if (payAllMethod.value !== 'cash') return 0
-  return Math.max(0, Number(payAllTendered.value || 0) - unpaidTotal.value)
-})
-
 async function confirmPayAll() {
   payingAll.value      = true
   payAllError.value    = ''
   const targets        = unpaidOrders.value.slice()
   payAllProgress.value = { done: 0, total: targets.length }
-
   try {
     for (const o of targets) {
-      const payData = {
-        method: payAllMethod.value,
-        amount: Number(o.total_amount),
-        type:   'payment',
-      }
-      if (payAllMethod.value === 'cash') {
-        // Each order gets the exact amount; change is handed back at the counter
-        payData.tendered = Number(o.total_amount)
-      } else {
-        payData.reference_number = payAllRef.value || ''
-      }
+      const balance = orderBalance(o)
+      const payData = { method: payAllMethod.value, amount: balance, type: 'payment' }
+      if (payAllMethod.value === 'cash') payData.tendered = balance
+      else payData.reference_number = payAllRef.value || ''
       await createPayment(o.id, payData)
-      if (o.status !== 'completed') {
+      if (o.status === 'to_collect') {
         await updateOrderStatus(o.id, { status: 'completed' })
       }
       payAllProgress.value.done++
     }
     showPayAll.value = false
-    toast.add({ severity: 'success', summary: 'All paid', detail: `${targets.length} order${targets.length !== 1 ? 's' : ''} marked as paid`, life: 3500 })
+    toast.add({ severity: 'success', summary: 'All paid', detail: `${targets.length} order${targets.length !== 1 ? 's' : ''} settled`, life: 3500 })
     await load()
   } catch (e) {
-    payAllError.value = e.response?.data?.message || 'Failed to record payment for one of the orders.'
+    payAllError.value = e.response?.data?.message || 'Failed to record payment.'
   } finally {
     payingAll.value = false
   }
@@ -328,7 +325,9 @@ onMounted(load)
               </td>
               <td class="px-4 sm:px-5 py-3 text-right">
                 <div class="font-semibold text-slate-900">₱{{ fmt(o.total_amount) }}</div>
-                <div v-if="o.status !== 'completed'" class="text-[11px] text-amber-600 font-medium mt-0.5">unpaid</div>
+                <div v-if="orderBalance(o) > 0.009" class="text-[11px] text-amber-600 font-medium mt-0.5">
+                  balance ₱{{ fmt(orderBalance(o)) }}
+                </div>
               </td>
               <td class="hidden sm:table-cell px-5 py-3 text-slate-500">{{ fmtDate(o.created_at) }}</td>
             </tr>
@@ -354,19 +353,16 @@ onMounted(load)
       </div>
 
     </div>
-  </div>
 
-  <!-- ── Pay All Modal ── -->
-  <Teleport to="body">
-    <Transition name="modal-backdrop">
-      <div
-        v-if="showPayAll"
-        class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
-        style="background: rgba(15,23,42,0.6); backdrop-filter: blur(6px);"
-        @click.self="showPayAll = false"
-      >
-        <Transition name="modal">
-          <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden" style="box-shadow: 0 32px 80px rgba(0,0,0,0.3);">
+    <!-- ── Pay All Modal ── -->
+    <Teleport to="body">
+    <div
+      v-if="showPayAll"
+      class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+      style="background: rgba(15,23,42,0.6); backdrop-filter: blur(6px);"
+      @click.self="showPayAll = false"
+    >
+        <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden" style="box-shadow: 0 32px 80px rgba(0,0,0,0.3);">
 
             <!-- Header -->
             <div class="px-6 pt-6 pb-4 border-b border-slate-100">
@@ -392,43 +388,40 @@ onMounted(load)
                 <div
                   v-for="o in unpaidOrders"
                   :key="o.id"
-                  class="flex items-center justify-between text-sm px-3 py-2 bg-slate-50 rounded-xl"
+                  class="flex items-center justify-between px-3 py-2 bg-slate-50 rounded-xl"
                 >
                   <span class="font-mono text-slate-600 text-xs">{{ o.order_number }}</span>
                   <div class="flex items-center gap-2">
                     <span :class="['badge', `badge-${o.status}`]">{{ o.status?.replace('_', ' ') }}</span>
-                    <span class="font-semibold text-slate-800">₱{{ fmt(o.total_amount) }}</span>
+                    <span class="text-sm font-semibold text-amber-700">₱{{ fmt(orderBalance(o)) }}</span>
                   </div>
                 </div>
               </div>
 
               <div class="h-px bg-slate-100" />
 
-              <!-- Method tabs -->
-              <div>
-                <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Payment Method</div>
-                <div class="flex gap-1">
-                  <button
-                    v-for="m in ['cash','gcash','maya','card']"
-                    :key="m"
-                    class="flex-1 py-2 rounded-xl text-xs font-semibold transition-all"
-                    :class="payAllMethod === m
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'bg-slate-100 text-slate-500 hover:bg-slate-200'"
-                    @click="payAllMethod = m"
-                  >{{ m.toUpperCase() }}</button>
-                </div>
+              <!-- Method -->
+              <div class="flex gap-1">
+                <button
+                  v-for="m in ['cash','gcash','maya','card']"
+                  :key="m"
+                  class="flex-1 py-2 rounded-xl text-xs font-semibold transition-all"
+                  :class="payAllMethod === m
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'"
+                  @click="payAllMethod = m"
+                >{{ m.toUpperCase() }}</button>
               </div>
 
-              <!-- Total row -->
+              <!-- Total -->
               <div class="flex items-center justify-between px-4 py-3 bg-amber-50 border border-amber-200 rounded-2xl">
                 <span class="text-sm font-medium text-amber-800">Total to collect</span>
                 <span class="text-xl font-bold text-amber-700">₱{{ fmt(unpaidTotal) }}</span>
               </div>
 
-              <!-- Cash: tendered + change -->
+              <!-- Cash tendered -->
               <template v-if="payAllMethod === 'cash'">
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-2">
                   <span class="text-xs text-slate-500 w-16 shrink-0">Tendered</span>
                   <div class="relative flex-1">
                     <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">₱</span>
@@ -451,20 +444,18 @@ onMounted(load)
                     @click="payAllTendered = ''"
                   >Clear</button>
                 </div>
-                <Transition name="scale-fade">
-                  <div
-                    v-if="Number(payAllTendered) >= unpaidTotal && unpaidTotal > 0"
-                    class="flex items-center justify-between px-4 py-2.5 rounded-2xl"
-                    style="background: linear-gradient(135deg, #dcfce7, #bbf7d0);"
-                  >
-                    <span class="text-sm font-medium text-green-700">Change</span>
-                    <span class="text-lg font-bold text-green-700">₱{{ fmt(payAllChange) }}</span>
-                  </div>
-                </Transition>
+                <div
+                  v-if="Number(payAllTendered) >= unpaidTotal && unpaidTotal > 0"
+                  class="flex items-center justify-between px-4 py-2.5 rounded-2xl"
+                  style="background: linear-gradient(135deg, #dcfce7, #bbf7d0);"
+                >
+                  <span class="text-sm font-medium text-green-700">Change</span>
+                  <span class="text-lg font-bold text-green-700">₱{{ fmt(payAllChange) }}</span>
+                </div>
               </template>
 
-              <!-- Digital: reference -->
-              <div v-else class="flex items-center gap-3">
+              <!-- Digital ref -->
+              <div v-else class="flex items-center gap-2">
                 <span class="text-xs text-slate-500 w-16 shrink-0">Ref #</span>
                 <input
                   v-model="payAllRef"
@@ -473,10 +464,10 @@ onMounted(load)
                 />
               </div>
 
-              <!-- Progress indicator while saving -->
+              <!-- Progress -->
               <div v-if="payingAll" class="flex items-center gap-3 px-3 py-2.5 bg-blue-50 border border-blue-100 rounded-xl text-sm text-blue-700">
                 <svg class="w-4 h-4 animate-spin shrink-0" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="rgba(59,130,246,0.3)" stroke-width="3"/><path d="M12 2a10 10 0 0110 10" stroke="#3b82f6" stroke-width="3" stroke-linecap="round"/></svg>
-                <span>Processing {{ payAllProgress.done }} / {{ payAllProgress.total }}…</span>
+                Processing {{ payAllProgress.done }} / {{ payAllProgress.total }}…
               </div>
 
               <div v-if="payAllError" class="text-xs text-red-500 font-medium px-1">{{ payAllError }}</div>
@@ -500,14 +491,15 @@ onMounted(load)
               </button>
             </div>
 
-          </div>
-        </Transition>
-      </div>
-    </Transition>
+        </div>
+    </div>
   </Teleport>
+</div>
 </template>
 
 <style scoped>
+.animate-spin { animation: spin 800ms linear infinite; }
+
 .filter-tab {
   display: flex;
   align-items: center;
@@ -555,17 +547,4 @@ onMounted(load)
   color: #64748b;
 }
 
-/* Modal transitions */
-.modal-backdrop-enter-active { animation: fade-in 200ms ease both; }
-.modal-backdrop-leave-active { animation: fade-in 150ms ease reverse both; }
-.modal-enter-active  { animation: scale-in 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
-.modal-leave-active  { animation: scale-in 150ms ease reverse both; }
-.scale-fade-enter-active { animation: scale-in 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
-.scale-fade-leave-active { animation: scale-in 150ms ease reverse both; }
-
-.animate-spin { animation: spin 800ms linear infinite; }
-
-@keyframes fade-in  { from { opacity: 0; } to { opacity: 1; } }
-@keyframes scale-in { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: none; } }
-@keyframes spin     { to { transform: rotate(360deg); } }
 </style>
