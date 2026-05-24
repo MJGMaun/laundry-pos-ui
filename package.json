@@ -6,9 +6,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "android": "npm run build && npx cap sync android && npx cap open android",
+    "android:dev": "npx cap run android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.4",
+    "@capacitor/cli": "^8.3.4",
+    "@capacitor/core": "^8.3.4",
     "@primevue/themes": "^4.5.4",
     "@tailwindcss/vite": "^4.3.0",
     "@vueuse/core": "^14.3.0",
@@ -23,6 +28,7 @@
     "vue-router": "^4.6.4"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@tailwindcss/forms": "^0.5.11",
     "@vite-pwa/assets-generator": "^1.0.2",
     "@vitejs/plugin-vue": "^5.2.4",
