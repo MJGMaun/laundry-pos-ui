@@ -36,9 +36,10 @@ const navItems = computed(() => {
     items.push({ to: '/settings',  emoji: '⚙️', label: 'Settings',     color: '#94a3b8' })
   }
   if (auth.isSuperAdmin) {
-    items.push({ to: '/pickup-queue',  emoji: '🧾', label: 'Pickup Queue', color: '#f59e0b' })
-    items.push({ to: '/branches',     emoji: '🏪', label: 'Branches',     color: '#c084fc' })
-    items.push({ to: '/cross-branch', emoji: '🌐', label: 'All Branches', color: '#38bdf8' })
+    items.push({ to: '/pickup-queue',      emoji: '🧾', label: 'Pickup Queue',    color: '#f59e0b' })
+    items.push({ to: '/branches',          emoji: '🏪', label: 'Branches',        color: '#c084fc' })
+    items.push({ to: '/cross-branch',      emoji: '🌐', label: 'All Branches',    color: '#38bdf8' })
+    items.push({ to: '/data-management',   emoji: '🗑️', label: 'Data Management', color: '#f87171' })
   }
   return items
 })

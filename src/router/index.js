@@ -111,6 +111,12 @@ const router = createRouter({
           component: () => import('@/views/super-admin/CrossBranchView.vue'),
           meta: { roles: ['super_admin'] },
         },
+        {
+          path: 'data-management',
+          name: 'data-management',
+          component: () => import('@/views/super-admin/DataManagementView.vue'),
+          meta: { roles: ['super_admin'] },
+        },
       ],
     },
   ],
