@@ -70,6 +70,12 @@ const router = createRouter({
           meta: { roles: ['super_admin', 'admin'] },
         },
         {
+          path: 'cash-balance',
+          name: 'cash-balance',
+          component: () => import('@/views/admin/CashBalanceView.vue'),
+          meta: { roles: ['super_admin', 'admin'] },
+        },
+        {
           path: 'expenses',
           name: 'expenses',
           component: () => import('@/views/admin/ExpensesView.vue'),

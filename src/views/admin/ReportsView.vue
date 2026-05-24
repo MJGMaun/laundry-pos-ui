@@ -2,7 +2,6 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import DatePicker from 'primevue/datepicker'
 import { getRevenue, getProfitLoss, getServiceReport, getTopCustomers } from '@/api/reports.js'
-import { getCashBalance, setCashBalance } from '@/api/cashBalance.js'
 import { useToast } from 'primevue/usetoast'
 import { Bar } from 'vue-chartjs'
 import {
@@ -12,55 +11,6 @@ import {
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
 const toast = useToast()
-
-// ── View mode ─────────────────────────────────────────────────────────────────
-const view = ref('reports') // 'reports' | 'cash'
-
-// ── Cash balance ──────────────────────────────────────────────────────────────
-const cashDate     = ref(new Date())
-const cashData     = ref(null)
-const cashLoading  = ref(false)
-const editingStart = ref(false)
-const startInput   = ref('')
-const savingStart  = ref(false)
-
-function cashDateStr() {
-	return cashDate.value ? new Date(cashDate.value).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10)
-}
-
-async function loadCash() {
-	cashLoading.value = true
-	cashData.value = null
-	try {
-		const res = await getCashBalance(cashDateStr())
-		cashData.value = res.data
-	} finally {
-		cashLoading.value = false
-	}
-}
-
-function openEditStart() {
-	startInput.value = cashData.value?.starting_balance ?? 0
-	editingStart.value = true
-}
-
-async function saveStartingBalance() {
-	if (startInput.value === '' || Number(startInput.value) < 0) return
-	savingStart.value = true
-	try {
-		const res = await setCashBalance({ date: cashDateStr(), starting_balance: Number(startInput.value) })
-		cashData.value = res.data
-		editingStart.value = false
-		toast.add({ severity: 'success', summary: 'Starting balance saved', life: 2500 })
-	} catch (e) {
-		toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to save', life: 4000 })
-	} finally {
-		savingStart.value = false
-	}
-}
-
-watch(cashDate, () => { if (view.value === 'cash') loadCash() })
-watch(view, (v) => { if (v === 'cash') loadCash() })
 
 // ── Reports ───────────────────────────────────────────────────────────────────
 const loading = ref(false)
@@ -192,153 +142,9 @@ onMounted(load)
 
 <template>
 	<div class="p-4 sm:p-6 max-w-6xl mx-auto">
-		<div class="flex items-center justify-between mb-5">
+		<div class="mb-5">
 			<h1 class="text-xl font-bold text-gray-900">Reports</h1>
-			<!-- View switcher -->
-			<div class="flex rounded-xl border border-gray-200 overflow-hidden text-sm bg-white">
-				<button
-					class="px-4 py-2 font-medium transition-colors"
-					:class="view === 'reports' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'"
-					@click="view = 'reports'"
-				>📊 Reports</button>
-				<button
-					class="px-4 py-2 font-medium transition-colors"
-					:class="view === 'cash' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'"
-					@click="view = 'cash'"
-				>💰 Cash Balance</button>
-			</div>
 		</div>
-
-		<!-- ── Cash Balance view ─────────────────────────────────────────────── -->
-		<div v-if="view === 'cash'" class="space-y-4">
-			<!-- Date picker -->
-			<div class="flex items-center gap-3 bg-white rounded-xl border border-gray-200 p-3">
-				<span class="text-sm text-gray-500 font-medium">Date</span>
-				<DatePicker
-					v-model="cashDate"
-					date-format="M dd, yy"
-					show-icon
-					icon-display="input"
-					placeholder="Select date"
-					class="reports-datepicker"
-					@update:model-value="loadCash"
-				/>
-			</div>
-
-			<div v-if="cashLoading" class="text-center py-16 text-gray-400">Loading…</div>
-
-			<div v-else-if="cashData" class="space-y-4">
-				<!-- Starting balance card -->
-				<div class="bg-white rounded-xl border border-gray-200 p-5">
-					<div class="flex items-center justify-between mb-1">
-						<span class="text-sm font-semibold text-gray-600">Starting Balance (float)</span>
-						<button
-							v-if="!editingStart"
-							class="text-xs font-semibold text-blue-600 border border-blue-200 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all"
-							@click="openEditStart"
-						>{{ cashData.starting_balance > 0 ? 'Edit' : 'Set' }}</button>
-					</div>
-					<div v-if="!editingStart" class="text-2xl font-bold text-gray-900">₱{{ fmt(cashData.starting_balance) }}</div>
-					<div v-if="cashData.set_by && !editingStart" class="text-xs text-gray-400 mt-1">Set by {{ cashData.set_by }}</div>
-
-					<!-- Inline edit form -->
-					<div v-if="editingStart" class="flex items-center gap-2 mt-2">
-						<div class="relative flex-1">
-							<span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">₱</span>
-							<input
-								v-model="startInput"
-								type="number" min="0" step="1"
-								class="w-full border border-gray-200 rounded-xl pl-7 pr-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
-								autofocus
-								@keyup.enter="saveStartingBalance"
-								@keyup.escape="editingStart = false"
-							/>
-						</div>
-						<button
-							class="px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50"
-							style="background: linear-gradient(135deg, #2563eb, #4f46e5);"
-							:disabled="savingStart"
-							@click="saveStartingBalance"
-						>{{ savingStart ? 'Saving…' : 'Save' }}</button>
-						<button
-							class="px-3 py-2 rounded-xl text-sm font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 transition-all"
-							@click="editingStart = false"
-						>Cancel</button>
-					</div>
-				</div>
-
-				<!-- Cash section -->
-				<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-					<div class="px-5 py-3.5 border-b border-gray-100 flex items-center gap-2">
-						<span class="text-base">💵</span>
-						<h3 class="font-semibold text-gray-900">Cash</h3>
-					</div>
-					<div class="divide-y divide-gray-50">
-						<div class="flex items-center justify-between px-5 py-3">
-							<div class="text-sm text-gray-600">Cash payments in <span class="text-xs text-gray-400">(net of refunds)</span></div>
-							<span class="font-semibold text-green-700">+₱{{ fmt(cashData.cash_in) }}</span>
-						</div>
-						<div class="flex items-center justify-between px-5 py-3">
-							<div class="text-sm text-gray-600">Expenses</div>
-							<span class="font-semibold text-red-600">−₱{{ fmt(cashData.expenses) }}</span>
-						</div>
-						<div class="flex items-center justify-between px-5 py-3 bg-gray-50">
-							<div class="text-sm font-medium text-gray-700">Total in Drawer</div>
-							<span class="font-bold text-gray-900">₱{{ fmt(cashData.total_in_drawer) }}</span>
-						</div>
-					</div>
-				</div>
-
-				<!-- Digital methods -->
-				<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-					<div class="px-5 py-3.5 border-b border-gray-100 flex items-center gap-2">
-						<span class="text-base">📱</span>
-						<h3 class="font-semibold text-gray-900">GCash</h3>
-					</div>
-					<div class="divide-y divide-gray-50">
-						<div v-for="m in [
-							{ key: 'gcash_in', label: 'GCash', color: '#005eaa' },
-						]" :key="m.key" class="flex items-center justify-between px-5 py-3">
-							<div class="flex items-center gap-2">
-								<span class="text-xs font-bold px-2 py-0.5 rounded-md text-white" :style="`background: ${m.color};`">{{ m.label }}</span>
-								<span class="text-xs text-gray-400">net of refunds</span>
-							</div>
-							<span class="font-semibold" :class="cashData[m.key] > 0 ? 'text-green-700' : 'text-gray-400'">
-								₱{{ fmt(cashData[m.key]) }}
-							</span>
-						</div>
-					</div>
-				</div>
-
-				<!-- To Remit summary -->
-				<div class="grid sm:grid-cols-2 gap-4">
-					<div
-						class="rounded-xl border p-5"
-						:class="cashData.to_remit_cash >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'"
-					>
-						<div class="text-xs font-semibold mb-1" :class="cashData.to_remit_cash >= 0 ? 'text-green-700' : 'text-red-700'">
-							💵 To Remit (Cash)
-						</div>
-						<div class="text-2xl font-bold" :class="cashData.to_remit_cash >= 0 ? 'text-green-800' : 'text-red-700'">
-							₱{{ fmt(cashData.to_remit_cash) }}
-						</div>
-						<div class="text-xs mt-1" :class="cashData.to_remit_cash >= 0 ? 'text-green-600' : 'text-red-500'">
-							Drawer total minus starting float
-						</div>
-					</div>
-					<div class="bg-blue-50 border border-blue-200 rounded-xl p-5">
-						<div class="text-xs font-semibold text-blue-700 mb-1">📱 To Remit (GCash)</div>
-						<div class="text-2xl font-bold text-blue-900">
-							₱{{ fmt(cashData.gcash_in || 0) }}
-						</div>
-						<div class="text-xs text-blue-500 mt-1">GCash total</div>
-					</div>
-				</div>
-			</div>
-		</div>
-
-		<!-- ── Reports view ──────────────────────────────────────────────────── -->
-		<template v-else>
 
 		<!-- Filters -->
 		<div class="flex flex-wrap items-center gap-2 mb-5 bg-white rounded-xl border border-gray-200 p-3">
@@ -505,7 +311,6 @@ onMounted(load)
 			</div>
 		</div>
 
-		</template><!-- end v-else reports -->
 	</div>
 </template>
 
