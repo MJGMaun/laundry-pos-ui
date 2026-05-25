@@ -15,6 +15,11 @@ const CANDIDATES = [
 export function usePrinter() {
   async function connect() {
     try {
+      if (!navigator.bluetooth) {
+        throw new Error(
+          'Web Bluetooth is not available. Make sure the site is served over HTTPS and you are using Chrome or Edge.'
+        )
+      }
       const device = await navigator.bluetooth.requestDevice({
         acceptAllDevices: true,
         optionalServices: CANDIDATES.map(([s]) => s),
