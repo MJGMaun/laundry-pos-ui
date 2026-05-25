@@ -25,9 +25,11 @@ const GROUPS = [
 		key: 'shop',
 		label: 'Shop Info',
 		fields: [
-			{ key: 'shop_address', label: 'Address', type: 'text' },
-			{ key: 'shop_phone', label: 'Phone', type: 'text' },
-			{ key: 'shop_email', label: 'Email', type: 'email' },
+			{ key: 'shop_name',    label: 'Shop Name',  type: 'text' },
+			{ key: 'shop_address', label: 'Address',    type: 'text' },
+			{ key: 'shop_phone',   label: 'Phone',      type: 'text' },
+			{ key: 'shop_email',   label: 'Email',      type: 'email' },
+			{ key: 'shop_tin',     label: 'TIN',        type: 'text' },
 		],
 	},
 	{

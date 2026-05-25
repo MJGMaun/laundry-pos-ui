@@ -10,6 +10,8 @@
   </head>
   <body>
     <div id="app"></div>
+    <!-- Receipt print container: hidden on screen, shown in @media print -->
+    <div id="receipt-print"></div>
     <script>
       // Prevent pinch-to-zoom on iOS Safari (ignores user-scalable=no since iOS 10)
       document.addEventListener('gesturestart', function (e) { e.preventDefault() })

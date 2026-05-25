@@ -13,6 +13,7 @@ import { getCustomerLoyalty, redeemReward as redeemRewardApi } from '@/api/loyal
 import { isOfflineError } from '@/offline/isOfflineError.js'
 import { db } from '@/offline/db.js'
 import { useRouter } from 'vue-router'
+import ReceiptModal from '@/components/receipt/ReceiptModal.vue'
 
 const cart = useCartStore()
 const branch = useBranchStore()
@@ -76,6 +77,7 @@ function disablePayLater() {
 const lastOrder = ref(null)
 const showSuccess = ref(false)
 const lastRedeemedReward = ref(null)
+const receiptOrderId = ref(null)
 
 const customerLoyalty = ref(null)
 const selectedReward  = ref(null)
@@ -1023,6 +1025,12 @@ watch(() => branch.currentBranchId, loadServices)
       </Transition>
     </Teleport>
 
+    <!-- ───── Receipt Modal ───── -->
+    <ReceiptModal
+      :order-id="receiptOrderId"
+      @close="receiptOrderId = null"
+    />
+
     <!-- ───── Success Modal ───── -->
     <Teleport to="body">
       <Transition name="modal-backdrop">
@@ -1041,7 +1049,17 @@ watch(() => branch.currentBranchId, loadServices)
               <div v-if="lastRedeemedReward" class="mt-3 flex items-center justify-center gap-1.5 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-xl px-3 py-2">
                 🎁 {{ lastRedeemedReward.count > 1 ? `${lastRedeemedReward.count} free loads redeemed` : '1 free load redeemed' }}
               </div>
-              <div class="flex gap-2 mt-6">
+
+              <!-- Print Receipt -->
+              <button
+                class="w-full mt-5 py-3 rounded-2xl font-bold text-sm text-white active:scale-[0.98] transition-all"
+                style="background: linear-gradient(135deg, #1d4ed8, #4f46e5); box-shadow: 0 4px 14px rgba(99,102,241,0.30);"
+                @click="receiptOrderId = lastOrder?.id"
+              >
+                🖨 Print Receipt
+              </button>
+
+              <div class="flex gap-2 mt-2">
                 <button
                   class="flex-1 py-3 rounded-2xl font-semibold text-sm border border-slate-200 text-slate-600 hover:bg-slate-50 active:scale-[0.98] transition-all"
                   @click="() => { showSuccess = false; router.push('/orders/' + lastOrder?.id) }"

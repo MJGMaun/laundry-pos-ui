@@ -12,6 +12,7 @@ import { getCustomerLoyalty } from '@/api/loyalty.js'
 import { useAuthStore } from '@/stores/auth.js'
 import { useQueueStore } from '@/stores/queue.js'
 import { isOfflineError } from '@/offline/isOfflineError.js'
+import ReceiptModal from '@/components/receipt/ReceiptModal.vue'
 
 const route   = useRoute()
 const router  = useRouter()
@@ -304,6 +305,8 @@ async function saveEdit() {
 function fmt(n) { return Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 function fmtDate(d) { return new Date(d).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) }
 
+const receiptOrderId = ref(null)
+
 onMounted(load)
 </script>
 
@@ -316,6 +319,18 @@ onMounted(load)
       >←</button>
       <h1 class="text-2xl font-bold text-slate-900">Order Detail</h1>
       <div class="flex-1" />
+      <!-- Print / Reprint -->
+      <button
+        v-if="order"
+        class="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 border border-indigo-200 hover:bg-indigo-50 px-3 py-2 rounded-xl transition-all active:scale-95"
+        @click="receiptOrderId = order.id"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/>
+        </svg>
+        Print
+      </button>
       <button
         v-if="canDelete"
         :disabled="deletingOrder"
@@ -729,6 +744,12 @@ onMounted(load)
       </div>
     </div>
   </div>
+
+  <!-- Receipt modal (print / reprint) -->
+  <ReceiptModal
+    :order-id="receiptOrderId"
+    @close="receiptOrderId = null"
+  />
 </template>
 
 <style scoped>

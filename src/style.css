@@ -305,3 +305,32 @@ body {
 ───────────────────────────────────────── */
 .p-toast-message-text .p-toast-summary { color: #0f172a !important; }
 .p-toast-message-text .p-toast-detail  { color: #334155 !important; }
+
+/* ─────────────────────────────────────────
+   Receipt printing — @media print
+   #receipt-print is hidden on screen;
+   when window.print() is called, the browser
+   shows only that container and hides #app.
+───────────────────────────────────────── */
+#receipt-print { display: none; }
+
+@media print {
+  /* Hide everything except the receipt */
+  #app           { display: none !important; }
+  #receipt-print { display: block !important; }
+
+  /* 80mm thermal paper */
+  @page {
+    size: 80mm auto;
+    margin: 3mm 4mm;
+  }
+
+  /* Ensure background whites print */
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+  /* Receipt inner styles — no box shadows or background colors needed */
+  .receipt-print-inner {
+    width: 100%;
+    padding: 0;
+  }
+}

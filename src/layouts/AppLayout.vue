@@ -17,9 +17,7 @@ const branch = useBranchStore()
 
       <main class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
         <RouterView v-slot="{ Component, route }">
-          <Transition name="page" mode="out-in">
-            <component :is="Component" :key="route.path + '_' + branch.currentBranchId" />
-          </Transition>
+          <component :is="Component" :key="route.path + '_' + branch.currentBranchId" />
         </RouterView>
       </main>
     </div>
