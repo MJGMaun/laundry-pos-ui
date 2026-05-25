@@ -81,6 +81,7 @@ const lastOrder = ref(null)
 const showSuccess = ref(false)
 const lastRedeemedReward = ref(null)
 const receiptOrderId = ref(null)
+const printingSlips = ref(false)
 
 const customerLoyalty = ref(null)
 const selectedReward  = ref(null)
@@ -290,26 +291,38 @@ function addPaymentRow() {
 }
 
 async function printOrderSlips(order) {
-  if (!printer.connected.value) return // only print if already connected — don't prompt user
+  if (!order) return
   const loads = order.loads || []
   if (!loads.length) return
+  printingSlips.value = true
   try {
+    if (!printer.connected.value) {
+      const ok = await printer.connect()
+      if (!ok) {
+        toast.add({ severity: 'error', summary: 'Printer', detail: 'Could not connect to printer', life: 4000 })
+        return
+      }
+    }
     const { getSettings } = await import('@/api/settings.js')
     const settingsRes = await getSettings()
     const arr = settingsRes.data.settings || []
     const settings = {}
     arr.forEach((s) => { settings[s.key] = s.value })
 
+    const totalSlips = loads.reduce((s, l) => s + Math.max(1, Math.floor(Number(l.quantity) || 1)), 0)
     for (const load of loads) {
       const copies = Math.max(1, Math.floor(Number(load.quantity) || 1))
       for (let i = 0; i < copies; i++) {
-        const bytes = buildTrackingSlipBytes(load, order, settings, i + 1, copies)
-        await printer.print(bytes)
+        const slipBytes = buildTrackingSlipBytes(load, order, settings, i + 1, copies)
+        await printer.print(slipBytes)
         if (i < copies - 1) await new Promise((r) => setTimeout(r, 400))
       }
     }
+    toast.add({ severity: 'success', summary: 'Printed', detail: `${totalSlips} tracking slip${totalSlips !== 1 ? 's' : ''} sent`, life: 2500 })
   } catch (e) {
-    console.warn('[PosView] printOrderSlips failed:', e)
+    toast.add({ severity: 'error', summary: 'Print error', detail: e.message || 'Failed to print slips', life: 4000 })
+  } finally {
+    printingSlips.value = false
   }
 }
 
@@ -370,7 +383,6 @@ async function processPayment() {
     selectedReward.value = null
     showPayment.value = false
     showSuccess.value = true
-    printOrderSlips(order).catch(() => {})
   } catch (e) {
     if (isOfflineError(e)) {
       const isOfflineCustomer = !!cart.customer?._offline
@@ -1078,14 +1090,25 @@ watch(() => branch.currentBranchId, loadServices)
                 🎁 {{ lastRedeemedReward.count > 1 ? `${lastRedeemedReward.count} free loads redeemed` : '1 free load redeemed' }}
               </div>
 
-              <!-- Print Receipt -->
-              <button
-                class="w-full mt-5 py-3 rounded-2xl font-bold text-sm text-white active:scale-[0.98] transition-all"
-                style="background: linear-gradient(135deg, #1d4ed8, #4f46e5); box-shadow: 0 4px 14px rgba(99,102,241,0.30);"
-                @click="receiptOrderId = lastOrder?.id"
-              >
-                🖨 Print Receipt
-              </button>
+              <!-- Print buttons -->
+              <div class="flex gap-2 mt-5">
+                <button
+                  class="flex-1 py-3 rounded-2xl font-bold text-sm text-white active:scale-[0.98] transition-all disabled:opacity-50"
+                  style="background: linear-gradient(135deg, #1d4ed8, #4f46e5); box-shadow: 0 4px 14px rgba(99,102,241,0.30);"
+                  @click="receiptOrderId = lastOrder?.id"
+                >
+                  🖨 Receipt
+                </button>
+                <button
+                  class="flex-1 py-3 rounded-2xl font-bold text-sm text-white active:scale-[0.98] transition-all disabled:opacity-50"
+                  style="background: linear-gradient(135deg, #0f766e, #0d9488); box-shadow: 0 4px 14px rgba(13,148,136,0.30);"
+                  :disabled="printingSlips"
+                  @click="printOrderSlips(lastOrder)"
+                >
+                  <span v-if="printingSlips">Printing…</span>
+                  <span v-else>🏷 Print Slips</span>
+                </button>
+              </div>
 
               <div class="flex gap-2 mt-2">
                 <button
