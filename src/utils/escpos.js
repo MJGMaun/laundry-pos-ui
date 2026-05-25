@@ -319,7 +319,14 @@ export function buildTrackingSlipBytes(
 
     push(bytes(CMD.CENTER, CMD.BOLD_ON, CMD.DOUBLE_SIZE));
     push(wideLine(isPaid ? '[ PAID ]' : '[UNPAID]'));
-    push(bytes(CMD.NORMAL_SIZE, CMD.BOLD_OFF, CMD.LEFT));
+    push(bytes(CMD.NORMAL_SIZE, CMD.BOLD_OFF));
+    if (!isPaid) {
+        const balanceDue = Math.max(0, totalDue - totalPaid);
+        push(bytes(CMD.CENTER, CMD.BOLD_ON));
+        push(line('Balance: ' + peso(balanceDue)));
+        push(bytes(CMD.BOLD_OFF, CMD.LEFT));
+    }
+    push(bytes(CMD.LEFT));
     push(divider());
 
     // ── Date (normal size) ────────────────────
