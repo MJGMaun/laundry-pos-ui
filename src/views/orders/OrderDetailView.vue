@@ -8,6 +8,8 @@ import { addLoads } from '@/api/loads.js'
 import { getBranchServices } from '@/api/branches.js'
 import { useBranchStore } from '@/stores/branch.js'
 import { createPayment } from '@/api/payments.js'
+import { usePrinter } from '@/composables/usePrinter.js'
+import { buildTrackingSlipBytes } from '@/utils/escpos.js'
 import { getCustomerLoyalty } from '@/api/loyalty.js'
 import { useAuthStore } from '@/stores/auth.js'
 import { useQueueStore } from '@/stores/queue.js'
@@ -21,6 +23,7 @@ const confirm = useConfirm()
 const auth    = useAuthStore()
 const queue  = useQueueStore()
 const branch = useBranchStore()
+const printer = usePrinter()
 
 const order = ref(null)
 const loading = ref(true)
@@ -307,6 +310,38 @@ function fmtDate(d) { return new Date(d).toLocaleDateString('en-PH', { year: 'nu
 
 const receiptOrderId = ref(null)
 
+const printingSlip = ref(null) // load id currently being printed
+
+async function printSlip(load) {
+  if (!order.value) return
+  printingSlip.value = load.id
+  try {
+    if (!printer.connected.value) {
+      const ok = await printer.connect()
+      if (!ok) {
+        toast.add({ severity: 'error', summary: 'Printer', detail: 'Could not connect to printer', life: 4000 })
+        return
+      }
+    }
+    const { getSettings } = await import('@/api/settings.js')
+    const settingsRes = await getSettings()
+    const flat = {}
+    ;(settingsRes.data.settings || []).forEach(s => { flat[s.key] = s.value })
+
+    const qty = Math.max(1, Math.floor(Number(load.quantity) || 1))
+    for (let i = 0; i < qty; i++) {
+      const slipBytes = buildTrackingSlipBytes(load, order.value, flat, i + 1, qty)
+      await printer.print(slipBytes)
+      if (i < qty - 1) await new Promise(r => setTimeout(r, 400)) // brief pause between slips
+    }
+    toast.add({ severity: 'success', summary: 'Printed', detail: `${qty} slip${qty > 1 ? 's' : ''} for ${load.service_name_snapshot || 'load'}`, life: 2000 })
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Print error', detail: e.message || 'Failed', life: 4000 })
+  } finally {
+    printingSlip.value = null
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -439,6 +474,18 @@ onMounted(load)
               <div class="text-sm font-semibold text-slate-800">{{ load.service_name_snapshot }}</div>
               <div class="text-xs text-slate-400 mt-0.5">{{ load.quantity }} × ₱{{ fmt(load.unit_price_snapshot) }} = ₱{{ fmt(load.line_total) }}</div>
             </div>
+            <button
+              class="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 border border-slate-200 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50 active:scale-95 transition-all disabled:opacity-40"
+              :disabled="printingSlip === load.id"
+              @click="printSlip(load)"
+              title="Print tracking slip"
+            >
+              <svg v-if="printingSlip !== load.id" xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
+              </svg>
+              <span v-if="printingSlip !== load.id">Slip</span>
+              <span v-else>…</span>
+            </button>
           </div>
         </div>
       </div>

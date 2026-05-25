@@ -14,12 +14,15 @@ import { isOfflineError } from '@/offline/isOfflineError.js'
 import { db } from '@/offline/db.js'
 import { useRouter } from 'vue-router'
 import ReceiptModal from '@/components/receipt/ReceiptModal.vue'
+import { usePrinter } from '@/composables/usePrinter.js'
+import { buildTrackingSlipBytes } from '@/utils/escpos.js'
 
 const cart = useCartStore()
 const branch = useBranchStore()
 const queue = useQueueStore()
 const toast = useToast()
 const router = useRouter()
+const printer = usePrinter()
 
 const allServices = ref([])
 const categories = ref([])
@@ -286,6 +289,30 @@ function addPaymentRow() {
   payments.value.push({ method: 'gcash', amount: String(remainingAfterPayments.value.toFixed(2)), tendered: '', reference_number: '' })
 }
 
+async function printOrderSlips(order) {
+  if (!printer.connected.value) return // only print if already connected — don't prompt user
+  const loads = order.loads || []
+  if (!loads.length) return
+  try {
+    const { getSettings } = await import('@/api/settings.js')
+    const settingsRes = await getSettings()
+    const arr = settingsRes.data.settings || []
+    const settings = {}
+    arr.forEach((s) => { settings[s.key] = s.value })
+
+    for (const load of loads) {
+      const copies = Math.max(1, Math.floor(Number(load.quantity) || 1))
+      for (let i = 0; i < copies; i++) {
+        const bytes = buildTrackingSlipBytes(load, order, settings, i + 1, copies)
+        await printer.print(bytes)
+        if (i < copies - 1) await new Promise((r) => setTimeout(r, 400))
+      }
+    }
+  } catch (e) {
+    console.warn('[PosView] printOrderSlips failed:', e)
+  }
+}
+
 async function processPayment() {
   if (!cart.items.length) { paymentError.value = 'Cart is empty.'; return }
   processingPayment.value = true
@@ -343,6 +370,7 @@ async function processPayment() {
     selectedReward.value = null
     showPayment.value = false
     showSuccess.value = true
+    printOrderSlips(order).catch(() => {})
   } catch (e) {
     if (isOfflineError(e)) {
       const isOfflineCustomer = !!cart.customer?._offline
