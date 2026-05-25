@@ -313,6 +313,7 @@ export function buildTrackingSlipBytes(load, order, settings = {}, slipIndex = 1
     // ── Date (normal size) ────────────────────
     const date = new Date(order.ordered_at || order.created_at || Date.now())
     push(line(date.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })))
+    push(line(date.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })))
 
     push(bytes(CMD.FEED_3, CMD.CUT))
 
