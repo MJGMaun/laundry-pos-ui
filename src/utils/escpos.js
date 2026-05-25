@@ -233,91 +233,108 @@ export function buildReceiptBytes(order, settings = {}) {
 // ─────────────────────────────────────────
 // Load tracking slip — one per load, bigger fonts for easy reading
 // ─────────────────────────────────────────
-export function buildTrackingSlipBytes(load, order, settings = {}, slipIndex = 1, totalSlips = 1) {
-    const parts = []
-    const push = (...cmds) => parts.push(...cmds)
+export function buildTrackingSlipBytes(
+    load,
+    order,
+    settings = {},
+    slipIndex = 1,
+    totalSlips = 1
+) {
+    const parts = [];
+    const push = (...cmds) => parts.push(...cmds);
 
     // Double-size = 16 printable chars per line
-    const WIDE = 16
+    const WIDE = 16;
 
     // Word-wrap text for double-size lines
     function wrapWide(text) {
-        const words = String(text).split(' ')
-        const lines = []
-        let cur = ''
+        const words = String(text).split(' ');
+        const lines = [];
+        let cur = '';
         for (const w of words) {
-            const word = w.slice(0, WIDE)
-            if (!cur) { cur = word }
-            else if (cur.length + 1 + word.length <= WIDE) { cur += ' ' + word }
-            else { lines.push(cur); cur = word }
+            const word = w.slice(0, WIDE);
+            if (!cur) {
+                cur = word;
+            } else if (cur.length + 1 + word.length <= WIDE) {
+                cur += ' ' + word;
+            } else {
+                lines.push(cur);
+                cur = word;
+            }
         }
-        if (cur) lines.push(cur)
-        return lines
+        if (cur) lines.push(cur);
+        return lines;
     }
 
     function wideLine(text = '') {
-        return bytes(String(text).slice(0, WIDE) + '\n')
+        return bytes(String(text).slice(0, WIDE) + '\n');
     }
     function wideDivider() {
-        return bytes('-'.repeat(WIDTH) + '\n')  // full-width dashes at normal size
+        return bytes('-'.repeat(WIDTH) + '\n'); // full-width dashes at normal size
     }
 
-    push(bytes(CMD.INIT))
+    push(bytes(CMD.INIT));
 
     // ── Small header (shop name + label) ──────
-    push(bytes(CMD.CENTER))
+    push(bytes(CMD.CENTER));
     if (settings.shop_name) {
-        push(bytes(CMD.BOLD_ON))
-        push(line(settings.shop_name.toUpperCase()))
-        push(bytes(CMD.BOLD_OFF))
+        push(bytes(CMD.BOLD_ON));
+        push(line(settings.shop_name.toUpperCase()));
+        push(bytes(CMD.BOLD_OFF));
     }
-    push(line('TRACKING SLIP'))
-    push(bytes(CMD.LEFT))
-    push(divider())
+    push(line('TRACKING SLIP'));
+    push(bytes(CMD.LEFT));
+    push(divider());
 
     // ── Customer name (BIG, first) ────────────
-    const custName = order.customer?.name || ''
+    const custName = order.customer?.name || '';
     if (custName) {
-        push(bytes(CMD.DOUBLE_SIZE, CMD.BOLD_ON))
-        for (const l of wrapWide(custName)) push(wideLine(l))
-        push(bytes(CMD.NORMAL_SIZE, CMD.BOLD_OFF))
-        push(divider())
+        push(bytes(CMD.DOUBLE_SIZE, CMD.BOLD_ON));
+        for (const l of wrapWide(custName)) push(wideLine(l));
+        push(bytes(CMD.NORMAL_SIZE, CMD.BOLD_OFF));
+        push(divider());
     }
 
     // ── Service name (BIG, word-wrapped) ──────
-    const svcName = load.service_name_snapshot || load.service?.name || 'Service'
-    push(bytes(CMD.DOUBLE_SIZE))
-    for (const l of wrapWide(svcName)) push(wideLine(l))
-    push(bytes(CMD.NORMAL_SIZE))
-    push(divider())
+    const svcName =
+        load.service_name_snapshot || load.service?.name || 'Service';
+    push(bytes(CMD.DOUBLE_SIZE));
+    for (const l of wrapWide(svcName)) push(wideLine(l));
+    push(bytes(CMD.NORMAL_SIZE));
+    push(divider());
 
     // ── Load # (BIG, bold) ────────────────────
-    const loadCode = load.load_code || load.load_id || load.id || ''
-    const loadLabel = '#' + loadCode + (totalSlips > 1 ? '-' + slipIndex : '')
-    push(bytes(CMD.DOUBLE_SIZE, CMD.BOLD_ON))
-    push(wideLine(loadLabel))
-    push(bytes(CMD.NORMAL_SIZE, CMD.BOLD_OFF))
-    push(divider())
+    const loadCode = load.load_code || load.load_id || load.id || '';
+    const loadLabel = '#' + loadCode + (totalSlips > 1 ? '-' + slipIndex : '');
+    push(bytes(CMD.DOUBLE_SIZE, CMD.BOLD_ON));
+    push(wideLine(loadLabel));
+    push(bytes(CMD.NORMAL_SIZE, CMD.BOLD_OFF));
+    push(divider());
 
     // ── Payment status (BIG, centered) ────────
-    const payments = (order.payments || []).filter(p => p.type !== 'refund')
-    const totalPaid = payments.reduce((s, p) => s + Number(p.amount || 0), 0)
-    const totalDue  = Number(order.total_amount || order.total_price || 0)
-    const isPaid    = totalPaid >= totalDue - 0.01
+    const payments = (order.payments || []).filter((p) => p.type !== 'refund');
+    const totalPaid = payments.reduce((s, p) => s + Number(p.amount || 0), 0);
+    const totalDue = Number(order.total_amount || order.total_price || 0);
+    const isPaid = totalPaid >= totalDue - 0.01;
 
-    push(bytes(CMD.CENTER, CMD.BOLD_ON, CMD.DOUBLE_SIZE))
-    push(wideLine(isPaid ? '[ PAID ]' : '[UNPAID]'))
-    push(bytes(CMD.NORMAL_SIZE, CMD.BOLD_OFF, CMD.LEFT))
-    push(divider())
+    push(bytes(CMD.CENTER, CMD.BOLD_ON, CMD.DOUBLE_SIZE));
+    push(wideLine(isPaid ? '[ PAID ]' : '[UNPAID]'));
+    push(bytes(CMD.NORMAL_SIZE, CMD.BOLD_OFF, CMD.LEFT));
+    push(divider());
 
     // ── Date (normal size) ────────────────────
-    const date = new Date(order.ordered_at || order.created_at || Date.now())
-    push(line(date.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })))
-    push(line(date.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })))
+    const date = new Date(order.ordered_at || order.created_at || Date.now());
+    push(
+        line(
+            date.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) +
+            ' ' +
+            date.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })
+        )
+    );
 
-    push(bytes(CMD.FEED_3, CMD.CUT))
+    push(bytes(CMD.FEED_3, CMD.CUT));
 
-    return flatten(parts)
+    return flatten(parts);
 }
 
 // ─────────────────────────────────────────
