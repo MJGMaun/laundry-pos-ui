@@ -222,6 +222,7 @@ export function buildReceiptBytes(order, settings = {}) {
         push(divider());
         push(bytes(CMD.CENTER));
         push(line(settings.receipt_footer));
+        push(line('THIS IS NOT AN OFFICIAL RECEIPT.'));
         push(bytes(CMD.LEFT));
     }
 
@@ -333,9 +334,16 @@ export function buildTrackingSlipBytes(
     const date = new Date(order.ordered_at || order.created_at || Date.now());
     push(
         line(
-            date.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) +
-            ' ' +
-            date.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })
+            date.toLocaleDateString('en-PH', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+            }) +
+                ' ' +
+                date.toLocaleTimeString('en-PH', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                })
         )
     );
 
