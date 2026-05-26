@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import DatePicker from 'primevue/datepicker'
 import { getRevenue, getProfitLoss, getServiceReport, getTopCustomers } from '@/api/reports.js'
 import { useToast } from 'primevue/usetoast'
@@ -12,38 +12,20 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
 const toast = useToast()
 
-// ── Reports ───────────────────────────────────────────────────────────────────
 const loading = ref(false)
-const period = ref('monthly')
 
-// each period mode uses a different picker value
-const monthDate  = ref(new Date())  // monthly — single month
-const weekRange  = ref(null)        // weekly  — [Monday, Sunday] of selected week
-const dateRange  = ref(null)        // daily   — [start, end]
-
-// Given any date, return [Monday, Sunday] of its ISO week
-function getWeekRange(date) {
-	const d   = new Date(date)
-	const day = d.getDay()                         // 0=Sun … 6=Sat
-	const diffToMonday = day === 0 ? -6 : 1 - day  // shift back to Mon
-	const monday = new Date(d)
-	monday.setDate(d.getDate() + diffToMonday)
-	monday.setHours(0, 0, 0, 0)
-	const sunday = new Date(monday)
-	sunday.setDate(monday.getDate() + 6)
-	sunday.setHours(0, 0, 0, 0)
-	return [monday, sunday]
+function toYMD(d) {
+	if (!d) return null
+	const date = new Date(d)
+	return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
-// Intercept any click in the weekly range picker and snap to full Mon–Sun week
-function onWeekPick(val) {
-	if (!val) { weekRange.value = null; load(); return }
-	// val arrives as [date, null] on first click — grab that date and snap
-	const picked = Array.isArray(val) ? val[0] : val
-	if (!picked) return
-	weekRange.value = getWeekRange(picked)
-	load()
+function todayYMD() {
+	return toYMD(new Date())
 }
+
+// Default: today → today
+const dateRange = ref([new Date(), new Date()])
 
 const revenue = ref([])
 const pl = ref(null)
@@ -65,27 +47,10 @@ function fmt(n) {
 	return Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-function toYMD(d) {
-    if (!d) return null
-    const date = new Date(d)
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
-
 function buildParams() {
-	const params = { period: period.value }
-	if (period.value === 'monthly' && monthDate.value) {
-		const d = new Date(monthDate.value)
-		params.date_from = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
-		const last = new Date(d.getFullYear(), d.getMonth() + 1, 0)
-		params.date_to = toYMD(last)
-	} else if (period.value === 'weekly' && weekRange.value) {
-		params.date_from = toYMD(weekRange.value[0])  // Monday
-		params.date_to   = toYMD(weekRange.value[1])  // Sunday
-	} else {
-		if (dateRange.value?.[0]) params.date_from = toYMD(dateRange.value[0])
-		if (dateRange.value?.[1]) params.date_to   = toYMD(dateRange.value[1])
-	}
-	return params
+	const from = dateRange.value?.[0] ? toYMD(dateRange.value[0]) : todayYMD()
+	const to   = dateRange.value?.[1] ? toYMD(dateRange.value[1]) : from
+	return { period: 'daily', date_from: from, date_to: to }
 }
 
 async function load() {
@@ -131,14 +96,6 @@ function buildChart() {
 	}
 }
 
-// reset picker values and reload when period changes
-watch(period, () => {
-	monthDate.value = new Date()
-	weekRange.value = null
-	dateRange.value = null
-	load()
-})
-
 onMounted(load)
 </script>
 
@@ -150,81 +107,25 @@ onMounted(load)
 
 		<!-- Filters -->
 		<div class="flex flex-wrap items-center gap-2 mb-5 bg-white rounded-xl border border-gray-200 p-3">
-			<!-- Period tabs -->
-			<div class="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
-				<button
-					v-for="p in [{ value: 'daily', label: 'Daily' }, { value: 'weekly', label: 'Weekly' }, { value: 'monthly', label: 'Monthly' }]"
-					:key="p.value"
-					class="px-4 py-1.5 font-medium transition-colors"
-					:class="period === p.value ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'"
-					@click="period = p.value"
-				>
-					{{ p.label }}
-				</button>
-			</div>
-
-			<div class="w-px h-6 bg-gray-200" />
-
-			<!-- Monthly: single month picker -->
-			<template v-if="period === 'monthly'">
+			<div class="relative flex items-center">
 				<DatePicker
-					v-model="monthDate"
-					view="month"
-					date-format="MM yy"
+					v-model="dateRange"
+					selection-mode="range"
+					:manual-input="false"
+					date-format="M dd, yy"
 					show-icon
 					icon-display="input"
-					placeholder="Select month"
-					class="reports-datepicker"
-					@update:model-value="load"
+					placeholder="Date range…"
+					class="reports-datepicker reports-datepicker--range"
+					@update:model-value="(v) => { if (!v || (v[0] && v[1])) load() }"
 				/>
-			</template>
-
-			<!-- Weekly: click any day → whole Mon–Sun week highlighted -->
-			<template v-else-if="period === 'weekly'">
-				<div class="relative flex items-center">
-					<DatePicker
-						v-model="weekRange"
-						selection-mode="range"
-						:manual-input="false"
-						:first-day-of-week="1"
-						date-format="M dd, yy"
-						show-icon
-						icon-display="input"
-						placeholder="Select a week…"
-						class="reports-datepicker reports-datepicker--range"
-						@update:model-value="onWeekPick"
-					/>
-					<button
-						v-if="weekRange"
-						class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors leading-none"
-						style="font-size: 16px; line-height: 1;"
-						@click.stop="weekRange = null; load()"
-					>×</button>
-				</div>
-			</template>
-
-			<!-- Daily: single range picker -->
-			<template v-else>
-				<div class="relative flex items-center">
-					<DatePicker
-						v-model="dateRange"
-						selection-mode="range"
-						:manual-input="false"
-						date-format="M dd, yy"
-						show-icon
-						icon-display="input"
-						placeholder="Date range…"
-						class="reports-datepicker reports-datepicker--range"
-						@update:model-value="(v) => { if (!v || (v[0] && v[1])) load() }"
-					/>
-					<button
-						v-if="dateRange"
-						class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors leading-none"
-						style="font-size: 16px; line-height: 1;"
-						@click.stop="dateRange = null; load()"
-					>×</button>
-				</div>
-			</template>
+				<button
+					v-if="dateRange"
+					class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors leading-none"
+					style="font-size: 16px; line-height: 1;"
+					@click.stop="dateRange = [new Date(), new Date()]; load()"
+				>×</button>
+			</div>
 		</div>
 
 		<div v-if="loading" class="text-center py-20 text-gray-400">Loading…</div>
