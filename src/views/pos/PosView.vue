@@ -645,21 +645,21 @@ watch(() => branch.currentBranchId, loadServices);
                                 : cart.addItem(svc)
                         "
                     >
-                        <div class="service-card-emoji">
-                            {{ serviceEmoji(svc) }}
-                        </div>
-                        <div class="w-full min-w-0 text-left">
-                            <div
-                                class="line-clamp-2 text-sm leading-tight font-semibold text-slate-800"
-                            >
-                                {{ svc.name }}
+                        <div class="flex w-full items-start justify-between">
+                            <div class="service-card-emoji">
+                                {{ serviceEmoji(svc) }}
                             </div>
                             <div
-                                class="mt-1 text-xs font-bold"
+                                class="text-xl font-bold"
                                 style="color: #2563eb"
                             >
                                 {{ formatPrice(svc) }}
                             </div>
+                        </div>
+                        <div
+                            class="w-full line-clamp-2 text-sm leading-tight font-semibold text-slate-800"
+                        >
+                            {{ svc.name }}
                         </div>
 
                         <!-- Loyalty stamp indicator -->
@@ -1213,7 +1213,7 @@ watch(() => branch.currentBranchId, loadServices);
                     class="mb-3 flex justify-between text-base font-bold text-slate-900"
                 >
                     <span>Total</span>
-                    <span class="text-lg transition-all duration-200"
+                    <span class="text-xl transition-all duration-200"
                         >₱{{ fmt(cart.total) }}</span
                     >
                 </div>
@@ -2034,7 +2034,7 @@ watch(() => branch.currentBranchId, loadServices);
 }
 .service-card-check {
     position: absolute;
-    top: 8px;
+    bottom: 8px;
     right: 8px;
     width: 18px;
     height: 18px;
