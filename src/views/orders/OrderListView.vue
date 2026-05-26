@@ -194,11 +194,17 @@ onMounted(load)
               <!-- Row 2: customer -->
               <div class="flex items-center gap-1.5 mb-2">
                 <template v-if="order.customer">
-                  <div
-                    class="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
-                    :style="`background: hsl(${(order.customer.name?.charCodeAt(0) * 7) % 360}, 65%, 55%);`"
-                  >{{ order.customer.name?.charAt(0).toUpperCase() }}</div>
-                  <span class="text-sm font-medium" :class="isDone(order) ? 'text-slate-400' : 'text-slate-700'">{{ order.customer.name }}</span>
+                  <button
+                    class="flex items-center gap-1.5 cursor-pointer hover:underline"
+                    :class="isDone(order) ? 'text-slate-400' : 'text-slate-700'"
+                    @click.stop="router.push('/customers/' + order.customer.id)"
+                  >
+                    <div
+                      class="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
+                      :style="`background: hsl(${(order.customer.name?.charCodeAt(0) * 7) % 360}, 65%, 55%);`"
+                    >{{ order.customer.name?.charAt(0).toUpperCase() }}</div>
+                    <span class="text-sm font-medium">{{ order.customer.name }}</span>
+                  </button>
                 </template>
                 <span v-else class="text-sm text-slate-400">Walk-in</span>
               </div>
@@ -253,13 +259,18 @@ onMounted(load)
                 :class="[accentClass(order), isDone(order) ? 'text-slate-400 pl-4 pr-3' : 'text-slate-600 pl-4 pr-3']"
               >{{ order.order_number }}</td>
               <td class="px-5 py-3.5">
-                <div v-if="order.customer" class="flex items-center gap-2">
+                <button
+                  v-if="order.customer"
+                  class="flex items-center gap-2 cursor-pointer hover:underline"
+                  :class="isDone(order) ? 'text-slate-400' : 'text-slate-700'"
+                  @click.stop="router.push('/customers/' + order.customer.id)"
+                >
                   <div class="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
                     :style="`background: hsl(${(order.customer.name?.charCodeAt(0) * 7) % 360}, 65%, 55%);`">
                     {{ order.customer.name?.charAt(0).toUpperCase() }}
                   </div>
-                  <span class="font-medium" :class="isDone(order) ? 'text-slate-400' : 'text-slate-700'">{{ order.customer.name }}</span>
-                </div>
+                  <span class="font-medium">{{ order.customer.name }}</span>
+                </button>
                 <span v-else class="text-slate-400">—</span>
               </td>
               <td class="px-5 py-3.5">

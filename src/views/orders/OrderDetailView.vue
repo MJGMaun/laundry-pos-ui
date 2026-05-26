@@ -422,11 +422,16 @@ onMounted(load)
             <div class="space-y-1 text-sm text-slate-500">
               <div>Created {{ fmtDate(order.created_at) }}</div>
               <div v-if="order.customer" class="flex items-center gap-2">
-                <div
-                  class="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                  :style="`background: hsl(${(order.customer.name?.charCodeAt(0) * 7) % 360}, 65%, 55%);`"
-                >{{ order.customer.name?.charAt(0).toUpperCase() }}</div>
-                <span class="font-medium text-slate-700">{{ order.customer.name }}</span>
+                <button
+                  class="flex items-center gap-2 cursor-pointer hover:underline text-left"
+                  @click="router.push('/customers/' + order.customer.id)"
+                >
+                  <div
+                    class="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                    :style="`background: hsl(${(order.customer.name?.charCodeAt(0) * 7) % 360}, 65%, 55%);`"
+                  >{{ order.customer.name?.charAt(0).toUpperCase() }}</div>
+                  <span class="font-medium text-slate-700">{{ order.customer.name }}</span>
+                </button>
                 <span>·</span>
                 <span>{{ order.customer.phone }}</span>
               </div>
