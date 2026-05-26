@@ -18,9 +18,18 @@ const filterCat = ref('')
 
 // Category management state
 const newCatName = ref('')
+const newCatIcon = ref('')
 const addingCat = ref(false)
 const savingCat = ref(false)
-const editingCat = ref(null) // { id, name }
+const editingCat = ref(null) // { id, name, icon }
+const iconPickerFor = ref(null) // 'new' | cat.id
+
+const CATEGORY_ICONS = [
+	'🧺', '👔', '👗', '👕', '👖', '🧥', '🧣', '🧤', '🧦', '🩱',
+	'🩲', '🩳', '🛏', '🛁', '🫧', '✨', '⚡', '💨', '🌊', '🔥',
+	'❄️', '💎', '🌺', '🎩', '🧸', '🚀', '⭐', '💫', '🏅', '🎯',
+	'🪣', '🧴', '🧽', '🧹', '🎪', '🏷','📦','👆'
+]
 
 const PRICING_TYPES = [
 	{ value: 'flat_rate', label: 'Flat Rate' },
@@ -111,11 +120,13 @@ async function addCategory() {
 	if (!name) return
 	savingCat.value = true
 	try {
-		const res = await createServiceCategory({ name })
+		const res = await createServiceCategory({ name, icon: newCatIcon.value || null })
 		categories.value.push(res.data)
 		categories.value.sort((a, b) => a.name.localeCompare(b.name))
 		newCatName.value = ''
+		newCatIcon.value = ''
 		addingCat.value = false
+		iconPickerFor.value = null
 		toast.add({ severity: 'success', summary: 'Category added', life: 2000 })
 	} catch (e) {
 		toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed', life: 4000 })
@@ -129,11 +140,15 @@ async function saveEditCat() {
 	if (!name) return
 	savingCat.value = true
 	try {
-		await updateServiceCategory(editingCat.value.id, { name })
+		await updateServiceCategory(editingCat.value.id, { name, icon: editingCat.value.icon || null })
 		const idx = categories.value.findIndex((c) => c.id === editingCat.value.id)
-		if (idx !== -1) categories.value[idx].name = name
+		if (idx !== -1) {
+			categories.value[idx].name = name
+			categories.value[idx].icon = editingCat.value.icon || null
+		}
 		categories.value.sort((a, b) => a.name.localeCompare(b.name))
 		editingCat.value = null
+		iconPickerFor.value = null
 		// refresh services so category names update in table
 		const res = await getServices()
 		services.value = res.data.data || res.data
@@ -194,20 +209,44 @@ onMounted(load)
 			<div class="flex flex-wrap gap-2">
 				<template v-for="cat in categories" :key="cat.id">
 					<!-- Editing chip -->
-					<div v-if="editingCat?.id === cat.id" class="flex items-center gap-1">
-						<input
-							v-model="editingCat.name"
-							class="border border-blue-400 rounded-full px-3 py-1 text-xs w-32 focus:outline-none"
-							@keyup.enter="saveEditCat"
-							@keyup.escape="editingCat = null"
-						/>
-						<button class="text-xs text-blue-600 font-medium" :disabled="savingCat" @click="saveEditCat">Save</button>
-						<button class="text-xs text-gray-400" @click="editingCat = null">✕</button>
+					<div v-if="editingCat?.id === cat.id" class="flex flex-col gap-1.5 bg-blue-50 border border-blue-200 rounded-2xl p-2.5 w-full sm:w-auto">
+						<div class="flex items-center gap-1.5">
+							<!-- Icon trigger -->
+							<button
+								class="text-xl leading-none w-8 h-8 flex items-center justify-center rounded-full hover:bg-blue-100 transition-colors border border-blue-200"
+								:title="editingCat.icon ? 'Change icon' : 'Pick icon'"
+								@click="iconPickerFor = iconPickerFor === cat.id ? null : cat.id"
+							>{{ editingCat.icon || '🏷' }}</button>
+							<input
+								v-model="editingCat.name"
+								class="border border-blue-300 rounded-full px-3 py-1 text-xs w-32 focus:outline-none bg-white"
+								@keyup.enter="saveEditCat"
+								@keyup.escape="editingCat = null; iconPickerFor = null"
+							/>
+							<button class="text-xs text-blue-600 font-medium px-2" :disabled="savingCat" @click="saveEditCat">Save</button>
+							<button class="text-xs text-gray-400" @click="editingCat = null; iconPickerFor = null">✕</button>
+						</div>
+						<!-- Emoji picker for editing -->
+						<div v-if="iconPickerFor === cat.id" class="flex flex-wrap gap-1 pt-1 border-t border-blue-100">
+							<button
+								v-for="emoji in CATEGORY_ICONS"
+								:key="emoji"
+								class="text-base w-8 h-8 flex items-center justify-center rounded-lg transition-all hover:bg-blue-100"
+								:class="editingCat.icon === emoji ? 'bg-blue-200 ring-2 ring-blue-400' : ''"
+								@click="editingCat.icon = emoji; iconPickerFor = null"
+							>{{ emoji }}</button>
+							<button
+								v-if="editingCat.icon"
+								class="text-xs text-gray-400 px-2 rounded-lg hover:bg-gray-100 h-8"
+								@click="editingCat.icon = ''; iconPickerFor = null"
+							>clear</button>
+						</div>
 					</div>
 					<!-- Display chip -->
 					<div v-else class="flex items-center gap-1 bg-gray-100 rounded-full px-3 py-1 text-xs text-gray-700 group">
+						<span v-if="cat.icon" class="text-base leading-none">{{ cat.icon }}</span>
 						<span>{{ cat.name }}</span>
-						<button class="hidden group-hover:inline text-gray-400 hover:text-blue-500 ml-1" @click="editingCat = { id: cat.id, name: cat.name }">✎</button>
+						<button class="hidden group-hover:inline text-gray-400 hover:text-blue-500 ml-1" @click="editingCat = { id: cat.id, name: cat.name, icon: cat.icon || '' }; iconPickerFor = null">✎</button>
 						<button class="hidden group-hover:inline text-gray-400 hover:text-red-500" @click="removeCat(cat)">✕</button>
 					</div>
 				</template>
@@ -215,17 +254,40 @@ onMounted(load)
 				<!-- No categories -->
 				<span v-if="!categories.length && !addingCat" class="text-xs text-gray-400">No categories yet</span>
 
-				<!-- Add new category input -->
-				<div v-if="addingCat" class="flex items-center gap-1">
-					<input
-						v-model="newCatName"
-						placeholder="Category name"
-						class="border border-blue-400 rounded-full px-3 py-1 text-xs w-36 focus:outline-none"
-						@keyup.enter="addCategory"
-						@keyup.escape="addingCat = false; newCatName = ''"
-					/>
-					<button class="text-xs text-blue-600 font-medium" :disabled="savingCat || !newCatName.trim()" @click="addCategory">Add</button>
-					<button class="text-xs text-gray-400" @click="addingCat = false; newCatName = ''">✕</button>
+				<!-- Add new category -->
+				<div v-if="addingCat" class="flex flex-col gap-1.5 bg-blue-50 border border-blue-200 rounded-2xl p-2.5 w-full sm:w-auto">
+					<div class="flex items-center gap-1.5">
+						<!-- Icon trigger -->
+						<button
+							class="text-xl leading-none w-8 h-8 flex items-center justify-center rounded-full hover:bg-blue-100 transition-colors border border-blue-200"
+							:title="newCatIcon ? 'Change icon' : 'Pick icon'"
+							@click="iconPickerFor = iconPickerFor === 'new' ? null : 'new'"
+						>{{ newCatIcon || '🏷' }}</button>
+						<input
+							v-model="newCatName"
+							placeholder="Category name"
+							class="border border-blue-300 rounded-full px-3 py-1 text-xs w-36 focus:outline-none bg-white"
+							@keyup.enter="addCategory"
+							@keyup.escape="addingCat = false; newCatName = ''; newCatIcon = ''; iconPickerFor = null"
+						/>
+						<button class="text-xs text-blue-600 font-medium px-2" :disabled="savingCat || !newCatName.trim()" @click="addCategory">Add</button>
+						<button class="text-xs text-gray-400" @click="addingCat = false; newCatName = ''; newCatIcon = ''; iconPickerFor = null">✕</button>
+					</div>
+					<!-- Emoji picker for new -->
+					<div v-if="iconPickerFor === 'new'" class="flex flex-wrap gap-1 pt-1 border-t border-blue-100">
+						<button
+							v-for="emoji in CATEGORY_ICONS"
+							:key="emoji"
+							class="text-base w-8 h-8 flex items-center justify-center rounded-lg transition-all hover:bg-blue-100"
+							:class="newCatIcon === emoji ? 'bg-blue-200 ring-2 ring-blue-400' : ''"
+							@click="newCatIcon = emoji; iconPickerFor = null"
+						>{{ emoji }}</button>
+						<button
+							v-if="newCatIcon"
+							class="text-xs text-gray-400 px-2 rounded-lg hover:bg-gray-100 h-8"
+							@click="newCatIcon = ''; iconPickerFor = null"
+						>clear</button>
+					</div>
 				</div>
 			</div>
 		</div>

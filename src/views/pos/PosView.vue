@@ -105,6 +105,7 @@ const filteredServices = computed(() => {
 });
 
 const serviceEmoji = (svc) => {
+    if (svc.category?.icon) return svc.category.icon;
     const name = (svc.category?.name || '').toLowerCase();
     if (name.includes('dry')) return '👔';
     if (name.includes('press') || name.includes('iron')) return '🧹';
@@ -113,11 +114,13 @@ const serviceEmoji = (svc) => {
     return '🧺';
 };
 
-const categoryEmoji = (name = '') => {
-    if (name.toLowerCase().includes('dry')) return '👔';
-    if (name.toLowerCase().includes('press')) return '🧹';
-    if (name.toLowerCase().includes('special')) return '✨';
-    if (name.toLowerCase().includes('express')) return '⚡';
+const categoryEmoji = (cat) => {
+    if (cat?.icon) return cat.icon;
+    const name = (typeof cat === 'string' ? cat : cat?.name || '').toLowerCase();
+    if (name.includes('dry')) return '👔';
+    if (name.includes('press')) return '🧹';
+    if (name.includes('special')) return '✨';
+    if (name.includes('express')) return '⚡';
     return '🧺';
 };
 
@@ -603,7 +606,7 @@ watch(() => branch.currentBranchId, loadServices);
                     "
                     @click="activeCategory = cat.id"
                 >
-                    {{ categoryEmoji(cat.name) }} {{ cat.name }}
+                    {{ categoryEmoji(cat) }} {{ cat.name }}
                 </button>
             </div>
 
