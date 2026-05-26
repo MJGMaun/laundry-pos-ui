@@ -17,7 +17,7 @@ export function usePrinter() {
     try {
       if (!navigator.bluetooth) {
         throw new Error(
-          'Web Bluetooth is not available. Make sure the site is served over HTTPS and you are using Chrome or Edge.'
+          'Bluetooth not available. Use Chrome/Edge, and if on HTTP go to chrome://flags/#unsafely-treat-insecure-origin-as-secure and add this site\'s URL.'
         )
       }
       const device = await navigator.bluetooth.requestDevice({
