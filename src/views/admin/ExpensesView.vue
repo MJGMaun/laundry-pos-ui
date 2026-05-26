@@ -26,7 +26,7 @@ function unwrap(res) {
   return candidates.find(Array.isArray) ?? []
 }
 
-const form = ref({ expense_category_id: '', amount: '', expense_date: new Date().toISOString().slice(0, 10), description: '' })
+const form = ref({ expense_category_id: '', amount: '', expense_date: new Date().toLocaleDateString('en-CA'), description: '' })
 
 async function load() {
   loading.value = true
@@ -115,7 +115,7 @@ function openForm(expense = null) {
     }
   } else {
     editingId.value = null
-    form.value = { expense_category_id: '', amount: '', expense_date: new Date().toISOString().slice(0, 10), description: '' }
+    form.value = { expense_category_id: '', amount: '', expense_date: new Date().toLocaleDateString('en-CA'), description: '' }
   }
   showForm.value = true
 }

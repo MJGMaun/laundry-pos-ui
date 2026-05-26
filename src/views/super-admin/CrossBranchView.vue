@@ -29,11 +29,11 @@ const compApiTotals = ref(null)
 const pl = ref(null)
 const expenses = ref([])
 const categories = ref([])
-const filterMonth = ref(new Date().toISOString().slice(0, 7))
+const filterMonth = ref(new Date().toLocaleDateString('en-CA').slice(0, 7))
 const showForm = ref(false)
 const editingId = ref(null)
 const saving = ref(false)
-const form = ref({ expense_category_id: '', amount: '', expense_date: new Date().toISOString().slice(0, 10), description: '' })
+const form = ref({ expense_category_id: '', amount: '', expense_date: new Date().toLocaleDateString('en-CA'), description: '' })
 
 const selectedBranch = computed(() => branches.value.find(b => b.id === selectedBranchId.value))
 
@@ -108,7 +108,7 @@ function openForm(expense = null) {
     form.value = { expense_category_id: expense.expense_category_id, amount: expense.amount, expense_date: expense.expense_date, description: expense.description || '' }
   } else {
     editingId.value = null
-    form.value = { expense_category_id: '', amount: '', expense_date: new Date().toISOString().slice(0, 10), description: '' }
+    form.value = { expense_category_id: '', amount: '', expense_date: new Date().toLocaleDateString('en-CA'), description: '' }
   }
   showForm.value = true
 }

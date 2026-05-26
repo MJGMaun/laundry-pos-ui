@@ -16,7 +16,9 @@ const filters = ref({ status: '', search: '', unpaid: false })
 const dateRange = ref(null)  // [Date, Date] when both picked
 
 function toYMD(d) {
-  return d ? new Date(d).toISOString().slice(0, 10) : null
+    if (!d) return null
+    const date = new Date(d)
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
 const totalPages = computed(() => Math.ceil(total.value / perPage.value))

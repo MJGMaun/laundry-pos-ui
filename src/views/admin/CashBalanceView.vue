@@ -21,10 +21,13 @@ function fmt(n) {
   return Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+function localYMD(d) {
+    const date = new Date(d)
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
 function cashDateStr() {
-  return cashDate.value
-    ? new Date(cashDate.value).toISOString().slice(0, 10)
-    : new Date().toISOString().slice(0, 10)
+    return cashDate.value ? localYMD(cashDate.value) : localYMD(new Date())
 }
 
 async function load() {
