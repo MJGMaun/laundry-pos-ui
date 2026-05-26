@@ -1872,6 +1872,7 @@ watch(() => branch.currentBranchId, loadServices);
                         background: rgba(15, 23, 42, 0.6);
                         backdrop-filter: blur(6px);
                     "
+                    @click.self="showSuccess = false"
                 >
                     <Transition name="modal">
                         <div
