@@ -153,7 +153,12 @@ async function loadServices() {
                       .toArray()
                 : await db.services.toArray();
         }
-        allServices.value = services;
+        allServices.value = services.slice().sort((a, b) => {
+            if (a.category_id === b.category_id) return a.name.localeCompare(b.name);
+            if (a.category_id == null) return 1;
+            if (b.category_id == null) return -1;
+            return a.category_id - b.category_id;
+        });
         const catMap = new Map();
         services.forEach((s) => {
             if (s.category && !catMap.has(s.category_id))
