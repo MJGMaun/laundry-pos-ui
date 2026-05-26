@@ -1322,15 +1322,43 @@ watch(() => branch.currentBranchId, loadServices);
                             </div>
 
                             <div
-                                class="max-h-[70vh] space-y-4 overflow-y-auto px-6 py-4"
+                                class="max-h-[70vh] space-y-3 overflow-y-auto px-6 py-4"
                             >
-                                <!-- Customer section -->
-                                <div class="space-y-2">
-                                    <div
-                                        class="text-xs font-semibold tracking-wider text-slate-500 uppercase"
-                                    >
-                                        Customer
+                                <!-- Step 1: Customer -->
+                                <div
+                                    class="rounded-2xl border-2 p-4 transition-all duration-200"
+                                    :class="
+                                        cart.customer
+                                            ? 'border-green-200 bg-green-50'
+                                            : 'border-blue-300 bg-blue-50'
+                                    "
+                                >
+                                    <div class="mb-3 flex items-center gap-2">
+                                        <span
+                                            class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white transition-colors duration-200"
+                                            :style="
+                                                cart.customer
+                                                    ? 'background:#16a34a'
+                                                    : 'background:#2563eb'
+                                            "
+                                            >{{ cart.customer ? '✓' : '1' }}</span
+                                        >
+                                        <span
+                                            class="text-sm font-semibold transition-colors duration-200"
+                                            :class="
+                                                cart.customer
+                                                    ? 'text-green-800'
+                                                    : 'text-blue-800'
+                                            "
+                                            >Customer</span
+                                        >
+                                        <span
+                                            v-if="!cart.customer"
+                                            class="text-xs text-blue-500"
+                                            >— fill in first</span
+                                        >
                                     </div>
+                                    <div class="space-y-2">
 
                                     <!-- Selected customer chip -->
                                     <div
@@ -1521,14 +1549,23 @@ watch(() => branch.currentBranchId, loadServices);
                                             </div>
                                         </Transition>
                                     </template>
+                                    </div>
                                 </div>
 
-                                <div class="h-px bg-slate-100" />
+                                <!-- Step 2: Payment -->
+                                <div class="rounded-2xl border-2 border-slate-200 bg-slate-50 p-4">
+                                    <div class="mb-3 flex items-center gap-2">
+                                        <span
+                                            class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-400 text-xs font-bold text-white"
+                                            >2</span
+                                        >
+                                        <span class="text-sm font-semibold text-slate-700">Payment</span>
+                                    </div>
 
                                 <div
                                     v-for="(p, i) in payments"
                                     :key="i"
-                                    class="animate-scale-in space-y-3 rounded-2xl bg-slate-50 p-4"
+                                    class="animate-scale-in space-y-3"
                                 >
                                     <div class="flex items-center gap-2">
                                         <!-- Method tabs -->
@@ -1726,6 +1763,7 @@ watch(() => branch.currentBranchId, loadServices);
                                         {{ paymentError }}
                                     </div>
                                 </Transition>
+                                </div><!-- end step-2 -->
                             </div>
 
                             <div
