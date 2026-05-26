@@ -231,7 +231,7 @@ onMounted(load)
 	width: 150px;
 }
 .reports-datepicker.reports-datepicker--range .p-datepicker-input {
-	width: 210px;
+	width: 280px;
 	padding-right: 28px;
 }
 .reports-datepicker .p-datepicker-input:focus {
