@@ -10,6 +10,7 @@ CLAUDE.md
 
 # Capacitor Android build artifacts
 android/.gradle/
+android/.idea/
 android/app/build/
 android/build/
 
