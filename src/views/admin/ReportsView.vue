@@ -107,7 +107,7 @@ onMounted(load)
 
 		<!-- Filters -->
 		<div class="flex flex-wrap items-center gap-2 mb-5 bg-white rounded-xl border border-gray-200 p-3">
-			<div class="relative flex items-center">
+			<div class="flex items-center gap-1.5">
 				<DatePicker
 					v-model="dateRange"
 					selection-mode="range"
@@ -121,8 +121,7 @@ onMounted(load)
 				/>
 				<button
 					v-if="dateRange"
-					class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors leading-none"
-					style="font-size: 16px; line-height: 1;"
+					class="flex items-center justify-center w-6 h-6 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors text-sm leading-none"
 					@click.stop="dateRange = [new Date(), new Date()]; load()"
 				>×</button>
 			</div>
