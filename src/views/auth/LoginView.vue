@@ -51,7 +51,7 @@ async function submit() {
 
         router.push('/pos');
     } catch (e) {
-        error.value = e.response?.data?.message || 'Invalid credentials.';
+        error.value = e.response?.data?.message || `${e.message} (${e.code ?? 'no-code'}) → ${e.config?.baseURL}`;
     } finally {
         loading.value = false;
     }
