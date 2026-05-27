@@ -222,7 +222,7 @@ onMounted(load)
           </div>
           <div class="bg-blue-50 border border-blue-200 rounded-xl p-5">
             <div class="text-xs font-semibold text-blue-700 mb-1">📱 To Remit (GCash)</div>
-            <div class="text-2xl font-bold text-blue-900">₱{{ fmt(cashData.to_remit_gcash ?? cashData.gcash_in ?? 0) }}</div>
+            <div class="text-2xl font-bold text-blue-900">{{ cashData.to_remit_gcash < 0 ? '-' : '' }}₱{{ fmt(Math.abs(cashData.to_remit_gcash)) }}</div>
             <div class="text-xs text-blue-500 mt-1">GCash payments minus GCash expenses</div>
           </div>
         </div>
