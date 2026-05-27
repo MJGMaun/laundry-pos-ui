@@ -17,6 +17,7 @@ const auth = useAuthStore()
 const customer = ref(null)
 const orders   = ref([])
 const loading  = ref(true)
+const deleted  = ref(false)
 const editing  = ref(false)
 const form     = ref({})
 const saving   = ref(false)
@@ -90,6 +91,7 @@ async function confirmPayAll() {
 
 async function load() {
   loading.value = true
+  deleted.value = false
   try {
     const [custRes, ordersRes] = await Promise.all([
       getCustomer(route.params.id),
@@ -104,6 +106,10 @@ async function load() {
       email:    customer.value.email || '',
       address:  customer.value.address || '',
       notes:    customer.value.notes || '',
+    }
+  } catch (e) {
+    if (e.response?.status === 404) {
+      deleted.value = true
     }
   } finally {
     loading.value = false
@@ -171,6 +177,13 @@ onMounted(load)
     <div v-if="loading" class="space-y-4">
       <div class="skeleton h-44 rounded-2xl" />
       <div class="skeleton h-64 rounded-2xl" />
+    </div>
+
+    <div v-else-if="deleted" class="bg-white rounded-2xl border border-slate-200 p-10 text-center animate-slide-up" style="box-shadow: var(--shadow-card);">
+      <div class="text-4xl mb-3">🗑️</div>
+      <h2 class="text-lg font-bold text-slate-700 mb-1">Customer Removed</h2>
+      <p class="text-sm text-slate-400">This customer has been removed and their profile is no longer available.</p>
+      <button class="mt-5 text-sm text-blue-600 hover:text-blue-700 font-medium" @click="router.replace('/customers')">← Back to Customers</button>
     </div>
 
     <div v-else-if="customer" class="space-y-4">

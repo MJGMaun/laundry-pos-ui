@@ -268,9 +268,10 @@ onMounted(load)
         </div>
         <div v-if="!topCustomers.length" class="px-5 py-10 text-center text-slate-300 text-sm">No data yet</div>
         <div v-else class="divide-y divide-slate-50">
-          <div
+          <RouterLink
             v-for="(c, i) in topCustomers"
             :key="c.id || i"
+            :to="'/customers/' + c.id"
             class="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors"
           >
             <div class="text-sm font-bold text-slate-300 w-4">{{ i + 1 }}</div>
@@ -285,7 +286,7 @@ onMounted(load)
               <div class="text-xs text-slate-400">{{ c.total_visits }} visit{{ c.total_visits !== 1 ? 's' : '' }}</div>
             </div>
             <div class="text-sm font-bold text-slate-900">₱{{ fmt(c.total_spent) }}</div>
-          </div>
+          </RouterLink>
         </div>
       </div>
     </div>
