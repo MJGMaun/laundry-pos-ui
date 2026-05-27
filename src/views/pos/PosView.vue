@@ -146,12 +146,13 @@ async function loadServices() {
             const branchId = branch.currentBranchId
                 ? Number(branch.currentBranchId)
                 : null;
-            services = branchId
-                ? await db.services
-                      .where('branch_id')
-                      .equals(branchId)
-                      .toArray()
-                : await db.services.toArray();
+            // Try branch-filtered first, fall back to all if nothing cached under that branch
+            if (branchId) {
+                services = await db.services.where('branch_id').equals(branchId).toArray();
+            }
+            if (!services.length) {
+                services = await db.services.toArray();
+            }
         }
         allServices.value = services.slice().sort((a, b) => {
             if (a.category_id === b.category_id) return a.name.localeCompare(b.name);
@@ -164,6 +165,11 @@ async function loadServices() {
             if (s.category && !catMap.has(s.category_id))
                 catMap.set(s.category_id, s.category);
         });
+        // Fill in any categories missing from the service embed using the cached categories table
+        if (catMap.size === 0 || services.some((s) => s.category_id && !s.category)) {
+            const dbCats = await db.service_categories.toArray();
+            dbCats.forEach((c) => { if (!catMap.has(c.id)) catMap.set(c.id, c); });
+        }
         categories.value = Array.from(catMap.values());
     } finally {
         loadingServices.value = false;

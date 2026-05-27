@@ -5,13 +5,20 @@ import Toast from 'primevue/toast'
 import ConfirmDialog from 'primevue/confirmdialog'
 import { useToast } from 'primevue/usetoast'
 import { useQueueStore } from '@/stores/queue.js'
+import { useBranchStore } from '@/stores/branch.js'
 import { runPull } from '@/offline/pull.js'
 
 const isOnline = useOnline()
 const toast = useToast()
 const queue = useQueueStore()
+const branch = useBranchStore()
 
 queue.refresh()
+
+// Re-pull when branch changes so services are always scoped to the active branch
+watch(() => branch.currentBranchId, (id) => {
+  if (id && isOnline.value) runPull().catch(() => {})
+})
 
 watch(isOnline, async (online) => {
   if (!online) return

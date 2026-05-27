@@ -11,13 +11,33 @@ async function setLastSynced(key) {
 }
 
 async function pullServices() {
-  const res = await api.get('/services', { params: { active: true } })
-  const services = res.data
+  const res = await api.get('/services', { params: { active: 1 } })
+  const services = res.data.data ?? res.data
   await db.transaction('rw', db.services, async () => {
     await db.services.clear()
     await db.services.bulkPut(services)
   })
   await setLastSynced('services')
+}
+
+async function pullServiceCategories() {
+  const res = await api.get('/service-categories')
+  const cats = res.data.data ?? res.data
+  await db.transaction('rw', db.service_categories, async () => {
+    await db.service_categories.clear()
+    await db.service_categories.bulkPut(cats)
+  })
+  await setLastSynced('service_categories')
+}
+
+async function pullOrders() {
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  const res = await api.get('/orders', { params: { date_from: since, per_page: 500 } })
+  const orders = res.data.data ?? res.data
+  if (orders.length > 0) {
+    await db.orders.bulkPut(orders)
+  }
+  await setLastSynced('orders')
 }
 
 async function pullCustomers() {
@@ -47,9 +67,11 @@ async function pullSettings() {
 
 export async function runPull() {
   await Promise.all([
-    pullServices(),
-    pullCustomers(),
-    pullSettings().catch(() => {}), // silently skip if role doesn't allow (e.g. cashier 403)
+    pullServices().catch(() => {}),
+    pullServiceCategories().catch(() => {}),
+    pullCustomers().catch(() => {}),
+    pullOrders().catch(() => {}),
+    pullSettings().catch(() => {}),
   ])
 }
 

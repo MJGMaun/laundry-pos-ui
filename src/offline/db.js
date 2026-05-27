@@ -15,5 +15,14 @@ db.version(3).stores({
   services:  'id, branch_id',
   customers: 'id, branch_id, name, phone',
   sync_meta: 'key',
-  settings:  'key',          // flat {key, value} for offline use
+  settings:  'key',
+})
+db.version(4).stores({
+  queue:              '++id, status, createdAt',
+  services:           'id, branch_id',
+  customers:          'id, branch_id, name, phone',
+  sync_meta:          'key',
+  settings:           'key',
+  service_categories: 'id',
+  orders:             'id, branch_id, status, created_at',
 })
