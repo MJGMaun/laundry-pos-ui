@@ -1165,6 +1165,20 @@ watch(() => branch.currentBranchId, loadServices);
                             rows="2"
                             class="w-full resize-none rounded-lg border border-slate-200 px-2 py-1.5 text-sm transition-all focus:border-blue-400 focus:outline-none"
                         />
+                        <div class="flex flex-wrap gap-1.5">
+                            <button
+                                v-for="tag in ['No spray', 'Med temp only', 'Has eco bag', 'Has basket', 'Delicate', 'No fabric softener', 'Separate colors']"
+                                :key="tag"
+                                type="button"
+                                class="px-2 py-0.5 rounded-full text-xs font-medium border transition-all active:scale-95"
+                                :class="cart.notes?.includes(tag)
+                                    ? 'bg-blue-100 border-blue-300 text-blue-700'
+                                    : 'bg-white border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-600'"
+                                @click="cart.notes = cart.notes?.includes(tag)
+                                    ? cart.notes.replace(tag, '').replace(/^[,\s]+|[,\s]+$/g, '').replace(/,\s*,/g, ',').trim()
+                                    : cart.notes ? cart.notes + ', ' + tag : tag"
+                            >{{ tag }}</button>
+                        </div>
                     </div>
                 </Transition>
             </div>

@@ -538,6 +538,20 @@ onMounted(load)
               class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all resize-none"
               autofocus
             />
+            <div class="flex flex-wrap gap-1.5">
+              <button
+                v-for="tag in ['No spray', 'Med temp only', 'Has eco bag', 'Has basket', 'Delicate', 'No fabric softener', 'Separate colors']"
+                :key="tag"
+                type="button"
+                class="px-2 py-0.5 rounded-full text-xs font-medium border transition-all active:scale-95"
+                :class="notesInput.includes(tag)
+                  ? 'bg-blue-100 border-blue-300 text-blue-700'
+                  : 'bg-white border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-600'"
+                @click="notesInput = notesInput.includes(tag)
+                  ? notesInput.replace(tag, '').replace(/^[,\s]+|[,\s]+$/g, '').replace(/,\s*,/g, ',').trim()
+                  : notesInput ? notesInput + ', ' + tag : tag"
+              >{{ tag }}</button>
+            </div>
             <div class="flex gap-2">
               <button
                 class="flex-1 py-1.5 rounded-xl text-xs font-semibold text-slate-600 border border-slate-200 hover:bg-white transition-all"
