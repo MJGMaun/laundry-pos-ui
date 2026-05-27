@@ -495,12 +495,17 @@ onMounted(load)
         </div>
 
         <!-- Order notes -->
-        <div
-          v-if="order.notes"
-          class="mt-2 flex items-start gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600"
-        >
-          <span class="shrink-0 text-slate-400">📝</span>
-          <span>{{ order.notes }}</span>
+        <div class="mt-2 flex items-start justify-between gap-3 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+          <div class="flex items-start gap-2 min-w-0">
+            <span class="shrink-0 text-slate-400 mt-0.5">📝</span>
+            <span v-if="order.notes" class="text-slate-700">{{ order.notes }}</span>
+            <span v-else class="text-slate-400 italic">No notes</span>
+          </div>
+          <button
+            v-if="auth.isCashier && order.status !== 'completed'"
+            class="shrink-0 text-xs text-blue-500 hover:text-blue-700 font-medium transition-colors"
+            @click="showEditForm = true"
+          >Edit</button>
         </div>
       </div>
 
