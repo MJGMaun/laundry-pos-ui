@@ -52,9 +52,23 @@
 <script setup>
 const changelog = [
   {
-    version: '1.6.0',
+    version: '1.7.0',
     date: 'May 27, 2026',
     latest: true,
+    sections: [
+      {
+        title: 'New Features',
+        type: 'feature',
+        items: [
+          'Customers: duplicate name or phone number within the same branch is now blocked — error shown inline under the offending field in both the POS new customer form and the Customers admin form',
+        ],
+      },
+    ],
+  },
+  {
+    version: '1.6.0',
+    date: 'May 27, 2026',
+    latest: false,
     sections: [
       {
         title: 'Offline Mode',
