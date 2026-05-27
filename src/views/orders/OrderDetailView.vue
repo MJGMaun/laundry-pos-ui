@@ -303,9 +303,11 @@ async function saveLoads() {
   }
 }
 
-const showEditForm = ref(false)
-const editForm    = ref({ extra_fees: 0, notes: '' })
-const savingEdit  = ref(false)
+const showEditForm  = ref(false)
+const editForm      = ref({ extra_fees: 0, notes: '' })
+const savingEdit    = ref(false)
+const editingNotes  = ref(false)
+const notesInput    = ref('')
 
 function openEditForm() {
   editForm.value = {
@@ -313,6 +315,24 @@ function openEditForm() {
     notes:      order.value.notes || '',
   }
   showEditForm.value = true
+}
+
+function openNotesEdit() {
+  notesInput.value = order.value.notes || ''
+  editingNotes.value = true
+}
+
+async function saveNotes() {
+  savingEdit.value = true
+  try {
+    await updateOrder(order.value.id, { notes: notesInput.value })
+    editingNotes.value = false
+    await load()
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to save notes', life: 4000 })
+  } finally {
+    savingEdit.value = false
+  }
 }
 
 async function saveEdit() {
@@ -495,17 +515,42 @@ onMounted(load)
         </div>
 
         <!-- Order notes -->
-        <div class="mt-2 flex items-start justify-between gap-3 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
-          <div class="flex items-start gap-2 min-w-0">
-            <span class="shrink-0 text-slate-400 mt-0.5">📝</span>
-            <span v-if="order.notes" class="text-slate-700">{{ order.notes }}</span>
-            <span v-else class="text-slate-400 italic">No notes</span>
+        <div class="mt-2 bg-slate-50 border border-slate-200 rounded-xl text-sm overflow-hidden">
+          <!-- View state -->
+          <div v-if="!editingNotes" class="flex items-start justify-between gap-3 px-3 py-2">
+            <div class="flex items-start gap-2 min-w-0">
+              <span class="shrink-0 text-slate-400 mt-0.5">📝</span>
+              <span v-if="order.notes" class="text-slate-700">{{ order.notes }}</span>
+              <span v-else class="text-slate-400 italic">No notes</span>
+            </div>
+            <button
+              v-if="auth.isCashier && order.status !== 'completed'"
+              class="shrink-0 text-xs text-blue-500 hover:text-blue-700 font-medium transition-colors"
+              @click="openNotesEdit"
+            >Edit</button>
           </div>
-          <button
-            v-if="auth.isCashier && order.status !== 'completed'"
-            class="shrink-0 text-xs text-blue-500 hover:text-blue-700 font-medium transition-colors"
-            @click="openEditForm"
-          >Edit</button>
+          <!-- Inline edit state -->
+          <div v-else class="p-3 space-y-2">
+            <textarea
+              v-model="notesInput"
+              rows="2"
+              placeholder="Add order notes…"
+              class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all resize-none"
+              autofocus
+            />
+            <div class="flex gap-2">
+              <button
+                class="flex-1 py-1.5 rounded-xl text-xs font-semibold text-slate-600 border border-slate-200 hover:bg-white transition-all"
+                @click="editingNotes = false"
+              >Cancel</button>
+              <button
+                class="flex-1 py-1.5 rounded-xl text-xs font-bold text-white transition-all disabled:opacity-50"
+                style="background: linear-gradient(135deg, #2563eb, #4f46e5);"
+                :disabled="savingEdit"
+                @click="saveNotes"
+              >{{ savingEdit ? 'Saving…' : 'Save' }}</button>
+            </div>
+          </div>
         </div>
       </div>
 
