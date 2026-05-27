@@ -38,6 +38,7 @@ const searchingCustomer = ref(false);
 const showNewCustomerForm = ref(false);
 const newCustomer = ref({ name: '', phone: '', address: '' });
 const phoneError = ref('');
+const nameError = ref('');
 const displayPhone = ref('');
 
 function onPhoneInput(e) {
@@ -274,6 +275,7 @@ watchEffect(() => {
 
 async function saveNewCustomer() {
     phoneError.value = '';
+    nameError.value = '';
     if (!validatePhone(newCustomer.value.phone)) {
         phoneError.value = 'Phone must be exactly 11 digits.';
         return;
@@ -293,6 +295,7 @@ async function saveNewCustomer() {
         showNewCustomerForm.value = false;
         newCustomer.value = { name: '', phone: '', address: '' };
         phoneError.value = '';
+        nameError.value = '';
         displayPhone.value = '';
     } catch (e) {
         if (isOfflineError(e)) {
@@ -323,7 +326,10 @@ async function saveNewCustomer() {
                 life: 5000,
             });
         } else {
-            toast.add({
+            const errors = e.response?.data?.errors || {};
+            if (errors.name) nameError.value = errors.name[0];
+            if (errors.phone) phoneError.value = errors.phone[0];
+            if (!errors.name && !errors.phone) toast.add({
                 severity: 'error',
                 summary: 'Error',
                 detail: e.response?.data?.message || 'Failed to save customer',
@@ -928,12 +934,16 @@ watch(() => branch.currentBranchId, loadServices);
                             v-if="showNewCustomerForm"
                             class="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3"
                         >
-                            <input
-                                v-model="newCustomer.name"
-                                @input="capitalizeCustomerName"
-                                placeholder="Name *"
-                                class="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm transition-all focus:border-blue-400 focus:outline-none"
-                            />
+                            <div>
+                                <input
+                                    v-model="newCustomer.name"
+                                    @input="capitalizeCustomerName; nameError = ''"
+                                    placeholder="Name *"
+                                    class="w-full rounded-lg border px-2.5 py-2 text-sm transition-all focus:border-blue-400 focus:outline-none"
+                                    :class="nameError ? 'border-red-300' : 'border-slate-200'"
+                                />
+                                <p v-if="nameError" class="mt-1 px-0.5 text-xs text-red-500">{{ nameError }}</p>
+                            </div>
                             <div>
                                 <input
                                     :value="displayPhone"
