@@ -13,21 +13,25 @@ async function setLastSynced(key) {
 async function pullServices() {
   const res = await api.get('/services', { params: { active: 1 } })
   const services = res.data.data ?? res.data
-  await db.transaction('rw', db.services, async () => {
-    await db.services.clear()
-    await db.services.bulkPut(services)
-  })
-  await setLastSynced('services')
+  if (services.length > 0) {
+    await db.transaction('rw', db.services, async () => {
+      await db.services.clear()
+      await db.services.bulkPut(services)
+    })
+    await setLastSynced('services')
+  }
 }
 
 async function pullServiceCategories() {
   const res = await api.get('/service-categories')
   const cats = res.data.data ?? res.data
-  await db.transaction('rw', db.service_categories, async () => {
-    await db.service_categories.clear()
-    await db.service_categories.bulkPut(cats)
-  })
-  await setLastSynced('service_categories')
+  if (cats.length > 0) {
+    await db.transaction('rw', db.service_categories, async () => {
+      await db.service_categories.clear()
+      await db.service_categories.bulkPut(cats)
+    })
+    await setLastSynced('service_categories')
+  }
 }
 
 async function pullOrders() {

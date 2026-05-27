@@ -26,6 +26,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const res = await getUser()
       user.value = res.data
+      runPull().catch(() => {})
     } catch {
       token.value = null
       user.value = null

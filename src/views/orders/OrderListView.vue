@@ -4,9 +4,13 @@ import { useRouter } from 'vue-router'
 import DatePicker from 'primevue/datepicker'
 import { getOrders } from '@/api/orders.js'
 import { useAuthStore } from '@/stores/auth.js'
+import { useBranchStore } from '@/stores/branch.js'
+import { isOfflineError } from '@/offline/isOfflineError.js'
+import { db } from '@/offline/db.js'
 
 const router = useRouter()
 const auth = useAuthStore()
+const branch = useBranchStore()
 const orders = ref([])
 const loading = ref(false)
 const page = ref(1)
@@ -43,6 +47,24 @@ async function load() {
     const res = await getOrders(params)
     orders.value = res.data.data || res.data
     total.value = res.data.total || orders.value.length
+  } catch (e) {
+    if (!isOfflineError(e)) throw e
+    const branchId = branch.currentBranchId ? Number(branch.currentBranchId) : null
+    let cached = branchId
+      ? await db.orders.where('branch_id').equals(branchId).toArray()
+      : await db.orders.toArray()
+    if (!cached.length) cached = await db.orders.toArray()
+    if (filters.value.status) cached = cached.filter(o => o.status === filters.value.status)
+    if (filters.value.search) {
+      const q = filters.value.search.toLowerCase()
+      cached = cached.filter(o =>
+        o.order_number?.toLowerCase().includes(q) ||
+        o.customer?.name?.toLowerCase().includes(q)
+      )
+    }
+    cached.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    orders.value = cached
+    total.value = cached.length
   } finally {
     loading.value = false
   }
