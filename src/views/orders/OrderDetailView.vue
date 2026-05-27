@@ -675,6 +675,10 @@ onMounted(load)
                 </div>
                 <div class="flex gap-1 flex-wrap">
                   <button
+                    class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 border border-blue-200 text-blue-600 hover:bg-blue-100 active:scale-95 transition-all"
+                    @click="newPayment.tendered = newPayment.amount"
+                  >Exact</button>
+                  <button
                     v-for="d in [20, 50, 100, 200, 500, 1000]"
                     :key="d"
                     class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-slate-600 hover:border-blue-400 hover:text-blue-600 active:scale-95 transition-all"
