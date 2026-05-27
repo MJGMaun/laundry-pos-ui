@@ -2,13 +2,17 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
-import { getCustomer, updateCustomer } from '@/api/customers.js'
+import { useConfirm } from 'primevue/useconfirm'
+import { getCustomer, updateCustomer, deleteCustomer } from '@/api/customers.js'
 import { getOrders, updateOrderStatus } from '@/api/orders.js'
 import { createPayment } from '@/api/payments.js'
+import { useAuthStore } from '@/stores/auth.js'
 
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
+const confirm = useConfirm()
+const auth = useAuthStore()
 
 const customer = ref(null)
 const orders   = ref([])
@@ -128,6 +132,29 @@ function fmtDate(d) {
   return new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+function confirmDelete() {
+  const message = orders.value.length > 0
+    ? `${customer.value.name} will be removed from the customer list but their ${orders.value.length} order${orders.value.length !== 1 ? 's' : ''} will remain in history.`
+    : `${customer.value.name} will be removed from the customer list.`
+
+  confirm.require({
+    message,
+    header: 'Remove Customer',
+    icon: 'pi pi-exclamation-triangle',
+    rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
+    acceptProps: { label: 'Remove', severity: 'danger' },
+    accept: async () => {
+      try {
+        await deleteCustomer(customer.value.id)
+        toast.add({ severity: 'success', summary: 'Removed', detail: `${customer.value.name} has been removed`, life: 3000 })
+        router.replace('/customers')
+      } catch (e) {
+        toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to remove customer', life: 4000 })
+      }
+    },
+  })
+}
+
 onMounted(load)
 </script>
 
@@ -185,6 +212,11 @@ onMounted(load)
               class="text-sm text-blue-600 hover:text-blue-700 border border-blue-200 px-3 py-1.5 rounded-xl transition-all hover:bg-blue-50"
               @click="editing = !editing"
             >{{ editing ? 'Cancel' : 'Edit' }}</button>
+            <button
+              v-if="auth.isAdmin"
+              class="text-sm text-red-600 hover:text-red-700 border border-red-200 px-3 py-1.5 rounded-xl transition-all hover:bg-red-50"
+              @click="confirmDelete"
+            >Remove</button>
           </div>
         </div>
 
