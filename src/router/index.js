@@ -18,6 +18,12 @@ const router = createRouter({
       meta: { public: true },
     },
     {
+      path: '/changelog',
+      name: 'changelog',
+      component: () => import('@/views/ChangelogView.vue'),
+      meta: { public: true },
+    },
+    {
       path: '/',
       component: () => import('@/layouts/AppLayout.vue'),
       meta: { requiresAuth: true },
