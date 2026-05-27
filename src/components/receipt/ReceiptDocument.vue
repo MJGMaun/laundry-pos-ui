@@ -36,8 +36,13 @@ const cashChange = computed(() => {
   return Math.max(0, totalTendered - totalCashPaid)
 })
 
+const netPaid = computed(() =>
+  (props.order.payments || []).reduce((s, p) =>
+    s + (p.type === 'refund' ? -Number(p.amount) : Number(p.amount)), 0)
+)
+
 const balanceDue = computed(() =>
-  Math.max(0, Number(props.order.total_amount || 0) - Number(props.order.paid_amount || 0))
+  Math.max(0, Number(props.order.total_amount || 0) - netPaid.value)
 )
 </script>
 

@@ -190,7 +190,8 @@ export function buildReceiptBytes(order, settings = {}) {
     }
 
     // ── Balance due (pay later) ───────────────
-    const paidAmount = Number(order.paid_amount || 0);
+    const paidAmount = (order.payments || []).reduce((s, p) =>
+        s + (p.type === 'refund' ? -Number(p.amount) : Number(p.amount)), 0);
     const balanceDue = Math.max(0, grandTotal - paidAmount);
     if (balanceDue > 0.009) {
         push(divider());
