@@ -52,9 +52,35 @@
 <script setup>
 const changelog = [
   {
-    version: '1.5.0',
+    version: '1.6.0',
     date: 'May 27, 2026',
     latest: true,
+    sections: [
+      {
+        title: 'Offline Mode',
+        type: 'feature',
+        items: [
+          'POS and Orders now work offline — services, orders (last 7 days), customers, service categories, and branch settings are cached to device storage on every login and app startup',
+          'Orders list loads from local cache when offline, with status and search filtering',
+          'Service category tabs populate offline even when category data is missing from the service embed',
+          'Offline cache refreshes automatically on login, app startup, reconnect, and branch switch',
+        ],
+      },
+      {
+        title: 'Fixes',
+        type: 'fix',
+        items: [
+          'Android: login no longer fails with "Invalid credentials" — the API middleware was incorrectly requiring a CSRF token for Bearer token requests from the mobile app',
+          'Android: all API requests now reach the server correctly — the WebView origin (https://localhost) was missing from the CORS allowed list',
+          'Offline: services were never actually saved to cache — a boolean type mismatch caused the backend to return inactive services only, leaving the offline service list empty',
+        ],
+      },
+    ],
+  },
+  {
+    version: '1.5.0',
+    date: 'May 27, 2026',
+    latest: false,
     sections: [
       {
         title: 'New Features',
