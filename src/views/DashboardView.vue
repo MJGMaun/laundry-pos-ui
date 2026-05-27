@@ -137,7 +137,7 @@ function buildCharts() {
   serviceChart.value = {
     labels: svcArr.slice(0, 7).map((s) => s.service_name || s.name),
     datasets: [{
-      data: svcArr.slice(0, 7).map((s) => Number(s.revenue || 0)),
+      data: svcArr.slice(0, 7).map((s) => Number(s.total_revenue || s.revenue || 0)),
       backgroundColor: colors,
       borderWidth: 3,
       borderColor: '#fff',
