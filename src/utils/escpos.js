@@ -284,7 +284,6 @@ export function buildTrackingSlipBytes(
         push(line(settings.shop_name.toUpperCase()));
         push(bytes(CMD.BOLD_OFF));
     }
-    push(line('TRACKING SLIP'));
     push(bytes(CMD.LEFT));
     push(divider());
 
@@ -303,14 +302,6 @@ export function buildTrackingSlipBytes(
     push(bytes(CMD.DOUBLE_SIZE));
     for (const l of wrapWide(svcName)) push(wideLine(l));
     push(bytes(CMD.NORMAL_SIZE));
-    push(divider());
-
-    // ── Load # (BIG, bold) ────────────────────
-    const loadCode = load.load_code || load.load_id || load.id || '';
-    const loadLabel = '#' + loadCode + (totalSlips > 1 ? '-' + slipIndex : '');
-    push(bytes(CMD.DOUBLE_SIZE, CMD.BOLD_ON));
-    push(wideLine(loadLabel));
-    push(bytes(CMD.NORMAL_SIZE, CMD.BOLD_OFF));
     push(divider());
 
     // ── Payment status (BIG, centered) ────────
@@ -347,6 +338,16 @@ export function buildTrackingSlipBytes(
                 })
         )
     );
+
+    // ── Order notes ───────────────────────────
+    if (order.notes) {
+        push(divider());
+        push(bytes(CMD.BOLD_ON));
+        push(line('Notes:'));
+        push(bytes(CMD.BOLD_OFF));
+        const noteWords = String(order.notes).match(/.{1,32}/g) || [];
+        for (const chunk of noteWords) push(line(chunk));
+    }
 
     push(bytes(CMD.FEED_3, CMD.CUT));
 
