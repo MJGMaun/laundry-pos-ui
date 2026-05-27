@@ -8,8 +8,10 @@
     "build": "vite build",
     "preview": "vite preview",
     "android": "npm run build && npx cap sync android && npx cap open android",
+    "android:local": "vite build --mode development && npx cap sync android && npx cap open android",
     "android:dev": "npx cap run android",
     "ios": "npm run build && npx cap sync ios && npx cap open ios",
+    "ios:local": "vite build --mode development && npx cap sync ios && npx cap open ios",
     "ios:dev": "npx cap run ios"
   },
   "dependencies": {
