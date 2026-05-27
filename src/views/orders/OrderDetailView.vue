@@ -484,6 +484,24 @@ onMounted(load)
             <div v-if="statusError" class="text-xs text-red-500 font-medium text-right max-w-48">{{ statusError }}</div>
           </div>
         </div>
+
+        <!-- Balance due banner -->
+        <div
+          v-if="outstandingBalance > 0.009"
+          class="mt-3 flex items-center justify-between gap-3 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm"
+        >
+          <span class="font-semibold text-amber-800">Balance Due</span>
+          <span class="font-bold text-amber-700 text-base">₱{{ fmt(outstandingBalance) }}</span>
+        </div>
+
+        <!-- Order notes -->
+        <div
+          v-if="order.notes"
+          class="mt-2 flex items-start gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600"
+        >
+          <span class="shrink-0 text-slate-400">📝</span>
+          <span>{{ order.notes }}</span>
+        </div>
       </div>
 
       <!-- Loads -->
