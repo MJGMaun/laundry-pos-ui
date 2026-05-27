@@ -73,7 +73,7 @@ async function confirmPayAll() {
       if (payAllMethod.value === 'cash') payData.tendered = balance
       else payData.reference_number = payAllRef.value || ''
       await createPayment(o.id, payData)
-      if (o.status === 'to_collect') {
+      if (o.status === 'claimed') {
         await updateOrderStatus(o.id, { status: 'completed' })
       }
       payAllProgress.value.done++

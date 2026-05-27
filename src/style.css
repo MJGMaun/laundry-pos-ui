@@ -173,12 +173,12 @@ body {
 }
 .badge-pending    { background: #fef3c7; color: #92400e; }
 .badge-ready      { background: #dcfce7; color: #166534; }
-.badge-to_collect { background: #fff7ed; color: #c2410c; }
+.badge-claimed { background: #fff7ed; color: #c2410c; }
 .badge-completed  { background: #f1f5f9; color: #64748b; }
 
 /* Pulse dot for active statuses */
 .badge-ready::before,
-.badge-to_collect::before {
+.badge-claimed::before {
   content: '';
   width: 6px;
   height: 6px;

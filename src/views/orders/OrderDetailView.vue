@@ -79,13 +79,14 @@ function confirmDelete() {
   })
 }
 
-const orderStatusNext = { pending: 'ready', ready: 'to_collect', to_collect: 'completed' }
+const orderStatusNext = { pending: 'ready', ready: 'claimed', claimed: 'completed' }
+const orderStatusPrev = { ready: 'pending', claimed: 'ready', completed: 'claimed' }
 
 const statusColor = {
-  pending:    { bg: '#fef3c7', text: '#92400e', dot: '#f59e0b' },
-  ready:      { bg: '#dcfce7', text: '#166534', dot: '#16a34a' },
-  to_collect: { bg: '#fff7ed', text: '#c2410c', dot: '#f97316' },
-  completed:  { bg: '#f1f5f9', text: '#64748b', dot: '#94a3b8' },
+  pending:   { bg: '#fef3c7', text: '#92400e', dot: '#f59e0b' },
+  ready:     { bg: '#dcfce7', text: '#166534', dot: '#16a34a' },
+  claimed:   { bg: '#fff7ed', text: '#c2410c', dot: '#f97316' },
+  completed: { bg: '#f1f5f9', text: '#64748b', dot: '#94a3b8' },
 }
 
 async function load() {
@@ -128,6 +129,29 @@ async function advanceOrderStatus() {
   }
 }
 
+function revertOrderStatus() {
+  const prev = orderStatusPrev[order.value.status]
+  if (!prev || !auth.isAdmin) return
+  confirm.require({
+    message: `Revert status from "${order.value.status}" back to "${prev}"?`,
+    header: 'Undo Status',
+    icon: 'pi pi-exclamation-triangle',
+    rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
+    acceptProps: { label: 'Undo', severity: 'danger' },
+    accept: async () => {
+      updatingStatus.value = true
+      try {
+        await updateOrderStatus(order.value.id, { status: prev })
+        await load()
+      } catch (e) {
+        toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to revert status', life: 4000 })
+      } finally {
+        updatingStatus.value = false
+      }
+    },
+  })
+}
+
 const showPaymentForm = ref(false)
 const savingPayment = ref(false)
 const paymentFormError = ref('')
@@ -151,7 +175,7 @@ async function recordPayment() {
     await createPayment(order.value.id, payData)
     showPaymentForm.value = false
     await load()
-    if (isPaid.value && order.value.status === 'to_collect') {
+    if (isPaid.value && order.value.status === 'claimed') {
       await updateOrderStatus(order.value.id, { status: 'completed' })
       await load()
     }
@@ -163,7 +187,7 @@ async function recordPayment() {
       else payData.reference_number = p.reference_number || ''
       await queue.enqueueRequest('POST', `/orders/${order.value.id}/payments`, payData)
       // If this payment covers the balance, also queue the status completion
-      if (Number(p.amount) >= outstandingBalance.value - 0.01 && order.value.status === 'to_collect') {
+      if (Number(p.amount) >= outstandingBalance.value - 0.01 && order.value.status === 'claimed') {
         await queue.enqueueRequest('PATCH', `/orders/${order.value.id}/status`, { status: 'completed' })
       }
       showPaymentForm.value = false
@@ -439,15 +463,24 @@ onMounted(load)
             </div>
           </div>
 
-          <div v-if="orderStatusNext[order.status] && auth.isCashier" class="flex flex-col items-start sm:items-end gap-2 w-full sm:w-auto">
-            <button
-              :disabled="updatingStatus"
-              class="btn btn-primary w-full sm:w-auto"
-              @click="advanceOrderStatus"
-            >
-              <svg v-if="updatingStatus" class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.3)" stroke-width="3"/><path d="M12 2a10 10 0 0110 10" stroke="white" stroke-width="3" stroke-linecap="round"/></svg>
-              <span v-else>Mark {{ orderStatusNext[order.status]?.replace('_', ' ') }} →</span>
-            </button>
+          <div v-if="auth.isCashier" class="flex flex-col items-start sm:items-end gap-2 w-full sm:w-auto">
+            <div class="flex gap-2 w-full sm:w-auto">
+              <button
+                v-if="orderStatusPrev[order.status] && auth.isAdmin"
+                :disabled="updatingStatus"
+                class="flex items-center gap-1.5 text-sm font-semibold px-3 py-2 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-all active:scale-95 disabled:opacity-50"
+                @click="revertOrderStatus"
+              >← Undo</button>
+              <button
+                v-if="orderStatusNext[order.status]"
+                :disabled="updatingStatus"
+                class="btn btn-primary flex-1 sm:flex-none"
+                @click="advanceOrderStatus"
+              >
+                <svg v-if="updatingStatus" class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.3)" stroke-width="3"/><path d="M12 2a10 10 0 0110 10" stroke="white" stroke-width="3" stroke-linecap="round"/></svg>
+                <span v-else>Mark {{ orderStatusNext[order.status] }} →</span>
+              </button>
+            </div>
             <div v-if="statusError" class="text-xs text-red-500 font-medium text-right max-w-48">{{ statusError }}</div>
           </div>
         </div>

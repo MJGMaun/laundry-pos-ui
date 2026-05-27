@@ -26,12 +26,12 @@ async function load() {
 async function markPickedUp(orderId) {
   markingOrder.value = orderId
   try {
-    await updateOrderStatus(orderId, { status: 'to_collect' })
+    await updateOrderStatus(orderId, { status: 'claimed' })
     toast.add({ severity: 'success', summary: 'Done', detail: 'Marked as picked up', life: 2500 })
     await load()
   } catch (e) {
     if (isOfflineError(e)) {
-      await offlineQueue.enqueueRequest('PATCH', `/orders/${orderId}/status`, { status: 'to_collect' })
+      await offlineQueue.enqueueRequest('PATCH', `/orders/${orderId}/status`, { status: 'claimed' })
       orders.value = orders.value.filter((o) => o.id !== orderId)
       toast.add({ severity: 'warn', summary: 'Saved offline', detail: 'Pickup queued — will sync when connected', life: 5000 })
     } else {
