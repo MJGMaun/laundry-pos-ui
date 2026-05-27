@@ -1,6 +1,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { getSalesSummary, getRevenue, getTopCustomers, getServiceReport } from '@/api/reports.js'
+import { getExpenses } from '@/api/expenses.js'
+import { getCashBalance } from '@/api/cashBalance.js'
 import { useCountUp } from '@/composables/useCountUp.js'
 import { Line, Doughnut } from 'vue-chartjs'
 import {
@@ -17,17 +19,18 @@ const period = ref('daily')
 const rawRevenue      = ref(0)
 const rawUncollected  = ref(0)
 const rawOrders       = ref(0)
-const rawAvg          = ref(0)
+const rawExpenses     = ref(0)
+const rawCash         = ref(0)
 
 const animRevenue      = useCountUp(rawRevenue,     1000, 2)
 const animUncollected  = useCountUp(rawUncollected,  950, 2)
 const animOrders       = useCountUp(rawOrders,        800, 0)
-const animAvg          = useCountUp(rawAvg,           900, 2)
+const animExpenses     = useCountUp(rawExpenses,      900, 2)
+const animCash         = useCountUp(rawCash,          950, 2)
 
 const revenueData  = ref([])
 const topCustomers = ref([])
 const services     = ref([])
-const topService   = ref('')
 
 const revenueChart = ref({ labels: [], datasets: [] })
 const serviceChart = ref({ labels: [], datasets: [] })
@@ -75,20 +78,25 @@ function fmt(n) { return Number(n || 0).toLocaleString('en-PH', { minimumFractio
 
 async function load() {
   loading.value = true
+  const today = new Date().toISOString().slice(0, 10)
   try {
-    const [sumRes, revRes, custRes, svcRes] = await Promise.all([
+    const [sumRes, revRes, custRes, svcRes, expRes, cashRes] = await Promise.all([
       getSalesSummary(),
       getRevenue({ period: period.value }),
       getTopCustomers({ limit: 5 }),
       getServiceReport(),
+      getExpenses({ date_from: today, date_to: today, per_page: 500 }),
+      getCashBalance(today),
     ])
 
     const sum = sumRes.data.data || sumRes.data
     rawRevenue.value     = Number(sum?.total_revenue || sum?.revenue || 0)
     rawUncollected.value = Number(sum?.uncollected_revenue || 0)
     rawOrders.value      = Number(sum?.order_count || sum?.orders || 0)
-    rawAvg.value         = Number(sum?.avg_order_value || sum?.average || 0)
-    topService.value     = sum?.top_service?.name || ''
+
+    const expList = expRes.data.expenses?.data || []
+    rawExpenses.value = expList.reduce((s, e) => s + Number(e.amount || 0), 0)
+    rawCash.value = Number(cashRes.data.total_in_drawer || 0)
 
     revenueData.value  = revRes.data.data || revRes.data
     topCustomers.value = custRes.data.data || custRes.data
@@ -206,21 +214,21 @@ onMounted(load)
         </div>
 
         <div class="stat-card animate-slide-up stagger-4">
-          <div class="stat-icon" style="background: linear-gradient(135deg, #e0f2fe, #bae6fd); color: #0369a1;">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+          <div class="stat-icon" style="background: linear-gradient(135deg, #fee2e2, #fecaca); color: #991b1b;">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
           </div>
-          <div class="stat-label">Avg Order</div>
-          <div class="stat-value">₱{{ fmt(animAvg) }}</div>
-          <div class="stat-bar" style="background: linear-gradient(90deg, #0ea5e9, #38bdf8);" />
+          <div class="stat-label">Expenses Today</div>
+          <div class="stat-value text-red-600">₱{{ fmt(animExpenses) }}</div>
+          <div class="stat-bar" style="background: linear-gradient(90deg, #ef4444, #f87171);" />
         </div>
 
         <div class="stat-card animate-slide-up stagger-5">
-          <div class="stat-icon" style="background: linear-gradient(135deg, #ede9fe, #ddd6fe); color: #5b21b6;">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+          <div class="stat-icon" style="background: linear-gradient(135deg, #d1fae5, #a7f3d0); color: #065f46;">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
           </div>
-          <div class="stat-label">Top Service</div>
-          <div class="stat-value text-base">{{ topService || '—' }}</div>
-          <div class="stat-bar" style="background: linear-gradient(90deg, #7c3aed, #a78bfa);" />
+          <div class="stat-label">Cash on Hand</div>
+          <div class="stat-value text-emerald-700">₱{{ fmt(animCash) }}</div>
+          <div class="stat-bar" style="background: linear-gradient(90deg, #10b981, #34d399);" />
         </div>
       </div>
 
