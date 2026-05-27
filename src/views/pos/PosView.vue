@@ -52,11 +52,9 @@ function onPhoneInput(e) {
             raw.slice(0, 4) + '-' + raw.slice(4, 7) + '-' + raw.slice(7);
 }
 
-function capitalizeCustomerName() {
-    if (newCustomer.value.name) {
-        newCustomer.value.name = newCustomer.value.name.replace(/\b\w/g, (c) =>
-            c.toUpperCase()
-        );
+function capitalizeField(field) {
+    if (newCustomer.value[field]) {
+        newCustomer.value[field] = newCustomer.value[field].replace(/\b\w/g, (c) => c.toUpperCase());
     }
 }
 
@@ -937,7 +935,7 @@ watch(() => branch.currentBranchId, loadServices);
                             <div>
                                 <input
                                     v-model="newCustomer.name"
-                                    @input="capitalizeCustomerName; nameError = ''"
+                                    @input="capitalizeField('name'); nameError = ''"
                                     placeholder="Name *"
                                     class="w-full rounded-lg border px-2.5 py-2 text-sm transition-all focus:border-blue-400 focus:outline-none"
                                     :class="nameError ? 'border-red-300' : 'border-slate-200'"
@@ -966,6 +964,7 @@ watch(() => branch.currentBranchId, loadServices);
                             </div>
                             <input
                                 v-model="newCustomer.address"
+                                @input="capitalizeField('address')"
                                 placeholder="Address"
                                 class="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm transition-all focus:border-blue-400 focus:outline-none"
                             />
@@ -1529,8 +1528,10 @@ watch(() => branch.currentBranchId, loadServices);
                                             >
                                                 <input
                                                     v-model="newCustomer.name"
+                                                    @input="capitalizeField('name'); nameError = ''"
                                                     placeholder="Name *"
-                                                    class="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm transition-all focus:border-blue-400 focus:outline-none"
+                                                    class="w-full rounded-lg border bg-white px-2.5 py-2 text-sm transition-all focus:border-blue-400 focus:outline-none"
+                                                    :class="nameError ? 'border-red-300' : 'border-slate-200'"
                                                 />
                                                 <div>
                                                     <input
@@ -1553,9 +1554,8 @@ watch(() => branch.currentBranchId, loadServices);
                                                     </p>
                                                 </div>
                                                 <input
-                                                    v-model="
-                                                        newCustomer.address
-                                                    "
+                                                    v-model="newCustomer.address"
+                                                    @input="capitalizeField('address')"
                                                     placeholder="Address"
                                                     class="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm transition-all focus:border-blue-400 focus:outline-none"
                                                 />

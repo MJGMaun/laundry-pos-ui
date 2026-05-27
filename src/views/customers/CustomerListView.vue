@@ -134,7 +134,7 @@ onMounted(load)
             <input :value="displayPhone" @input="onPhoneInput" placeholder="Phone *" maxlength="13" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             <input v-model="form.username" @input="usernameManual = true" placeholder="Username (optional)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             <input v-model="form.email" placeholder="Email (optional)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-            <input v-model="form.address" placeholder="Address (optional)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+            <input v-model="form.address" @input="capitalizeFirst('address')" placeholder="Address (optional)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             <textarea v-model="form.notes" placeholder="Notes (optional)" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none" />
           </div>
           <div class="flex gap-3 mt-5">
