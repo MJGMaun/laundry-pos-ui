@@ -31,6 +31,7 @@ function orderBalance(o) {
 const unpaidOrders  = computed(() => orders.value.filter((o) => orderBalance(o) > 0.009))
 const paidOrders    = computed(() => orders.value.filter((o) => orderBalance(o) <= 0.009))
 const unpaidTotal   = computed(() => unpaidOrders.value.reduce((s, o) => s + orderBalance(o), 0))
+const totalSpent    = computed(() => orders.value.reduce((s, o) => s + Number(o.paid_amount || 0), 0))
 
 const filteredOrders = computed(() => {
   if (filter.value === 'unpaid') return unpaidOrders.value
@@ -266,7 +267,7 @@ onMounted(load)
             </div>
           </div>
           <div class="text-center p-3 bg-slate-50 rounded-xl">
-            <div class="text-2xl font-bold text-slate-900">₱{{ fmt(customer.total_spent) }}</div>
+            <div class="text-2xl font-bold text-slate-900">₱{{ fmt(totalSpent) }}</div>
             <div class="text-xs text-slate-500 mt-0.5">Total Spent</div>
           </div>
           <div class="text-center p-3 bg-slate-50 rounded-xl">
@@ -387,7 +388,7 @@ onMounted(load)
               <td class="px-4 sm:px-5 py-2.5 text-right font-bold text-sm"
                 :class="filter === 'unpaid' ? 'text-amber-700' : 'text-green-700'"
               >
-                ₱{{ fmt(filteredOrders.reduce((s, o) => s + Number(o.total_amount || 0), 0)) }}
+                ₱{{ fmt(filteredOrders.reduce((s, o) => s + (filter === 'unpaid' ? orderBalance(o) : Number(o.total_amount || 0)), 0)) }}
               </td>
               <td class="hidden sm:table-cell px-5 py-2.5 text-xs text-slate-400">
                 {{ filteredOrders.length }} order{{ filteredOrders.length !== 1 ? 's' : '' }}
