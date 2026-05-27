@@ -504,7 +504,7 @@ onMounted(load)
           <button
             v-if="auth.isCashier && order.status !== 'completed'"
             class="shrink-0 text-xs text-blue-500 hover:text-blue-700 font-medium transition-colors"
-            @click="showEditForm = true"
+            @click="openEditForm"
           >Edit</button>
         </div>
       </div>
