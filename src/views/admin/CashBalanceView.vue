@@ -210,7 +210,7 @@ onMounted(load)
               💵 To Remit (Cash)
             </div>
             <div class="text-2xl font-bold" :class="cashData.to_remit_cash >= 0 ? 'text-green-800' : 'text-red-700'">
-              ₱{{ fmt(cashData.to_remit_cash) }}
+              {{ cashData.to_remit_cash < 0 ? '-' : '' }}₱{{ fmt(Math.abs(cashData.to_remit_cash)) }}
             </div>
             <div class="text-xs mt-1" :class="cashData.to_remit_cash >= 0 ? 'text-green-600' : 'text-red-500'">
               Drawer total minus starting float
