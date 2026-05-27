@@ -194,8 +194,12 @@ onMounted(load)
                 <span class="text-xs text-gray-400">net of refunds</span>
               </div>
               <span class="font-semibold" :class="cashData.gcash_in > 0 ? 'text-green-700' : 'text-gray-400'">
-                ₱{{ fmt(cashData.gcash_in) }}
+                +₱{{ fmt(cashData.gcash_in) }}
               </span>
+            </div>
+            <div v-if="cashData.gcash_expenses > 0" class="flex items-center justify-between px-5 py-3">
+              <div class="text-sm text-gray-600">GCash Expenses</div>
+              <span class="font-semibold text-red-600">−₱{{ fmt(cashData.gcash_expenses) }}</span>
             </div>
           </div>
         </div>
@@ -218,8 +222,8 @@ onMounted(load)
           </div>
           <div class="bg-blue-50 border border-blue-200 rounded-xl p-5">
             <div class="text-xs font-semibold text-blue-700 mb-1">📱 To Remit (GCash)</div>
-            <div class="text-2xl font-bold text-blue-900">₱{{ fmt(cashData.gcash_in || 0) }}</div>
-            <div class="text-xs text-blue-500 mt-1">GCash total</div>
+            <div class="text-2xl font-bold text-blue-900">₱{{ fmt(cashData.to_remit_gcash ?? cashData.gcash_in ?? 0) }}</div>
+            <div class="text-xs text-blue-500 mt-1">GCash payments minus GCash expenses</div>
           </div>
         </div>
 

@@ -26,7 +26,7 @@ function unwrap(res) {
   return candidates.find(Array.isArray) ?? []
 }
 
-const form = ref({ expense_category_id: '', amount: '', expense_date: new Date().toLocaleDateString('en-CA'), description: '' })
+const form = ref({ expense_category_id: '', amount: '', payment_method: 'cash', expense_date: new Date().toLocaleDateString('en-CA'), description: '' })
 
 async function load() {
   loading.value = true
@@ -110,12 +110,13 @@ function openForm(expense = null) {
     form.value = {
       expense_category_id: expense.expense_category_id,
       amount: expense.amount,
+      payment_method: expense.payment_method || 'cash',
       expense_date: expense.expense_date,
       description: expense.description || '',
     }
   } else {
     editingId.value = null
-    form.value = { expense_category_id: '', amount: '', expense_date: new Date().toLocaleDateString('en-CA'), description: '' }
+    form.value = { expense_category_id: '', amount: '', payment_method: 'cash', expense_date: new Date().toLocaleDateString('en-CA'), description: '' }
   }
   showForm.value = true
 }
@@ -184,6 +185,7 @@ onMounted(() => { load(); loadCategories() })
             <th class="text-left px-4 py-3 font-medium text-gray-600">Date</th>
             <th class="text-left px-4 py-3 font-medium text-gray-600">Category</th>
             <th class="hidden sm:table-cell text-left px-4 py-3 font-medium text-gray-600">Description</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">Method</th>
             <th class="text-right px-4 py-3 font-medium text-gray-600">Amount</th>
             <th class="px-4 py-3" />
           </tr>
@@ -193,6 +195,10 @@ onMounted(() => { load(); loadCategories() })
             <td class="px-4 py-3 text-gray-600">{{ fmtDate(e.expense_date) }}</td>
             <td class="px-4 py-3 text-gray-800">{{ e.category?.name || '—' }}</td>
             <td class="hidden sm:table-cell px-4 py-3 text-gray-500 max-w-xs truncate">{{ e.description || '—' }}</td>
+            <td class="px-4 py-3">
+              <span v-if="e.payment_method === 'gcash'" class="text-xs font-bold px-2 py-0.5 rounded-md text-white" style="background: #005eaa;">GCash</span>
+              <span v-else class="text-xs font-medium px-2 py-0.5 rounded-md bg-gray-100 text-gray-600">Cash</span>
+            </td>
             <td class="px-4 py-3 text-right font-semibold text-gray-900">₱{{ fmt(e.amount) }}</td>
             <td class="px-4 py-3 text-right">
               <div class="flex gap-1 justify-end">
@@ -216,6 +222,22 @@ onMounted(() => { load(); loadCategories() })
               <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
             </select>
             <input v-model="form.amount" type="number" step="0.01" min="0" placeholder="Amount *" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+            <!-- Payment method toggle -->
+            <div class="flex rounded-lg overflow-hidden border border-gray-300 text-sm">
+              <button
+                type="button"
+                class="flex-1 py-2 font-medium transition-colors"
+                :class="form.payment_method === 'cash' ? 'bg-gray-800 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'"
+                @click="form.payment_method = 'cash'"
+              >Cash</button>
+              <button
+                type="button"
+                class="flex-1 py-2 font-medium transition-colors"
+                :class="form.payment_method === 'gcash' ? 'text-white' : 'bg-white text-gray-500 hover:bg-gray-50'"
+                :style="form.payment_method === 'gcash' ? 'background:#005eaa' : ''"
+                @click="form.payment_method = 'gcash'"
+              >GCash</button>
+            </div>
             <input v-model="form.expense_date" type="date" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             <textarea v-model="form.description" placeholder="Description (optional)" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none" />
           </div>
