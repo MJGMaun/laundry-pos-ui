@@ -210,10 +210,16 @@ export function buildReceiptBytes(order, settings = {}) {
         settings.receipt_show_loyalty === true
     ) {
         const pts = order.loyalty_points_earned || order.points_earned;
-        if (pts) {
+        const stampCount = order.customer?.loyalty_stamp_count;
+        if (pts || stampCount != null) {
             push(divider());
             push(bytes(CMD.CENTER));
-            push(line('Points Earned: ' + pts));
+            if (pts) push(line('Points Earned: ' + pts));
+            if (stampCount != null) {
+                push(bytes(CMD.BOLD_ON));
+                push(line('Stamps: ' + stampCount));
+                push(bytes(CMD.BOLD_OFF));
+            }
             push(bytes(CMD.LEFT));
         }
     }

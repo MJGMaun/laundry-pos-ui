@@ -160,6 +160,9 @@ const balanceDue = computed(() =>
       <div class="rcp-loyalty rcp-mb rcp-small rcp-center">
         <div v-if="Number(order.discount_amount) > 0">🎁 Loyalty discount applied: ₱{{ fmt(order.discount_amount) }}</div>
         <div v-else>Earn loyalty stamps with this order!</div>
+        <div v-if="order.customer.loyalty_stamp_count != null" class="rcp-stamps">
+          ⭐ Stamps: {{ order.customer.loyalty_stamp_count }}
+        </div>
       </div>
     </template>
 
@@ -309,6 +312,7 @@ const balanceDue = computed(() =>
 
 /* ── Loyalty / Notes ── */
 .rcp-loyalty { color: #333; }
+.rcp-stamps  { font-weight: 700; color: #000; margin-top: 2px; }
 .rcp-notes   { color: #444; }
 .rcp-ref     { font-size: 9px; }
 
