@@ -18,13 +18,13 @@ const period = ref('daily')
 
 const rawRevenue      = ref(0)
 const rawUncollected  = ref(0)
-const rawOrders       = ref(0)
+const rawLoads        = ref(0)
 const rawExpenses     = ref(0)
 const rawCash         = ref(0)
 
 const animRevenue      = useCountUp(rawRevenue,     1000, 2)
 const animUncollected  = useCountUp(rawUncollected,  950, 2)
-const animOrders       = useCountUp(rawOrders,        800, 0)
+const animLoads        = useCountUp(rawLoads,         800, 0)
 const animExpenses     = useCountUp(rawExpenses,      900, 2)
 const animCash         = useCountUp(rawCash,          950, 2)
 
@@ -92,7 +92,7 @@ async function load() {
     const sum = sumRes.data.data || sumRes.data
     rawRevenue.value     = Number(sum?.total_revenue || sum?.revenue || 0)
     rawUncollected.value = Number(sum?.uncollected_revenue || 0)
-    rawOrders.value      = Number(sum?.order_count || sum?.orders || 0)
+    rawLoads.value       = Number(sum?.load_count || 0)
 
     const expList = expRes.data.expenses?.data || []
     rawExpenses.value = expList.reduce((s, e) => s + Number(e.amount || 0), 0)
@@ -208,8 +208,8 @@ onMounted(load)
           <div class="stat-icon" style="background: linear-gradient(135deg, #dcfce7, #bbf7d0); color: #166534;">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
           </div>
-          <div class="stat-label">Orders Today</div>
-          <div class="stat-value">{{ animOrders }}</div>
+          <div class="stat-label">Loads Today</div>
+          <div class="stat-value">{{ animLoads }}</div>
           <div class="stat-bar" style="background: linear-gradient(90deg, #16a34a, #4ade80);" />
         </div>
 
