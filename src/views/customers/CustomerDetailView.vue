@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
 import { getCustomer, updateCustomer, deleteCustomer } from '@/api/customers.js'
-import { getOrders, updateOrderStatus } from '@/api/orders.js'
+import { getOrders } from '@/api/orders.js'
 import { createPayment } from '@/api/payments.js'
 import { getCustomerLoyalty, adjustStamps } from '@/api/loyalty.js'
 import { useAuthStore } from '@/stores/auth.js'
@@ -132,9 +132,7 @@ async function confirmPayAll() {
       if (payAllMethod.value === 'cash') payData.tendered = balance
       else payData.reference_number = payAllRef.value || ''
       await createPayment(o.id, payData)
-      if (o.status === 'claimed') {
-        await updateOrderStatus(o.id, { status: 'completed' })
-      }
+      // A claimed order that's now fully paid is auto-completed by the backend.
       payAllProgress.value.done++
     }
     showPayAll.value = false
