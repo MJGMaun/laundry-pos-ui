@@ -6,6 +6,8 @@ export const updateLoyaltyRule = (id, data)    => api.put(`/loyalty-rules/${id}`
 export const deleteLoyaltyRule = (id)          => api.delete(`/loyalty-rules/${id}`)
 
 export const getCustomerLoyalty = (customerId) => api.get(`/customers/${customerId}/loyalty-rewards`)
+export const adjustStamps        = (customerId, data) =>
+  api.post(`/customers/${customerId}/loyalty-stamps/adjust`, data)
 export const redeemReward        = (rewardId, orderId) =>
   api.post(`/loyalty-rewards/${rewardId}/redeem`, { order_id: orderId })
 

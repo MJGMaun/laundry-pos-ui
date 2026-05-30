@@ -6,6 +6,7 @@ import { useConfirm } from 'primevue/useconfirm'
 import { getCustomer, updateCustomer, deleteCustomer } from '@/api/customers.js'
 import { getOrders, updateOrderStatus } from '@/api/orders.js'
 import { createPayment } from '@/api/payments.js'
+import { getCustomerLoyalty, adjustStamps } from '@/api/loyalty.js'
 import { useAuthStore } from '@/stores/auth.js'
 
 const route = useRoute()
@@ -22,6 +23,63 @@ const editing  = ref(false)
 const form     = ref({})
 const saving   = ref(false)
 const filter   = ref('all') // 'all' | 'unpaid' | 'paid'
+
+// ── Loyalty stamps ──
+const stampCount = ref(0)
+
+// Adjust-stamps modal (admin / super-admin only)
+const showAdjust   = ref(false)
+const adjustMode   = ref('add') // 'add' | 'set'
+const adjustValue  = ref('')
+const adjustNote   = ref('')
+const adjustError  = ref('')
+const adjusting    = ref(false)
+
+const adjustedTotal = computed(() => {
+  const v = Number(adjustValue.value || 0)
+  if (adjustMode.value === 'set') return Math.max(0, Math.trunc(v))
+  return stampCount.value + Math.trunc(v)
+})
+
+function openAdjust() {
+  adjustMode.value  = 'add'
+  adjustValue.value = ''
+  adjustNote.value  = ''
+  adjustError.value = ''
+  showAdjust.value  = true
+}
+
+async function confirmAdjust() {
+  adjustError.value = ''
+  const raw = Math.trunc(Number(adjustValue.value || 0))
+  if (adjustMode.value === 'add' && raw === 0) {
+    adjustError.value = 'Enter a non-zero amount to add or remove.'
+    return
+  }
+  if (adjustMode.value === 'set' && raw < 0) {
+    adjustError.value = 'Stamp total cannot be negative.'
+    return
+  }
+  if (adjustedTotal.value < 0) {
+    adjustError.value = 'That would make the stamp total negative.'
+    return
+  }
+  adjusting.value = true
+  try {
+    const res = await adjustStamps(customer.value.id, {
+      mode:   adjustMode.value,
+      stamps: raw,
+      note:   adjustNote.value || undefined,
+    })
+    stampCount.value = res.data.total_stamps
+    showAdjust.value = false
+    toast.add({ severity: 'success', summary: 'Stamps updated', detail: `Balance is now ${stampCount.value}`, life: 3000 })
+  } catch (e) {
+    adjustError.value = e.response?.data?.message || 'Failed to adjust stamps.'
+  } finally {
+    adjusting.value = false
+  }
+}
 
 // Actual outstanding balance per order (accounts for partial payments)
 function orderBalance(o) {
@@ -94,12 +152,14 @@ async function load() {
   loading.value = true
   deleted.value = false
   try {
-    const [custRes, ordersRes] = await Promise.all([
+    const [custRes, ordersRes, loyaltyRes] = await Promise.all([
       getCustomer(route.params.id),
       getOrders({ customer_id: route.params.id, per_page: 100 }),
+      getCustomerLoyalty(route.params.id).catch(() => null),
     ])
     customer.value = custRes.data.data || custRes.data
     orders.value   = ordersRes.data.data || ordersRes.data
+    stampCount.value = loyaltyRes?.data?.total_stamps ?? 0
     form.value = {
       name:     customer.value.name,
       username: customer.value.username || '',
@@ -276,6 +336,20 @@ onMounted(load)
           </div>
         </div>
 
+        <!-- Loyalty stamps -->
+        <div class="mt-3 flex items-center gap-3 px-4 py-3 bg-indigo-50 border border-indigo-100 rounded-xl">
+          <div class="text-2xl">⭐</div>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-semibold text-indigo-900">{{ stampCount }} loyalty stamp{{ stampCount !== 1 ? 's' : '' }}</div>
+            <div class="text-xs text-indigo-500">Current stamp balance</div>
+          </div>
+          <button
+            v-if="auth.isAdmin"
+            class="text-sm font-semibold text-indigo-600 hover:text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded-xl transition-all hover:bg-indigo-100 active:scale-95 shrink-0"
+            @click="openAdjust"
+          >Adjust</button>
+        </div>
+
         <!-- Unpaid alert banner -->
         <div
           v-if="unpaidTotal > 0"
@@ -399,6 +473,107 @@ onMounted(load)
       </div>
 
     </div>
+
+    <!-- ── Adjust Stamps Modal (admin / super-admin) ── -->
+    <Teleport to="body">
+    <div
+      v-if="showAdjust"
+      class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+      style="background: rgba(15,23,42,0.6); backdrop-filter: blur(6px);"
+      @click.self="showAdjust = false"
+    >
+      <div class="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden" style="box-shadow: 0 32px 80px rgba(0,0,0,0.3);">
+
+        <!-- Header -->
+        <div class="px-6 pt-6 pb-4 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900">Adjust Stamps</h2>
+            <p class="text-sm text-slate-400 mt-0.5">Current balance: <span class="font-bold text-indigo-600">{{ stampCount }}</span></p>
+          </div>
+          <button
+            class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
+            @click="showAdjust = false"
+          >✕</button>
+        </div>
+
+        <div class="px-6 py-5 space-y-4">
+
+          <!-- Mode toggle -->
+          <div class="flex gap-1 p-0.5 bg-slate-100 rounded-xl">
+            <button
+              v-for="m in [{ k: 'add', l: 'Add / Remove' }, { k: 'set', l: 'Set Total' }]"
+              :key="m.k"
+              class="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
+              :class="adjustMode === m.k ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+              @click="adjustMode = m.k; adjustValue = ''; adjustError = ''"
+            >{{ m.l }}</button>
+          </div>
+
+          <!-- Value -->
+          <div>
+            <label class="text-xs text-slate-500">{{ adjustMode === 'set' ? 'New stamp total' : 'Stamps to add (use a negative number to remove)' }}</label>
+            <input
+              v-model="adjustValue"
+              type="number" step="1"
+              :placeholder="adjustMode === 'set' ? 'e.g. 10' : 'e.g. 5 or -2'"
+              class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-right focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
+            />
+          </div>
+
+          <!-- Quick add buttons -->
+          <div v-if="adjustMode === 'add'" class="flex gap-1 flex-wrap">
+            <button
+              v-for="d in [1, 5, 10]"
+              :key="'p'+d"
+              class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-50 border border-indigo-200 text-indigo-600 hover:bg-indigo-100 active:scale-95 transition-all"
+              @click="adjustValue = String(Math.trunc(Number(adjustValue || 0)) + d)"
+            >+{{ d }}</button>
+            <button
+              v-for="d in [1, 5]"
+              :key="'m'+d"
+              class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 active:scale-95 transition-all"
+              @click="adjustValue = String(Math.trunc(Number(adjustValue || 0)) - d)"
+            >−{{ d }}</button>
+          </div>
+
+          <!-- Resulting total preview -->
+          <div class="flex items-center justify-between px-4 py-3 bg-indigo-50 border border-indigo-100 rounded-2xl">
+            <span class="text-sm font-medium text-indigo-800">New balance</span>
+            <span class="text-xl font-bold text-indigo-700">{{ adjustedTotal }}</span>
+          </div>
+
+          <!-- Reason -->
+          <input
+            v-model="adjustNote"
+            placeholder="Reason (optional)"
+            maxlength="255"
+            class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
+          />
+
+          <div v-if="adjustError" class="text-xs text-red-500 font-medium px-1">{{ adjustError }}</div>
+        </div>
+
+        <!-- Actions -->
+        <div class="px-6 pb-6 flex gap-3">
+          <button
+            class="flex-1 py-3 rounded-2xl font-semibold text-sm text-slate-600 border border-slate-200 hover:bg-slate-50 active:scale-[0.98] transition-all"
+            :disabled="adjusting"
+            @click="showAdjust = false"
+          >Cancel</button>
+          <button
+            class="flex-1 py-3 rounded-2xl font-bold text-sm text-white transition-all active:scale-[0.98] disabled:opacity-50"
+            style="background: linear-gradient(135deg, #4f46e5, #6366f1); box-shadow: 0 4px 14px rgba(99,102,241,0.35);"
+            :disabled="adjusting"
+            @click="confirmAdjust"
+          >
+            <span v-if="!adjusting">Save</span>
+            <span v-else>Saving…</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+    </Teleport>
 
     <!-- ── Pay All Modal ── -->
     <Teleport to="body">
