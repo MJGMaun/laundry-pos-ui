@@ -52,9 +52,42 @@
 <script setup>
 const changelog = [
   {
+    version: '1.8.0',
+    date: 'May 30, 2026',
+    latest: true,
+    sections: [
+      {
+        title: 'New Features',
+        type: 'feature',
+        items: [
+          'Loyalty: receipts now show the customer\'s current stamp count — on both the on-screen preview and the printed receipt (when "Show loyalty on receipt" is enabled)',
+          'Loyalty: admin and super_admin can manually adjust a customer\'s stamp balance from their profile — add or remove stamps, or set an exact total, with an optional reason',
+          'Orders: a claimed order is now marked **Completed automatically** once it\'s fully paid — no more manual Complete tap',
+          'Dashboard: new **Loads Today** stat card (total laundry loads) in place of Orders Today',
+          'Dashboard: the **Daily / Weekly / Monthly** filter now applies to the whole dashboard — Revenue, Loads, and Expenses reflect the selected period, and the header shows the exact date range included',
+        ],
+      },
+      {
+        title: 'Improvements',
+        type: 'improvement',
+        items: [
+          'Reports: **revenue is now recognized on the day an order is created** (not the day it\'s paid) — across the dashboard, revenue trend, Profit & Loss, Top Customers, and Service Mix',
+          'Dashboard: **Uncollected** now includes pending orders and shows the true outstanding balance — partial payments reduce it and a fully-paid order drops to zero',
+        ],
+      },
+      {
+        title: 'Fixes',
+        type: 'fix',
+        items: [
+          'Settings: enabling "Show loyalty on receipt" no longer fails with a "value must be true or false" error',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.7.0',
     date: 'May 27, 2026',
-    latest: true,
+    latest: false,
     sections: [
       {
         title: 'New Features',
