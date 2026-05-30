@@ -16,6 +16,22 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 const loading = ref(true)
 const period = ref('daily')
 
+// Period-aware stat-card labels
+const periodNoun = computed(() => ({ daily: 'Today', weekly: 'This Week', monthly: 'This Month' }[period.value] || 'Today'))
+const periodPossessive = computed(() => ({ daily: "Today's", weekly: "This Week's", monthly: "This Month's" }[period.value] || "Today's"))
+
+// Header subtitle: full date for daily, an explicit date range otherwise
+const dateRangeLabel = computed(() => {
+  const { from, to } = periodRange(period.value)
+  const d = (s) => new Date(s + 'T00:00:00')
+  if (period.value === 'daily') {
+    return d(to).toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+  }
+  const fromStr = d(from).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })
+  const toStr   = d(to).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
+  return `${fromStr} – ${toStr}`
+})
+
 const rawRevenue      = ref(0)
 const rawUncollected  = ref(0)
 const rawLoads        = ref(0)
@@ -76,16 +92,38 @@ const doughnutOptions = {
 
 function fmt(n) { return Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 
+// Local YYYY-MM-DD (avoids UTC drift from toISOString in PH timezone)
+function ymd(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// Date range for the selected period: daily = today, weekly = since Monday,
+// monthly = since the 1st — all ending today.
+function periodRange(p) {
+  const now = new Date()
+  const to = ymd(now)
+  if (p === 'weekly') {
+    const start = new Date(now)
+    start.setDate(start.getDate() - ((start.getDay() + 6) % 7)) // back to Monday
+    return { from: ymd(start), to }
+  }
+  if (p === 'monthly') {
+    return { from: ymd(new Date(now.getFullYear(), now.getMonth(), 1)), to }
+  }
+  return { from: to, to }
+}
+
 async function load() {
   loading.value = true
   const today = new Date().toISOString().slice(0, 10)
+  const { from, to } = periodRange(period.value)
   try {
     const [sumRes, revRes, custRes, svcRes, expRes, cashRes] = await Promise.all([
-      getSalesSummary(),
+      getSalesSummary({ date_from: from, date_to: to }),
       getRevenue({ period: period.value }),
       getTopCustomers({ limit: 5 }),
       getServiceReport(),
-      getExpenses({ date_from: today, date_to: today, per_page: 500 }),
+      getExpenses({ date_from: from, date_to: to, per_page: 500 }),
       getCashBalance(today),
     ])
 
@@ -156,9 +194,7 @@ onMounted(load)
     <div class="flex items-center justify-between mb-6 animate-slide-up">
       <div>
         <h1 class="text-2xl font-bold text-slate-900">Dashboard</h1>
-        <p class="text-sm text-slate-400 mt-0.5">
-          {{ new Date().toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric' }) }}
-        </p>
+        <p class="text-sm text-slate-400 mt-0.5">{{ dateRangeLabel }}</p>
       </div>
       <select
         v-model="period"
@@ -190,7 +226,7 @@ onMounted(load)
           <div class="stat-icon" style="background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: #1d4ed8;">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
           </div>
-          <div class="stat-label">Today's Revenue</div>
+          <div class="stat-label">{{ periodPossessive }} Revenue</div>
           <div class="stat-value">₱{{ fmt(animRevenue) }}</div>
           <div class="stat-bar" style="background: linear-gradient(90deg, #3b82f6, #6366f1);" />
         </div>
@@ -208,7 +244,7 @@ onMounted(load)
           <div class="stat-icon" style="background: linear-gradient(135deg, #dcfce7, #bbf7d0); color: #166534;">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
           </div>
-          <div class="stat-label">Loads Today</div>
+          <div class="stat-label">Loads {{ periodNoun }}</div>
           <div class="stat-value">{{ animLoads }}</div>
           <div class="stat-bar" style="background: linear-gradient(90deg, #16a34a, #4ade80);" />
         </div>
@@ -217,7 +253,7 @@ onMounted(load)
           <div class="stat-icon" style="background: linear-gradient(135deg, #fee2e2, #fecaca); color: #991b1b;">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
           </div>
-          <div class="stat-label">Expenses Today</div>
+          <div class="stat-label">Expenses {{ periodNoun }}</div>
           <div class="stat-value text-red-600">₱{{ fmt(animExpenses) }}</div>
           <div class="stat-bar" style="background: linear-gradient(90deg, #ef4444, #f87171);" />
         </div>
