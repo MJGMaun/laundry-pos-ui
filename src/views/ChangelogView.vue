@@ -65,6 +65,7 @@ const changelog = [
           'Orders: a claimed order is now marked **Completed automatically** once it\'s fully paid — no more manual Complete tap',
           'Dashboard: new **Loads Today** stat card (total laundry loads) in place of Orders Today',
           'Dashboard: the **Daily / Weekly / Monthly** filter now applies to the whole dashboard — Revenue, Loads, and Expenses reflect the selected period, and the header shows the exact date range included',
+		  'Loyalty: deleting an order now automatically **removes the stamps it earned** from the customer\'s balance (never going below zero)',
         ],
       },
       {
