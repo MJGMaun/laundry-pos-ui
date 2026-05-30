@@ -21,6 +21,10 @@ function fmt(n) {
   return Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+function fmtTime(d) {
+  return new Date(d).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true })
+}
+
 function localYMD(d) {
     const date = new Date(d)
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
@@ -224,6 +228,50 @@ onMounted(load)
             <div class="text-xs font-semibold text-blue-700 mb-1">📱 To Remit (GCash)</div>
             <div class="text-2xl font-bold text-blue-900">{{ cashData.to_remit_gcash < 0 ? '-' : '' }}₱{{ fmt(Math.abs(cashData.to_remit_gcash)) }}</div>
             <div class="text-xs text-blue-500 mt-1">GCash payments minus GCash expenses</div>
+          </div>
+        </div>
+
+		<!-- Payments today (what makes up the totals) -->
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div class="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-base">🧾</span>
+              <h3 class="font-semibold text-gray-900">Payments This Day</h3>
+            </div>
+            <span class="text-xs text-gray-400">{{ (cashData.payments || []).length }} payment{{ (cashData.payments || []).length !== 1 ? 's' : '' }}</span>
+          </div>
+
+          <div v-if="!(cashData.payments && cashData.payments.length)" class="px-5 py-8 text-center text-sm text-gray-400">
+            No payments recorded on this date.
+          </div>
+
+          <div v-else class="divide-y divide-gray-50">
+            <div
+              v-for="p in cashData.payments"
+              :key="p.id"
+              class="flex items-center justify-between gap-3 px-5 py-3"
+            >
+              <div class="min-w-0">
+                <div class="text-sm font-medium text-gray-800 truncate">
+                  {{ p.customer_name || 'Walk-in' }}
+                </div>
+                <div class="text-xs text-gray-400 flex items-center gap-1.5">
+                  <span class="font-mono">{{ p.order_number }}</span>
+                  <span>·</span>
+                  <span>{{ fmtTime(p.created_at) }}</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <span
+                  class="text-[10px] font-bold px-1.5 py-0.5 rounded text-white"
+                  :style="p.method === 'gcash' ? 'background:#005eaa' : 'background:#16a34a'"
+                >{{ p.method === 'gcash' ? 'GCash' : p.method?.toUpperCase() }}</span>
+                <span
+                  class="text-sm font-semibold tabular-nums"
+                  :class="p.type === 'refund' ? 'text-red-600' : 'text-gray-900'"
+                >{{ p.type === 'refund' ? '−' : '' }}₱{{ fmt(p.amount) }}</span>
+              </div>
+            </div>
           </div>
         </div>
 
