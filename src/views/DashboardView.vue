@@ -115,7 +115,7 @@ function periodRange(p) {
 
 async function load() {
   loading.value = true
-  const today = ymd(new Date())  // local (PH) date, not UTC
+  const today = new Date().toISOString().slice(0, 10)
   const { from, to } = periodRange(period.value)
   try {
     const [sumRes, revRes, custRes, svcRes, expRes, cashRes] = await Promise.all([
