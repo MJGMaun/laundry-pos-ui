@@ -1069,8 +1069,8 @@ watch(() => branch.currentBranchId, loadServices);
                             <input
                                 :value="item.quantity"
                                 type="number"
-                                min="0.1"
-                                step="0.1"
+                                :min="item.pricing_type === 'per_kilo' ? 0.5 : 1"
+                                :step="item.pricing_type === 'per_kilo' ? 0.5 : 1"
                                 class="w-12 rounded-md border border-slate-200 px-1 py-0.5 text-center text-sm transition-all focus:border-blue-400 focus:outline-none"
                                 @change="
                                     cart.updateQuantity(
