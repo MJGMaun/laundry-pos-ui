@@ -29,6 +29,8 @@ const navItems = computed(() => {
   } else {
     items.push({ to: '/orders',        emoji: '📋', label: 'Orders',       color: '#a78bfa' })
   }
+  // Day Summary — printable end-of-day remittance, available to all roles
+  items.push({ to: '/day-summary',   emoji: '🧾', label: 'Day Summary',  color: '#fbbf24' })
   if (auth.isAdmin) {
     items.push({ to: '/reports',       emoji: '📈', label: 'Reports',       color: '#fb923c' })
     items.push({ to: '/cash-balance',  emoji: '💰', label: 'Cash Balance',   color: '#34d399' })

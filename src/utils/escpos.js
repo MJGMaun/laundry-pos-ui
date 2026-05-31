@@ -361,6 +361,67 @@ export function buildTrackingSlipBytes(
 }
 
 // ─────────────────────────────────────────
+// Daily cash summary — end-of-day remittance slip
+// ─────────────────────────────────────────
+export function buildDaySummaryBytes(data, settings = {}) {
+    const parts = [];
+    const push = (...cmds) => parts.push(...cmds);
+
+    push(bytes(CMD.INIT));
+
+    // ── Header ──
+    push(bytes(CMD.CENTER));
+    if (settings.shop_name) {
+        push(bytes(CMD.BOLD_ON, CMD.DOUBLE_SIZE));
+        push(line(settings.shop_name.toUpperCase()));
+        push(bytes(CMD.NORMAL_SIZE, CMD.BOLD_OFF));
+    }
+    push(bytes(CMD.BOLD_ON));
+    push(line('DAILY CASH SUMMARY'));
+    push(bytes(CMD.BOLD_OFF));
+    const day = new Date((data.date || data.date_from || Date.now()) + 'T00:00:00');
+    push(line(day.toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })));
+    push(bytes(CMD.LEFT));
+    push(divider());
+
+    push(twoCol('Starting Float', peso(data.starting_balance)));
+    push(divider());
+
+    const payments = data.payments || [];
+    const orderDate = (s) => (s ? new Date(s).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }) : '');
+
+    const section = (title, method, remitLabel, remitValue, expLabel, expValue) => {
+        push(bytes(CMD.BOLD_ON));
+        push(line(title));
+        push(bytes(CMD.BOLD_OFF));
+        const rows = payments.filter((p) => p.method === method);
+        if (!rows.length) {
+            push(line('  (none)'));
+        } else {
+            for (const p of rows) {
+                const sign = p.type === 'refund' ? '-' : '';
+                push(twoCol((p.customer_name || 'Walk-in').slice(0, 20), sign + peso(p.amount)));
+                push(line('  ' + (p.order_number || '') + '  ' + orderDate(p.order_created_at || p.created_at)));
+            }
+        }
+        if (Number(expValue) > 0) push(twoCol(expLabel, '-' + peso(expValue)));
+        push(bytes(CMD.BOLD_ON));
+        push(twoCol(remitLabel, peso(remitValue)));
+        push(bytes(CMD.BOLD_OFF));
+    };
+
+    section('CASH', 'cash', 'CASH TO REMIT', data.to_remit_cash, 'Cash Expenses', data.cash_expenses);
+    push(divider());
+    section('GCASH', 'gcash', 'GCASH TO REMIT', data.to_remit_gcash, 'GCash Expenses', data.gcash_expenses);
+
+    push(divider());
+    push(twoCol('Total in Drawer', peso(data.total_in_drawer)));
+
+    push(bytes(CMD.FEED_5, CMD.CUT));
+    return flatten(parts);
+}
+
+// ─────────────────────────────────────────
 function flatten(parts) {
     const total = parts.reduce((n, p) => n + p.length, 0);
     const out = new Uint8Array(total);

@@ -25,6 +25,10 @@ function fmtTime(d) {
   return new Date(d).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true })
 }
 
+function fmtDate(d) {
+  return new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })
+}
+
 function localYMD(d) {
     const date = new Date(d)
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
@@ -255,10 +259,12 @@ onMounted(load)
                 <div class="text-sm font-medium text-gray-800 truncate">
                   {{ p.customer_name || 'Walk-in' }}
                 </div>
-                <div class="text-xs text-gray-400 flex items-center gap-1.5">
+                <div class="text-xs text-gray-400 flex items-center gap-1.5 flex-wrap">
                   <span class="font-mono">{{ p.order_number }}</span>
+                  <span v-if="p.order_created_at">·</span>
+                  <span v-if="p.order_created_at">made {{ fmtDate(p.order_created_at) }}</span>
                   <span>·</span>
-                  <span>{{ fmtTime(p.created_at) }}</span>
+                  <span>paid {{ fmtTime(p.created_at) }}</span>
                 </div>
               </div>
               <div class="flex items-center gap-2 shrink-0">
