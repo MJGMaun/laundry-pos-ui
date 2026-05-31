@@ -19,10 +19,19 @@ const filterCat = ref('')
 // Category management state
 const newCatName = ref('')
 const newCatIcon = ref('')
+const newCatRule = ref('quantity')
 const addingCat = ref(false)
 const savingCat = ref(false)
-const editingCat = ref(null) // { id, name, icon }
+const editingCat = ref(null) // { id, name, icon, load_rule }
 const iconPickerFor = ref(null) // 'new' | cat.id
+
+// How a category counts toward the "Loads" dashboard metric
+const LOAD_RULES = [
+	{ value: 'quantity',  label: 'Per quantity',  hint: 'Each item is a load (e.g. All In, Packages)' },
+	{ value: 'per_order', label: '1 load / order', hint: 'All items in an order = 1 load (e.g. Self Service)' },
+	{ value: 'none',      label: 'Not a load',     hint: "Doesn't count (e.g. Add ons)" },
+]
+const loadRuleLabel = (v) => (LOAD_RULES.find((r) => r.value === v)?.label || 'Per quantity')
 
 const CATEGORY_ICONS = [
 	'🧺', '👔', '👗', '👕', '👖', '🧥', '🧣', '🧤', '🧦', '🩱',
@@ -120,11 +129,12 @@ async function addCategory() {
 	if (!name) return
 	savingCat.value = true
 	try {
-		const res = await createServiceCategory({ name, icon: newCatIcon.value || null })
+		const res = await createServiceCategory({ name, icon: newCatIcon.value || null, load_rule: newCatRule.value })
 		categories.value.push(res.data)
 		categories.value.sort((a, b) => a.name.localeCompare(b.name))
 		newCatName.value = ''
 		newCatIcon.value = ''
+		newCatRule.value = 'quantity'
 		addingCat.value = false
 		iconPickerFor.value = null
 		toast.add({ severity: 'success', summary: 'Category added', life: 2000 })
@@ -140,11 +150,12 @@ async function saveEditCat() {
 	if (!name) return
 	savingCat.value = true
 	try {
-		await updateServiceCategory(editingCat.value.id, { name, icon: editingCat.value.icon || null })
+		await updateServiceCategory(editingCat.value.id, { name, icon: editingCat.value.icon || null, load_rule: editingCat.value.load_rule })
 		const idx = categories.value.findIndex((c) => c.id === editingCat.value.id)
 		if (idx !== -1) {
 			categories.value[idx].name = name
 			categories.value[idx].icon = editingCat.value.icon || null
+			categories.value[idx].load_rule = editingCat.value.load_rule
 		}
 		categories.value.sort((a, b) => a.name.localeCompare(b.name))
 		editingCat.value = null
@@ -226,6 +237,16 @@ onMounted(load)
 							<button class="text-xs text-blue-600 font-medium px-2" :disabled="savingCat" @click="saveEditCat">Save</button>
 							<button class="text-xs text-gray-400" @click="editingCat = null; iconPickerFor = null">✕</button>
 						</div>
+						<!-- Load rule -->
+						<div class="flex items-center gap-1.5">
+							<span class="text-[10px] text-blue-400 font-medium uppercase tracking-wide">Counts as</span>
+							<select
+								v-model="editingCat.load_rule"
+								class="border border-blue-300 rounded-full px-2 py-1 text-xs bg-white focus:outline-none"
+							>
+								<option v-for="r in LOAD_RULES" :key="r.value" :value="r.value">{{ r.label }}</option>
+							</select>
+						</div>
 						<!-- Emoji picker for editing -->
 						<div v-if="iconPickerFor === cat.id" class="flex flex-wrap gap-1 pt-1 border-t border-blue-100">
 							<button
@@ -246,7 +267,8 @@ onMounted(load)
 					<div v-else class="flex items-center gap-1 bg-gray-100 rounded-full px-3 py-1 text-xs text-gray-700 group">
 						<span v-if="cat.icon" class="text-base leading-none">{{ cat.icon }}</span>
 						<span>{{ cat.name }}</span>
-						<button class="hidden group-hover:inline text-gray-400 hover:text-blue-500 ml-1" @click="editingCat = { id: cat.id, name: cat.name, icon: cat.icon || '' }; iconPickerFor = null">✎</button>
+						<span class="text-[10px] text-gray-400 border-l border-gray-300 pl-1.5 ml-0.5">{{ loadRuleLabel(cat.load_rule) }}</span>
+						<button class="hidden group-hover:inline text-gray-400 hover:text-blue-500 ml-1" @click="editingCat = { id: cat.id, name: cat.name, icon: cat.icon || '', load_rule: cat.load_rule || 'quantity' }; iconPickerFor = null">✎</button>
 						<button class="hidden group-hover:inline text-gray-400 hover:text-red-500" @click="removeCat(cat)">✕</button>
 					</div>
 				</template>
@@ -272,6 +294,16 @@ onMounted(load)
 						/>
 						<button class="text-xs text-blue-600 font-medium px-2" :disabled="savingCat || !newCatName.trim()" @click="addCategory">Add</button>
 						<button class="text-xs text-gray-400" @click="addingCat = false; newCatName = ''; newCatIcon = ''; iconPickerFor = null">✕</button>
+					</div>
+					<!-- Load rule -->
+					<div class="flex items-center gap-1.5">
+						<span class="text-[10px] text-blue-400 font-medium uppercase tracking-wide">Counts as</span>
+						<select
+							v-model="newCatRule"
+							class="border border-blue-300 rounded-full px-2 py-1 text-xs bg-white focus:outline-none"
+						>
+							<option v-for="r in LOAD_RULES" :key="r.value" :value="r.value">{{ r.label }}</option>
+						</select>
 					</div>
 					<!-- Emoji picker for new -->
 					<div v-if="iconPickerFor === 'new'" class="flex flex-wrap gap-1 pt-1 border-t border-blue-100">
