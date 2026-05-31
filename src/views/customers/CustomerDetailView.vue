@@ -26,6 +26,8 @@ const filter   = ref('all') // 'all' | 'unpaid' | 'paid'
 
 // ── Loyalty stamps ──
 const stampCount = ref(0)
+// Loyalty is "active" for this branch only when it has active loyalty rules
+const loyaltyActive = ref(false)
 
 // Adjust-stamps modal (admin / super-admin only)
 const showAdjust   = ref(false)
@@ -158,6 +160,7 @@ async function load() {
     customer.value = custRes.data.data || custRes.data
     orders.value   = ordersRes.data.data || ordersRes.data
     stampCount.value = loyaltyRes?.data?.total_stamps ?? 0
+    loyaltyActive.value = (loyaltyRes?.data?.rules?.length ?? 0) > 0
     form.value = {
       name:     customer.value.name,
       username: customer.value.username || '',
@@ -334,8 +337,8 @@ onMounted(load)
           </div>
         </div>
 
-        <!-- Loyalty stamps -->
-        <div class="mt-3 flex items-center gap-3 px-4 py-3 bg-indigo-50 border border-indigo-100 rounded-xl">
+        <!-- Loyalty stamps (only when the branch has active loyalty) -->
+        <div v-if="loyaltyActive" class="mt-3 flex items-center gap-3 px-4 py-3 bg-indigo-50 border border-indigo-100 rounded-xl">
           <div class="text-2xl">⭐</div>
           <div class="flex-1 min-w-0">
             <div class="text-sm font-semibold text-indigo-900">{{ stampCount }} loyalty stamp{{ stampCount !== 1 ? 's' : '' }}</div>
