@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import DatePicker from 'primevue/datepicker'
 import { getRevenue, getProfitLoss, getServiceReport, getTopCustomers } from '@/api/reports.js'
 import { useToast } from 'primevue/usetoast'
@@ -11,6 +12,7 @@ import {
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
 const toast = useToast()
+const router = useRouter()
 
 const loading = ref(false)
 
@@ -207,8 +209,13 @@ onMounted(load)
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-gray-100">
-						<tr v-for="(c, i) in topCustomers" :key="c.id || i">
-							<td class="px-5 py-3 font-medium text-gray-900">{{ c.name }}</td>
+						<tr
+							v-for="(c, i) in topCustomers"
+							:key="c.id || i"
+							:class="c.id ? 'hover:bg-blue-50 cursor-pointer transition-colors' : ''"
+							@click="c.id && router.push('/customers/' + c.id)"
+						>
+							<td class="px-5 py-3 font-medium" :class="c.id ? 'text-blue-600' : 'text-gray-900'">{{ c.name }}</td>
 							<td class="px-5 py-3 text-right text-gray-600">{{ c.total_visits }}</td>
 							<td class="px-5 py-3 text-right font-semibold text-gray-900">₱{{ fmt(c.total_spent) }}</td>
 						</tr>
