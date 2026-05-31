@@ -52,9 +52,42 @@
 <script setup>
 const changelog = [
   {
+    version: '1.9.0',
+    date: 'May 31, 2026',
+    latest: true,
+    sections: [
+      {
+        title: 'New Features',
+        type: 'feature',
+        items: [
+          '**Day Summary**: a printable end-of-day remittance slip for all roles — pick any date and print the Cash/GCash To Remit, with each payment\'s customer, order number, and the date the order was made',
+          'Cash Balance: a **Payments This Day** breakdown lists every payment for the date — customer, order number, order date, method, amount, and paid time — so totals and To Remit reconcile line by line',
+        ],
+      },
+      {
+        title: 'Improvements',
+        type: 'improvement',
+        items: [
+          'Reports: Top Customers rows are now **clickable** and open the customer\'s profile',
+          'Customer Detail: the loyalty stamp card is hidden when the branch has **no active loyalty**',
+          'Dashboard: **Loads** now counts per a configurable per-category rule (Per quantity / 1 load per order / Not a load), set in Services → Categories',
+        ],
+      },
+      {
+        title: 'Fixes',
+        type: 'fix',
+        items: [
+          'Reports & Dashboard: Top Customers **Total Spent** now reflects the actual amount paid (matching the customer profile), not order totals that included unpaid balances',
+          'Dashboard: Cash on Hand now uses **today\'s local date** instead of UTC, which after midnight was off by a day',
+          'POS: the cart quantity up/down arrows now step by **1** (or 0.5 for per-kilo) instead of 0.1',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.8.0',
     date: 'May 30, 2026',
-    latest: true,
+    latest: false,
     sections: [
       {
         title: 'New Features',
