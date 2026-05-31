@@ -1,11 +1,16 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import AppSidebar from '@/components/AppSidebar.vue'
 import AppHeader from '@/components/AppHeader.vue'
 import { useBranchStore } from '@/stores/branch.js'
+import { useSettingsStore } from '@/stores/settings.js'
 
 const sidebarOpen = ref(window.innerWidth >= 1024)
 const branch = useBranchStore()
+const settings = useSettingsStore()
+
+onMounted(settings.load)
+watch(() => branch.currentBranchId, settings.load)
 </script>
 
 <template>

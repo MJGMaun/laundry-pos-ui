@@ -1,48 +1,49 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import DatePicker from 'primevue/datepicker'
 import { useToast } from 'primevue/usetoast'
 import { useAuthStore } from '@/stores/auth.js'
 import { useBranchStore } from '@/stores/branch.js'
+import { useSettingsStore } from '@/stores/settings.js'
 import { getCashBalance } from '@/api/cashBalance.js'
 import { getSettings } from '@/api/settings.js'
 import { usePrinter } from '@/composables/usePrinter.js'
 import { buildDaySummaryBytes } from '@/utils/escpos.js'
 
-const toast       = useToast()
-const branchStore = useBranchStore()
-const authStore   = useAuthStore()
-const printer     = usePrinter()
+const toast        = useToast()
+const branchStore  = useBranchStore()
+const authStore    = useAuthStore()
+const settingsStore = useSettingsStore()
+const printer      = usePrinter()
 
-const date     = ref(new Date())
 const data     = ref(null)
 const settings = ref({})
 const loading  = ref(false)
 const printing = ref(false)
 
-function fmt(n) {
-  return Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
 function localYMD(d) {
   const x = new Date(d)
   return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`
 }
-function dateStr() {
-  return date.value ? localYMD(date.value) : localYMD(new Date())
+const today = localYMD(new Date())
+
+function fmt(n) {
+  return Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 function fmtOrderDate(d) {
   return d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }) : ''
 }
 
+const enabled       = computed(() => settingsStore.daySummaryEnabled)
 const cashPayments  = computed(() => (data.value?.payments || []).filter((p) => p.method === 'cash'))
 const gcashPayments = computed(() => (data.value?.payments || []).filter((p) => p.method === 'gcash'))
 
 async function load() {
+  if (!enabled.value) return
   if (authStore.isSuperAdmin && !branchStore.currentBranchId) return
   loading.value = true
   data.value = null
   try {
-    const [cashRes, setRes] = await Promise.all([getCashBalance(dateStr()), getSettings()])
+    const [cashRes, setRes] = await Promise.all([getCashBalance(today), getSettings()])
     data.value = cashRes.data
     const flat = {}
     ;(setRes.data.settings || []).forEach((s) => { flat[s.key] = s.value })
@@ -65,7 +66,7 @@ async function connectAndPrint() {
         return
       }
     }
-    await printer.print(buildDaySummaryBytes({ ...data.value, date: dateStr() }, settings.value))
+    await printer.print(buildDaySummaryBytes({ ...data.value, date: today }, settings.value))
     toast.add({ severity: 'success', summary: 'Printed', detail: 'Summary sent to printer', life: 2500 })
   } catch (e) {
     toast.add({ severity: 'error', summary: 'Print error', detail: e.message || 'Failed to print', life: 4000 })
@@ -84,8 +85,15 @@ onMounted(load)
       <span v-if="branchStore.currentBranch" class="text-sm text-gray-400">— {{ branchStore.currentBranch.name }}</span>
     </div>
 
+    <!-- Disabled for this branch -->
+    <div v-if="!enabled" class="flex flex-col items-center justify-center py-20 text-center">
+      <div class="text-4xl mb-3">🚫</div>
+      <div class="text-base font-semibold text-gray-700 mb-1">Day Summary is turned off</div>
+      <div class="text-sm text-gray-400">This page is disabled for this branch.</div>
+    </div>
+
     <div
-      v-if="authStore.isSuperAdmin && !branchStore.currentBranchId"
+      v-else-if="authStore.isSuperAdmin && !branchStore.currentBranchId"
       class="flex flex-col items-center justify-center py-20 text-center"
     >
       <div class="text-4xl mb-3">🏪</div>
@@ -94,10 +102,12 @@ onMounted(load)
     </div>
 
     <template v-else>
-      <!-- Date + print controls -->
-      <div class="flex items-center gap-2 bg-white rounded-xl border border-gray-200 p-3 mb-4">
-        <span class="text-sm text-gray-500 font-medium">Date</span>
-        <DatePicker v-model="date" date-format="M dd, yy" show-icon icon-display="input" class="flex-1" @update:model-value="load" />
+      <!-- Today + print -->
+      <div class="flex items-center justify-between gap-2 bg-white rounded-xl border border-gray-200 p-3 mb-4">
+        <div class="text-sm text-gray-600">
+          <span class="text-gray-400">Today</span>
+          <span class="font-semibold ml-1">{{ new Date(today + 'T00:00:00').toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) }}</span>
+        </div>
         <button
           class="text-sm font-bold text-white px-4 py-2 rounded-xl disabled:opacity-50 shrink-0"
           style="background: linear-gradient(135deg, #1d4ed8, #4f46e5);"
@@ -117,7 +127,7 @@ onMounted(load)
         <div class="text-center font-bold text-sm">{{ settings.shop_name || 'Laundry Shop' }}</div>
         <div class="text-center font-bold">DAILY CASH SUMMARY</div>
         <div class="text-center text-gray-500 text-xs mb-2">
-          {{ new Date(dateStr() + 'T00:00:00').toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) }}
+          {{ new Date(today + 'T00:00:00').toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) }}
         </div>
         <div class="border-t border-dashed border-gray-300 my-2" />
 

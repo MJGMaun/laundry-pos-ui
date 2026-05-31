@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.js'
 import { useBranchStore } from '@/stores/branch.js'
+import { useSettingsStore } from '@/stores/settings.js'
 
 defineProps({ open: Boolean })
 const emit = defineEmits(['close'])
@@ -12,9 +13,10 @@ function handleNav(navigate) {
   if (window.innerWidth < 1024) emit('close')
 }
 
-const route   = useRoute()
-const auth    = useAuthStore()
-const branch  = useBranchStore()
+const route    = useRoute()
+const auth     = useAuthStore()
+const branch   = useBranchStore()
+const settings = useSettingsStore()
 
 // ── Nav items ─────────────────────────────────────────────────────────────────
 const navItems = computed(() => {
@@ -30,7 +32,10 @@ const navItems = computed(() => {
     items.push({ to: '/orders',        emoji: '📋', label: 'Orders',       color: '#a78bfa' })
   }
   // Day Summary — printable end-of-day remittance, available to all roles
-  items.push({ to: '/day-summary',   emoji: '🧾', label: 'Day Summary',  color: '#fbbf24' })
+  // (can be turned off per branch from Branch Management)
+  if (settings.daySummaryEnabled) {
+    items.push({ to: '/day-summary',   emoji: '🧾', label: 'Day Summary',  color: '#fbbf24' })
+  }
   if (auth.isAdmin) {
     items.push({ to: '/reports',       emoji: '📈', label: 'Reports',       color: '#fb923c' })
     items.push({ to: '/cash-balance',  emoji: '💰', label: 'Cash Balance',   color: '#34d399' })

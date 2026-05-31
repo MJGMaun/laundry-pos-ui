@@ -4,6 +4,7 @@ import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
 import { getBranches, createBranch, updateBranch, deleteBranch, getBranchUsers, assignUser, removeUser } from '@/api/branches.js'
 import { getAllUsers } from '@/api/users.js'
+import { updateSetting } from '@/api/settings.js'
 
 const toast = useToast()
 const confirm = useConfirm()
@@ -23,6 +24,21 @@ const newUserId = ref('')
 const assigningUser = ref(false)
 
 const form = ref({ name: '', address: '', phone: '', email: '', tin: '', is_test: false })
+const togglingDaySummary = ref({})
+
+async function toggleDaySummary(b) {
+  const next = !b.day_summary_enabled
+  togglingDaySummary.value[b.id] = true
+  try {
+    await updateSetting('day_summary_enabled', { value: next ? 'true' : 'false' }, b.id)
+    b.day_summary_enabled = next
+    toast.add({ severity: 'success', summary: 'Saved', detail: `Day Summary ${next ? 'enabled' : 'disabled'} for ${b.name}`, life: 2500 })
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to update', life: 4000 })
+  } finally {
+    togglingDaySummary.value[b.id] = false
+  }
+}
 
 async function load() {
   loading.value = true
@@ -166,6 +182,7 @@ onMounted(load)
             <th class="text-left px-4 py-3 font-medium text-gray-600">Branch</th>
             <th class="hidden sm:table-cell text-left px-4 py-3 font-medium text-gray-600">Address</th>
             <th class="hidden md:table-cell text-left px-4 py-3 font-medium text-gray-600">Phone</th>
+            <th class="text-center px-4 py-3 font-medium text-gray-600">Day Summary</th>
             <th class="text-center px-4 py-3 font-medium text-gray-600">Status</th>
             <th class="px-4 py-3" />
           </tr>
@@ -178,6 +195,21 @@ onMounted(load)
             </td>
             <td class="hidden sm:table-cell px-4 py-3 text-gray-500">{{ b.address || '—' }}</td>
             <td class="hidden md:table-cell px-4 py-3 text-gray-600">{{ b.phone || '—' }}</td>
+            <td class="px-4 py-3 text-center">
+              <button
+                type="button"
+                class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-50 align-middle"
+                :class="b.day_summary_enabled ? 'bg-green-500' : 'bg-gray-300'"
+                :disabled="togglingDaySummary[b.id]"
+                :title="b.day_summary_enabled ? 'Day Summary enabled' : 'Day Summary disabled'"
+                @click="toggleDaySummary(b)"
+              >
+                <span
+                  class="inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform"
+                  :class="b.day_summary_enabled ? 'translate-x-4.5' : 'translate-x-0.5'"
+                />
+              </button>
+            </td>
             <td class="px-4 py-3 text-center">
               <span class="px-2 py-0.5 rounded-full text-xs font-medium"
                 :class="b.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'">

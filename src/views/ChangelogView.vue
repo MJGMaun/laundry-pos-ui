@@ -60,7 +60,7 @@ const changelog = [
         title: 'New Features',
         type: 'feature',
         items: [
-          '**Day Summary**: a printable end-of-day remittance slip for all roles — pick any date and print the Cash/GCash To Remit, with each payment\'s customer, order number, and the date the order was made',
+          '**Day Summary**: a printable end-of-day remittance slip for all roles — prints today\'s Cash/GCash To Remit with each payment\'s customer, order number, and the date the order was made (can be turned on/off per branch)',
           'Cash Balance: a **Payments This Day** breakdown lists every payment for the date — customer, order number, order date, method, amount, and paid time — so totals and To Remit reconcile line by line',
         ],
       },
