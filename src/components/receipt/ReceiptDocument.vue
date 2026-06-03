@@ -161,7 +161,9 @@ const balanceDue = computed(() =>
         <div v-if="Number(order.discount_amount) > 0">🎁 Loyalty discount applied: ₱{{ fmt(order.discount_amount) }}</div>
         <div v-else>Earn loyalty stamps with this order!</div>
         <div v-if="order.customer.loyalty_stamp_count != null" class="rcp-stamps">
-          ⭐ Stamps: {{ order.customer.loyalty_stamp_count }}
+          ⭐ Stamps: {{ order.customer.loyalty_cycle_size
+            ? (order.customer.loyalty_stamp_count % order.customer.loyalty_cycle_size) + '/' + order.customer.loyalty_cycle_size
+            : order.customer.loyalty_stamp_count }}
         </div>
       </div>
     </template>

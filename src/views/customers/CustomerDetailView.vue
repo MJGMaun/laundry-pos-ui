@@ -25,7 +25,8 @@ const saving   = ref(false)
 const filter   = ref('all') // 'all' | 'unpaid' | 'paid'
 
 // ── Loyalty stamps ──
-const stampCount = ref(0)
+const stampCount  = ref(0)
+const cycleSize   = ref(0)
 // Loyalty is "active" for this branch only when it has active loyalty rules
 const loyaltyActive = ref(false)
 
@@ -159,8 +160,9 @@ async function load() {
     ])
     customer.value = custRes.data.data || custRes.data
     orders.value   = ordersRes.data.data || ordersRes.data
-    stampCount.value = loyaltyRes?.data?.total_stamps ?? 0
+    stampCount.value  = loyaltyRes?.data?.total_stamps ?? 0
     loyaltyActive.value = (loyaltyRes?.data?.rules?.length ?? 0) > 0
+    cycleSize.value   = loyaltyRes?.data?.rules?.[0]?.every_n_stamps ?? 0
     form.value = {
       name:     customer.value.name,
       username: customer.value.username || '',
@@ -341,8 +343,11 @@ onMounted(load)
         <div v-if="loyaltyActive" class="mt-3 flex items-center gap-3 px-4 py-3 bg-indigo-50 border border-indigo-100 rounded-xl">
           <div class="text-2xl">⭐</div>
           <div class="flex-1 min-w-0">
-            <div class="text-sm font-semibold text-indigo-900">{{ stampCount }} loyalty stamp{{ stampCount !== 1 ? 's' : '' }}</div>
-            <div class="text-xs text-indigo-500">Current stamp balance</div>
+            <div class="text-sm font-semibold text-indigo-900">
+              <template v-if="cycleSize">{{ stampCount % cycleSize }}/{{ cycleSize }} stamps</template>
+              <template v-else>{{ stampCount }} stamp{{ stampCount !== 1 ? 's' : '' }}</template>
+            </div>
+            <div class="text-xs text-indigo-500">{{ cycleSize ? 'Progress toward next reward' : 'Current stamp balance' }}</div>
           </div>
           <button
             v-if="auth.isAdmin"

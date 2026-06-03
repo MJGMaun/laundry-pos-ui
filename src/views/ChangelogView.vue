@@ -52,9 +52,23 @@
 <script setup>
 const changelog = [
   {
+    version: '1.9.1',
+    date: 'June 3, 2026',
+    latest: true,
+    sections: [
+      {
+        title: 'Improvements',
+        type: 'improvement',
+        items: [
+          'Loyalty: stamp display on receipts and customer profile now shows **cycle progress (e.g. 7/10)** instead of the all-time total — so customers see how close they are to their next free load',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.9.0',
     date: 'May 31, 2026',
-    latest: true,
+    latest: false,
     sections: [
       {
         title: 'New Features',

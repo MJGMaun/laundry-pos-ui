@@ -211,13 +211,17 @@ export function buildReceiptBytes(order, settings = {}) {
     ) {
         const pts = order.loyalty_points_earned || order.points_earned;
         const stampCount = order.customer?.loyalty_stamp_count;
+        const cycleSize  = order.customer?.loyalty_cycle_size;
         if (pts || stampCount != null) {
             push(divider());
             push(bytes(CMD.CENTER));
             if (pts) push(line('Points Earned: ' + pts));
             if (stampCount != null) {
                 push(bytes(CMD.BOLD_ON));
-                push(line('Stamps: ' + stampCount));
+                const stampDisplay = cycleSize
+                    ? (stampCount % cycleSize) + '/' + cycleSize
+                    : String(stampCount);
+                push(line('Stamps: ' + stampDisplay));
                 push(bytes(CMD.BOLD_OFF));
             }
             push(bytes(CMD.LEFT));
