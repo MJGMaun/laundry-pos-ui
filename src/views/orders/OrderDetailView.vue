@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, toRaw } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
@@ -16,6 +16,10 @@ import { useQueueStore } from '@/stores/queue.js'
 import { isOfflineError } from '@/offline/isOfflineError.js'
 import { db } from '@/offline/db.js'
 import ReceiptModal from '@/components/receipt/ReceiptModal.vue'
+
+function cacheOrder(o) {
+  db.orders.put(JSON.parse(JSON.stringify(toRaw(o)))).catch(() => {})
+}
 
 const route   = useRoute()
 const router  = useRouter()
@@ -112,7 +116,7 @@ async function load() {
   } finally {
     loading.value = false
   }
-  if (order.value?.id) db.orders.put(order.value).catch(() => {})
+  if (order.value?.id) cacheOrder(order.value)
 }
 
 async function advanceOrderStatus() {
@@ -131,7 +135,7 @@ async function advanceOrderStatus() {
     if (isOfflineError(e)) {
       await queue.enqueueRequest('PATCH', `/orders/${order.value.id}/status`, { status: next })
       order.value = { ...order.value, status: next }
-      db.orders.put(order.value).catch(() => {})
+      cacheOrder(order.value)
       toast.add({ severity: 'warn', summary: 'Saved offline', detail: 'Status update queued — will sync when connected', life: 5000 })
     } else {
       toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed', life: 4000 })
@@ -159,7 +163,7 @@ function revertOrderStatus() {
         if (isOfflineError(e)) {
           await queue.enqueueRequest('PATCH', `/orders/${order.value.id}/status`, { status: prev })
           order.value = { ...order.value, status: prev }
-          db.orders.put(order.value).catch(() => {})
+          cacheOrder(order.value)
           toast.add({ severity: 'warn', summary: 'Saved offline', detail: 'Status revert queued — will sync when connected', life: 5000 })
         } else {
           toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to revert status', life: 4000 })
@@ -216,7 +220,7 @@ async function recordPayment() {
         ...(covers && order.value.status === 'claimed' ? { status: 'completed' } : {}),
       }
       order.value = updatedOrder
-      db.orders.put(updatedOrder).catch(() => {})
+      cacheOrder(updatedOrder)
       showPaymentForm.value = false
       toast.add({ severity: 'warn', summary: 'Saved offline', detail: 'Payment queued — will sync when connected', life: 5000 })
     } else {
