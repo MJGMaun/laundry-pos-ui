@@ -183,6 +183,7 @@ function openPaymentForm() {
 }
 
 async function recordPayment() {
+  if (savingPayment.value) return
   if (!(Number(newPayment.value.amount) > 0)) { paymentFormError.value = 'Enter an amount.'; return }
   savingPayment.value = true
   paymentFormError.value = ''
