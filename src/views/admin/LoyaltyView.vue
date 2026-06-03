@@ -16,7 +16,7 @@ const editing   = ref(null)
 const form      = ref(defaultForm())
 
 function defaultForm() {
-  return { every_n_stamps: '', reward_type: 'free_load', reward_description: '', is_active: true }
+  return { every_n_stamps: '', reward_type: 'free_load', reward_description: '', is_active: true, reset_stamps: false }
 }
 
 async function load() {
@@ -240,6 +240,26 @@ onMounted(load)
                   </div>
                   <span class="text-sm text-slate-700 font-medium">Active</span>
                 </label>
+
+                <div v-if="!editing" class="rounded-xl border p-3 transition-all"
+                  :class="form.reset_stamps ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-slate-50'">
+                  <label class="flex items-center gap-3 cursor-pointer select-none">
+                    <div
+                      class="w-10 h-5 rounded-full transition-all relative shrink-0"
+                      :class="form.reset_stamps ? 'bg-amber-500' : 'bg-slate-200'"
+                      @click="form.reset_stamps = !form.reset_stamps"
+                    >
+                      <div class="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all"
+                        :class="form.reset_stamps ? 'left-5' : 'left-0.5'" />
+                    </div>
+                    <div>
+                      <span class="text-sm font-medium" :class="form.reset_stamps ? 'text-amber-800' : 'text-slate-700'">Reset existing stamps</span>
+                      <p class="text-xs mt-0.5" :class="form.reset_stamps ? 'text-amber-600' : 'text-slate-400'">
+                        {{ form.reset_stamps ? 'All customer stamp balances will be zeroed out when this rule is saved.' : 'Existing stamps carry over to the new rule.' }}
+                      </p>
+                    </div>
+                  </label>
+                </div>
               </div>
 
               <div class="px-6 py-4 border-t border-slate-100 flex gap-3">
