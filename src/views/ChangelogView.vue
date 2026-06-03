@@ -63,6 +63,13 @@ const changelog = [
           'Loyalty: stamp display on receipts and customer profile now shows **cycle progress (e.g. 7/10)** instead of the all-time total — so customers see how close they are to their next free load',
         ],
       },
+      {
+        title: 'New Features',
+        type: 'feature',
+        items: [
+          'Loyalty: when creating a new loyalty rule, admin can choose to **reset all customer stamp balances** (start fresh) or carry them over — resets are fully auditable and no data is deleted',
+        ],
+      },
     ],
   },
   {
