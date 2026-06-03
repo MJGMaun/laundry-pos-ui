@@ -47,9 +47,25 @@ async function load() {
     const res = await getOrders(params)
     const serverOrders = res.data.data || res.data
     total.value = res.data.total || serverOrders.length
+
+    // Build a map of orderId → latest queued status so the list reflects
+    // offline changes that haven't synced yet
+    const pendingStatusItems = await db.queue
+      .where('status').equals('pending')
+      .filter(item => item.type === 'request' && item.method === 'PATCH' && !!item.url?.includes('/status'))
+      .toArray()
+    const localStatus = {}
+    for (const item of pendingStatusItems) {
+      const m = item.url?.match(/\/orders\/(\d+)\/status/)
+      if (m) localStatus[Number(m[1])] = item.data?.status
+    }
+
     const offlineOrders = await db.orders.filter(o => !!o._offline).toArray()
     offlineOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    orders.value = [...offlineOrders, ...serverOrders]
+    const merged = serverOrders.map(o =>
+      localStatus[o.id] ? { ...o, status: localStatus[o.id] } : o
+    )
+    orders.value = [...offlineOrders, ...merged]
   } catch (e) {
     if (!isOfflineError(e)) throw e
     const branchId = branch.currentBranchId ? Number(branch.currentBranchId) : null
