@@ -45,8 +45,11 @@ async function load() {
     if (dateRange.value?.[0]) params.date_from = toYMD(dateRange.value[0])
     if (dateRange.value?.[1]) params.date_to   = toYMD(dateRange.value[1])
     const res = await getOrders(params)
-    orders.value = res.data.data || res.data
-    total.value = res.data.total || orders.value.length
+    const serverOrders = res.data.data || res.data
+    total.value = res.data.total || serverOrders.length
+    const offlineOrders = await db.orders.filter(o => !!o._offline).toArray()
+    offlineOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    orders.value = [...offlineOrders, ...serverOrders]
   } catch (e) {
     if (!isOfflineError(e)) throw e
     const branchId = branch.currentBranchId ? Number(branch.currentBranchId) : null
@@ -198,21 +201,27 @@ onMounted(load)
           <div
             v-for="(order, i) in orders"
             :key="order.id"
-            class="pl-0 pr-4 py-3.5 cursor-pointer transition-colors animate-slide-up"
+            class="pl-0 pr-4 py-3.5 transition-colors animate-slide-up"
             :class="[
+              order._offline ? 'cursor-default bg-orange-50/60' : 'cursor-pointer',
               accentClass(order),
-              isDone(order)
+              !order._offline && isDone(order)
                 ? 'opacity-50 hover:opacity-75 bg-slate-50/60'
-                : (!isPaid(order) ? 'bg-amber-50/40 hover:bg-amber-50/70' : 'hover:bg-blue-50/40 active:bg-blue-50'),
+                : (!order._offline && !isPaid(order) ? 'bg-amber-50/40 hover:bg-amber-50/70' : (!order._offline ? 'hover:bg-blue-50/40 active:bg-blue-50' : '')),
             ]"
             :style="`animation-delay: ${i * 25}ms`"
-            @click="router.push('/orders/' + order.id)"
+            @click="!order._offline && router.push('/orders/' + order.id)"
           >
             <div class="pl-3">
               <!-- Row 1: order number + status badge -->
               <div class="flex items-center justify-between gap-2 mb-1.5">
-                <span class="font-mono text-xs font-semibold" :class="isDone(order) ? 'text-slate-400' : 'text-slate-600'">{{ order.order_number }}</span>
-                <span :class="['badge', `badge-${order.status}`]">{{ order.status?.replace('_', ' ') }}</span>
+                <span class="font-mono text-xs font-semibold" :class="isDone(order) ? 'text-slate-400' : 'text-slate-600'">
+                  {{ order._offline ? 'Pending…' : order.order_number }}
+                </span>
+                <div class="flex items-center gap-1.5">
+                  <span v-if="order._offline" class="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-600">⏳ Not synced</span>
+                  <span v-else :class="['badge', `badge-${order.status}`]">{{ order.status?.replace('_', ' ') }}</span>
+                </div>
               </div>
 
               <!-- Row 2: customer -->
@@ -268,20 +277,21 @@ onMounted(load)
             <tr
               v-for="(order, i) in orders"
               :key="order.id"
-              class="border-b border-slate-50 last:border-0 cursor-pointer transition-colors duration-100 animate-slide-up"
+              class="border-b border-slate-50 last:border-0 transition-colors duration-100 animate-slide-up"
               :class="[
-                isDone(order)
+                order._offline ? 'cursor-default bg-orange-50/40' : 'cursor-pointer',
+                !order._offline && isDone(order)
                   ? 'opacity-50 hover:opacity-75 bg-slate-50/60'
-                  : (!isPaid(order) ? 'bg-amber-50/50 hover:bg-amber-50' : 'hover:bg-blue-50/40'),
+                  : (!order._offline && !isPaid(order) ? 'bg-amber-50/50 hover:bg-amber-50' : (!order._offline ? 'hover:bg-blue-50/40' : '')),
               ]"
               :style="`animation-delay: ${i * 25}ms`"
-              @click="router.push('/orders/' + order.id)"
+              @click="!order._offline && router.push('/orders/' + order.id)"
             >
               <!-- Accent bar via first cell left border -->
               <td
                 class="py-3.5 font-mono text-xs font-medium"
                 :class="[accentClass(order), isDone(order) ? 'text-slate-400 pl-4 pr-3' : 'text-slate-600 pl-4 pr-3']"
-              >{{ order.order_number }}</td>
+              >{{ order._offline ? 'Pending…' : order.order_number }}</td>
               <td class="px-5 py-3.5">
                 <button
                   v-if="order.customer"
@@ -298,7 +308,8 @@ onMounted(load)
                 <span v-else class="text-slate-400">—</span>
               </td>
               <td class="px-5 py-3.5">
-                <span :class="['badge', `badge-${order.status}`]">{{ order.status?.replace('_', ' ') }}</span>
+                <span v-if="order._offline" class="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-600">⏳ Not synced</span>
+                <span v-else :class="['badge', `badge-${order.status}`]">{{ order.status?.replace('_', ' ') }}</span>
               </td>
               <td class="px-5 py-3.5" :class="isDone(order) ? 'text-slate-400' : 'text-slate-500'">
                 {{ order.loads ? order.loads.reduce((s, l) => s + Number(l.quantity), 0) : (order.loads_count ?? '—') }}

@@ -538,7 +538,23 @@ async function processPayment() {
                     ];
                 }
             });
-            await queue.enqueueOrder(orderData, payableRows);
+            const offlineId = 'offline_' + Date.now()
+            const displayOrder = {
+                id: offlineId,
+                order_number: offlineId,
+                branch_id: Number(localStorage.getItem('branch_id')) || 0,
+                customer: cart.customer && !cart.customer._offline
+                    ? { id: cart.customer.id, name: cart.customer.name }
+                    : cart.customer?._offline
+                        ? { name: cart.customer.name }
+                        : null,
+                status: 'pending',
+                total_amount: cart.total,
+                paid_amount: payableRows.reduce((s, p) => s + p.amount, 0),
+                loads_count: cart.items.reduce((s, i) => s + Number(i.quantity), 0),
+                created_at: new Date().toISOString(),
+            }
+            await queue.enqueueOrder(orderData, payableRows, null, displayOrder);
             cart.clear();
             showPayment.value = false;
             toast.add({

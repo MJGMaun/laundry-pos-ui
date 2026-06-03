@@ -10,7 +10,8 @@ export const useQueueStore = defineStore('queue', () => {
     pendingCount.value = await db.queue.where('status').equals('pending').count()
   }
 
-  async function enqueueOrder(orderData, payments, branchId) {
+  async function enqueueOrder(orderData, payments, branchId, displayOrder = null) {
+    const offlineId = displayOrder?.id ?? null
     await db.queue.add({
       type: 'order_with_payments',
       orderData,
@@ -20,7 +21,11 @@ export const useQueueStore = defineStore('queue', () => {
       status: 'pending',
       retries: 0,
       lastError: null,
+      offline_order_id: offlineId,
     })
+    if (displayOrder) {
+      await db.orders.put({ ...displayOrder, _offline: true })
+    }
     await refresh()
   }
 

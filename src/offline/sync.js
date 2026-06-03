@@ -44,6 +44,9 @@ export async function runSync() {
         for (const p of item.payments) {
           await api.post(`/orders/${orderId}/payments`, p, cfg)
         }
+        if (item.offline_order_id) {
+          await db.orders.delete(item.offline_order_id)
+        }
 
       } else {
         // ── Generic queued request ──────────────────────────────────────────
