@@ -3,9 +3,13 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { getCustomers } from '@/api/customers.js'
+import { isOfflineError } from '@/offline/isOfflineError.js'
+import { db } from '@/offline/db.js'
+import { useBranchStore } from '@/stores/branch.js'
 
 const router = useRouter()
 const toast = useToast()
+const branch = useBranchStore()
 
 const customers = ref([])
 const loading = ref(false)
@@ -43,6 +47,23 @@ async function load() {
     const res = await getCustomers(params)
     customers.value = res.data.data || res.data
     total.value = res.data.total || customers.value.length
+  } catch (e) {
+    if (!isOfflineError(e)) throw e
+    const branchId = branch.currentBranchId ? Number(branch.currentBranchId) : null
+    let cached = branchId
+      ? await db.customers.where('branch_id').equals(branchId).toArray()
+      : await db.customers.toArray()
+    if (!cached.length) cached = await db.customers.toArray()
+    if (search.value) {
+      const q = search.value.toLowerCase()
+      cached = cached.filter(c =>
+        c.name?.toLowerCase().includes(q) ||
+        c.phone?.includes(q)
+      )
+    }
+    cached.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+    customers.value = cached
+    total.value = cached.length
   } finally {
     loading.value = false
   }

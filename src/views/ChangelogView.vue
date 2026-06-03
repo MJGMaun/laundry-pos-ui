@@ -68,6 +68,7 @@ const changelog = [
         type: 'feature',
         items: [
           'Loyalty: when creating a new loyalty rule, admin can choose to **reset all customer stamp balances** (start fresh) or carry them over — resets are fully auditable and no data is deleted',
+          'Offline: **Customers list now works without internet** — loads from local cache with name/phone search, matching the existing offline support for POS, Orders, and Pickup Queue',
         ],
       },
     ],
