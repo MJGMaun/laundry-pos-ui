@@ -96,7 +96,6 @@ async function load() {
   try {
     const res = await getOrder(route.params.id)
     order.value = res.data.data || res.data
-    await db.orders.put(order.value)
   } catch (e) {
     if (isOfflineError(e)) {
       const cached = await db.orders.get(Number(route.params.id))
@@ -113,6 +112,7 @@ async function load() {
   } finally {
     loading.value = false
   }
+  if (order.value?.id) db.orders.put(order.value).catch(() => {})
 }
 
 async function advanceOrderStatus() {
