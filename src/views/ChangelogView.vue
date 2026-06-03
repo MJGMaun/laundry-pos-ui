@@ -78,6 +78,8 @@ const changelog = [
         type: 'fix',
         items: [
           'Offline: **reloading the browser while offline no longer logs you out** — the session is now restored from local cache; only a real auth failure (invalid token) clears the session',
+          'Order Detail: **"Failed to load order" error on every open** — a Dexie cache write inside the try/catch was swallowing load errors; moved outside so it can never interfere',
+          'Offline: **duplicate payments when tapping Record multiple times** — added a synchronous re-entry guard so only one payment submission can run at a time regardless of render timing',
         ],
       },
     ],
