@@ -131,7 +131,7 @@ async function advanceOrderStatus() {
     if (isOfflineError(e)) {
       await queue.enqueueRequest('PATCH', `/orders/${order.value.id}/status`, { status: next })
       order.value = { ...order.value, status: next }
-      await db.orders.put(order.value)
+      db.orders.put(order.value).catch(() => {})
       toast.add({ severity: 'warn', summary: 'Saved offline', detail: 'Status update queued — will sync when connected', life: 5000 })
     } else {
       toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed', life: 4000 })
@@ -159,7 +159,7 @@ function revertOrderStatus() {
         if (isOfflineError(e)) {
           await queue.enqueueRequest('PATCH', `/orders/${order.value.id}/status`, { status: prev })
           order.value = { ...order.value, status: prev }
-          await db.orders.put(order.value)
+          db.orders.put(order.value).catch(() => {})
           toast.add({ severity: 'warn', summary: 'Saved offline', detail: 'Status revert queued — will sync when connected', life: 5000 })
         } else {
           toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to revert status', life: 4000 })
@@ -216,7 +216,7 @@ async function recordPayment() {
         ...(covers && order.value.status === 'claimed' ? { status: 'completed' } : {}),
       }
       order.value = updatedOrder
-      await db.orders.put(updatedOrder)
+      db.orders.put(updatedOrder).catch(() => {})
       showPaymentForm.value = false
       toast.add({ severity: 'warn', summary: 'Saved offline', detail: 'Payment queued — will sync when connected', life: 5000 })
     } else {
