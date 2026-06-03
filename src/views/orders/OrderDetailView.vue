@@ -14,6 +14,7 @@ import { getCustomerLoyalty } from '@/api/loyalty.js'
 import { useAuthStore } from '@/stores/auth.js'
 import { useQueueStore } from '@/stores/queue.js'
 import { isOfflineError } from '@/offline/isOfflineError.js'
+import { db } from '@/offline/db.js'
 import ReceiptModal from '@/components/receipt/ReceiptModal.vue'
 
 const route   = useRoute()
@@ -95,10 +96,20 @@ async function load() {
   try {
     const res = await getOrder(route.params.id)
     order.value = res.data.data || res.data
+    await db.orders.put(order.value)
   } catch (e) {
-    loadError.value = e.response?.status === 404
-      ? 'Order not found.'
-      : e.response?.data?.message || 'Failed to load order.'
+    if (isOfflineError(e)) {
+      const cached = await db.orders.get(Number(route.params.id))
+      if (cached) {
+        order.value = cached
+      } else {
+        loadError.value = 'No cached data for this order. Load it once while online first.'
+      }
+    } else {
+      loadError.value = e.response?.status === 404
+        ? 'Order not found.'
+        : e.response?.data?.message || 'Failed to load order.'
+    }
   } finally {
     loading.value = false
   }
@@ -120,6 +131,7 @@ async function advanceOrderStatus() {
     if (isOfflineError(e)) {
       await queue.enqueueRequest('PATCH', `/orders/${order.value.id}/status`, { status: next })
       order.value = { ...order.value, status: next }
+      await db.orders.put(order.value)
       toast.add({ severity: 'warn', summary: 'Saved offline', detail: 'Status update queued — will sync when connected', life: 5000 })
     } else {
       toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed', life: 4000 })
@@ -144,7 +156,14 @@ function revertOrderStatus() {
         await updateOrderStatus(order.value.id, { status: prev })
         await load()
       } catch (e) {
-        toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to revert status', life: 4000 })
+        if (isOfflineError(e)) {
+          await queue.enqueueRequest('PATCH', `/orders/${order.value.id}/status`, { status: prev })
+          order.value = { ...order.value, status: prev }
+          await db.orders.put(order.value)
+          toast.add({ severity: 'warn', summary: 'Saved offline', detail: 'Status revert queued — will sync when connected', life: 5000 })
+        } else {
+          toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to revert status', life: 4000 })
+        }
       } finally {
         updatingStatus.value = false
       }
@@ -186,10 +205,17 @@ async function recordPayment() {
       if (p.method === 'cash') payData.tendered = Number(p.tendered || p.amount)
       else payData.reference_number = p.reference_number || ''
       await queue.enqueueRequest('POST', `/orders/${order.value.id}/payments`, payData)
-      // If this payment covers the balance, also queue the status completion
-      if (Number(p.amount) >= outstandingBalance.value - 0.01 && order.value.status === 'claimed') {
+      const covers = Number(p.amount) >= outstandingBalance.value - 0.01
+      if (covers && order.value.status === 'claimed') {
         await queue.enqueueRequest('PATCH', `/orders/${order.value.id}/status`, { status: 'completed' })
       }
+      const updatedOrder = {
+        ...order.value,
+        payments: [...(order.value.payments || []), { ...payData, id: Date.now() }],
+        ...(covers && order.value.status === 'claimed' ? { status: 'completed' } : {}),
+      }
+      order.value = updatedOrder
+      await db.orders.put(updatedOrder)
       showPaymentForm.value = false
       toast.add({ severity: 'warn', summary: 'Saved offline', detail: 'Payment queued — will sync when connected', life: 5000 })
     } else {

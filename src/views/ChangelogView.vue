@@ -70,6 +70,7 @@ const changelog = [
           'Loyalty: when creating a new loyalty rule, admin can choose to **reset all customer stamp balances** (start fresh) or carry them over — resets are fully auditable and no data is deleted',
           'Offline: **Customers list now works without internet** — loads from local cache with name/phone search, matching the existing offline support for POS, Orders, and Pickup Queue',
           'Offline: **orders created while offline now appear immediately in the Orders list** with an orange ⏳ "Not synced" badge — they sync automatically when back online and the badge disappears',
+          'Offline: **Order Detail is now fully offline-capable** — opening an order loads from local cache when offline; status advances, reverts, and payments all work offline and queue for sync; local cache is updated immediately so changes persist across page reloads',
         ],
       },
       {
