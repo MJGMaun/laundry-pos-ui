@@ -349,7 +349,7 @@ const remainingAfterPayments = computed(() =>
 function openPayment() {
     const total = cart.total.toFixed(2);
     payments.value = [
-        { method: 'cash', amount: total, tendered: '', reference_number: '' },
+        { method: 'cash', amount: total, tendered: '', reference_number: '', showCustom: false },
     ];
     paymentError.value = '';
     customerQuery.value = '';
@@ -366,7 +366,12 @@ function addPaymentRow() {
         amount: String(remainingAfterPayments.value.toFixed(2)),
         tendered: '',
         reference_number: '',
+        showCustom: false,
     });
+}
+
+function quickAmounts() {
+    return [0, 20, 50, 100, 200, 500, 1000];
 }
 
 async function printOrderSlips(order) {
@@ -1647,128 +1652,71 @@ watch(() => branch.currentBranchId, loadServices);
                                         </button>
                                     </div>
 
-                                    <!-- ── Payment fields ── -->
-                                    <div class="flex items-center gap-2">
-                                        <span
-                                            class="w-16 shrink-0 text-xs text-slate-500"
-                                            >Amount</span
-                                        >
-                                        <div class="relative flex-1">
-                                            <span
-                                                class="absolute top-1/2 left-2.5 -translate-y-1/2 text-sm text-slate-400"
-                                                >₱</span
-                                            >
-                                            <input
-                                                v-model="p.amount"
-                                                type="number"
-                                                step="0.01"
-                                                min="0"
-                                                class="w-full rounded-xl border border-slate-200 py-2 pr-3 pl-7 text-right text-sm transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:outline-none"
-                                            />
-                                        </div>
+                                    <!-- ── Amount (display only) ── -->
+                                    <div class="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+                                        <span class="text-xs text-slate-500">Amount</span>
+                                        <span class="text-base font-bold text-slate-900">₱{{ fmt(p.amount) }}</span>
                                     </div>
 
-                                    <!-- Cash: tendered + change -->
+                                    <!-- Cash: quick-amount buttons + change -->
                                     <template v-if="p.method === 'cash'">
-                                        <div class="flex items-center gap-2">
-                                            <span
-                                                class="w-16 shrink-0 text-xs text-slate-500"
-                                                >Tendered</span
-                                            >
-                                            <div class="relative flex-1">
-                                                <span
-                                                    class="absolute top-1/2 left-2.5 -translate-y-1/2 text-sm text-slate-400"
-                                                    >₱</span
-                                                >
-                                                <input
-                                                    v-model="p.tendered"
-                                                    type="number"
-                                                    step="1"
-                                                    min="0"
-                                                    placeholder="Amount given"
-                                                    class="w-full rounded-xl border border-slate-200 py-2 pr-3 pl-7 text-right text-sm transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:outline-none"
-                                                    @focus="
-                                                        () => {
-                                                            if (!p.tendered)
-                                                                p.tendered =
-                                                                    p.amount;
-                                                        }
-                                                    "
-                                                />
-                                            </div>
+                                        <!-- Quick tendered amounts -->
+                                        <div class="grid grid-cols-3 gap-2">
+                                            <button
+                                                class="rounded-xl py-2.5 text-sm font-bold transition-all active:scale-95"
+                                                :class="p.tendered === p.amount && p.tendered !== ''
+                                                    ? 'bg-blue-600 text-white shadow-sm'
+                                                    : 'border-2 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'"
+                                                @click="p.tendered = p.amount; p.showCustom = false"
+                                            >Exact</button>
+                                            <button
+                                                v-for="b in quickAmounts()"
+                                                :key="b"
+                                                class="rounded-xl py-2.5 text-sm font-bold transition-all active:scale-95"
+                                                :class="Number(p.tendered) === b
+                                                    ? 'bg-slate-800 text-white shadow-sm'
+                                                    : 'border-2 border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'"
+                                                @click="p.tendered = String(b); p.showCustom = false"
+                                            >₱{{ b.toLocaleString() }}</button>
+                                            <button
+                                                class="rounded-xl py-2.5 text-sm font-bold transition-all active:scale-95"
+                                                :class="p.showCustom
+                                                    ? 'bg-slate-700 text-white shadow-sm'
+                                                    : 'border-2 border-slate-200 bg-white text-slate-500 hover:border-slate-300'"
+                                                @click="p.showCustom = !p.showCustom; if (p.showCustom) p.tendered = ''"
+                                            >Custom</button>
                                         </div>
-                                        <div class="flex flex-wrap gap-1">
-                                            <button
-                                                class="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 transition-all hover:bg-blue-100 active:scale-95"
-                                                @click="p.tendered = p.amount"
-                                            >
-                                                Exact
-                                            </button>
-                                            <button
-                                                v-for="d in [
-                                                    20, 50, 100, 200, 500, 1000,
-                                                ]"
-                                                :key="d"
-                                                class="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 transition-all hover:border-blue-400 hover:text-blue-600 active:scale-95"
-                                                @click="
-                                                    p.tendered = String(
-                                                        Number(
-                                                            p.tendered || 0
-                                                        ) + d
-                                                    )
-                                                "
-                                            >
-                                                +{{ d }}
-                                            </button>
-                                            <button
-                                                class="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-red-400 transition-all hover:border-red-300 hover:text-red-500 active:scale-95"
-                                                @click="p.tendered = ''"
-                                            >
-                                                Clear
-                                            </button>
+
+                                        <!-- Custom amount input -->
+                                        <div v-if="p.showCustom" class="relative">
+                                            <span class="absolute top-1/2 left-3 -translate-y-1/2 text-sm text-slate-400">₱</span>
+                                            <input
+                                                v-model="p.tendered"
+                                                type="number"
+                                                step="1"
+                                                min="0"
+                                                placeholder="Enter amount given…"
+                                                autofocus
+                                                class="w-full rounded-xl border-2 border-slate-300 py-2.5 pr-3 pl-7 text-right text-sm font-semibold transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:outline-none"
+                                            />
                                         </div>
+
+                                        <!-- Change -->
                                         <Transition name="scale-in">
                                             <div
-                                                v-if="
-                                                    Number(p.tendered) >=
-                                                        Number(p.amount) &&
-                                                    Number(p.amount) > 0
-                                                "
-                                                class="flex items-center justify-between rounded-xl px-3 py-2"
-                                                style="
-                                                    background: linear-gradient(
-                                                        135deg,
-                                                        #dcfce7,
-                                                        #bbf7d0
-                                                    );
-                                                "
+                                                v-if="Number(p.tendered) >= Number(p.amount) && Number(p.amount) > 0"
+                                                class="flex items-center justify-between rounded-xl px-3 py-2.5"
+                                                style="background: linear-gradient(135deg, #dcfce7, #bbf7d0);"
                                             >
-                                                <span
-                                                    class="text-sm font-medium text-green-700"
-                                                    >Change</span
-                                                >
-                                                <span
-                                                    class="text-lg font-bold text-green-700"
-                                                    >₱{{
-                                                        fmt(
-                                                            Number(p.tendered) -
-                                                                Number(p.amount)
-                                                        )
-                                                    }}</span
-                                                >
+                                                <span class="text-sm font-medium text-green-700">Change</span>
+                                                <span class="text-xl font-bold text-green-700">₱{{ fmt(Number(p.tendered) - Number(p.amount)) }}</span>
                                             </div>
                                         </Transition>
                                     </template>
 
                                     <!-- GCash: reference (optional) -->
                                     <div v-else class="flex items-center gap-2">
-                                        <span
-                                            class="w-16 shrink-0 text-xs text-slate-500"
-                                            >Ref #
-                                            <span class="text-slate-400"
-                                                >(opt)</span
-                                            ></span
-                                        >
+                                        <span class="w-16 shrink-0 text-xs text-slate-500">Ref # <span class="text-slate-400">(opt)</span></span>
                                         <input
                                             v-model="p.reference_number"
                                             placeholder="Transaction reference (optional)"
