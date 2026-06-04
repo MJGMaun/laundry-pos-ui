@@ -52,21 +52,6 @@
 <script setup>
 const changelog = [
   {
-    version: '1.10.1',
-    date: 'June 4, 2026',
-    latest: true,
-    sections: [
-      {
-        title: 'Improvements',
-        type: 'improvement',
-        items: [
-          'POS Payment: **Amount is now display-only** — cashier no longer needs to type it, it\'s always the order total',
-          'POS Payment: **Quick-amount buttons** replace the tendered input — tap Exact, any standard PH denomination (₱20 · ₱50 · ₱100 · ₱200 · ₱500 · ₱1000), or Custom to enter a different amount; selected button is highlighted and change updates instantly',
-        ],
-      },
-    ],
-  },
-  {
     version: '1.10.0',
     date: 'June 4, 2026',
     latest: false,
@@ -86,6 +71,8 @@ const changelog = [
         items: [
           'Delivered orders skip the **Claimed** status — advancing goes directly **Ready → Completed** since the driver already brought the laundry to the customer',
           'Pickup and delivery date/time pickers block past dates and times',
+		  'POS Payment: **Amount is now display-only** — cashier no longer needs to type it, it\'s always the order total',
+          'POS Payment: **Quick-amount buttons** replace the tendered input — tap Exact, any standard PH denomination (₱20 · ₱50 · ₱100 · ₱200 · ₱500 · ₱1000), or Custom to enter a different amount; selected button is highlighted and change updates instantly',
         ],
       },
     ],
