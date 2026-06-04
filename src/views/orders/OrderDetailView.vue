@@ -3,7 +3,8 @@ import { ref, computed, onMounted, toRaw } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
-import { getOrder, updateOrderStatus, updateOrder, deleteOrder } from '@/api/orders.js'
+import { getOrder, updateOrderStatus, updateOrder, deleteOrder, markOrderDelivered } from '@/api/orders.js'
+import DatePicker from 'primevue/datepicker'
 import { addLoads } from '@/api/loads.js'
 import { getBranchServices } from '@/api/branches.js'
 import { useBranchStore } from '@/stores/branch.js'
@@ -84,8 +85,14 @@ function confirmDelete() {
   })
 }
 
-const orderStatusNext = { pending: 'ready', ready: 'claimed', claimed: 'completed' }
-const orderStatusPrev = { ready: 'pending', claimed: 'ready', completed: 'claimed' }
+const orderStatusNext = computed(() => order.value?.delivered_at
+  ? { pending: 'ready', ready: 'completed' }
+  : { pending: 'ready', ready: 'claimed', claimed: 'completed' }
+)
+const orderStatusPrev = computed(() => order.value?.delivered_at
+  ? { ready: 'pending', completed: 'ready' }
+  : { ready: 'pending', claimed: 'ready', completed: 'claimed' }
+)
 
 const statusColor = {
   pending:   { bg: '#fef3c7', text: '#92400e', dot: '#f59e0b' },
@@ -120,7 +127,7 @@ async function load() {
 }
 
 async function advanceOrderStatus() {
-  const next = orderStatusNext[order.value.status]
+  const next = orderStatusNext.value[order.value.status]
   if (!next || !auth.isCashier) return
   if (next === 'completed' && !isPaid.value) {
     statusError.value = `Cannot complete — outstanding balance of ₱${fmt(outstandingBalance.value)}`
@@ -146,7 +153,7 @@ async function advanceOrderStatus() {
 }
 
 function revertOrderStatus() {
-  const prev = orderStatusPrev[order.value.status]
+  const prev = orderStatusPrev.value[order.value.status]
   if (!prev || !auth.isAdmin) return
   confirm.require({
     message: `Revert status from "${order.value.status}" back to "${prev}"?`,
@@ -417,6 +424,45 @@ async function printSlip(load) {
   }
 }
 
+const showDeliveryPicker = ref(false)
+const deliveryDate = ref(null)
+const savingDelivery = ref(false)
+
+function openDeliveryPicker() {
+  deliveryDate.value = order.value?.delivery_scheduled_at
+    ? new Date(order.value.delivery_scheduled_at)
+    : null
+  showDeliveryPicker.value = true
+}
+
+async function saveDeliverySchedule() {
+  if (!deliveryDate.value) return
+  savingDelivery.value = true
+  try {
+    const dt = deliveryDate.value instanceof Date
+      ? deliveryDate.value.toISOString()
+      : deliveryDate.value
+    await updateOrder(order.value.id, { delivery_scheduled_at: dt })
+    showDeliveryPicker.value = false
+    await load()
+    toast.add({ severity: 'success', summary: 'Saved', detail: 'Delivery scheduled', life: 2500 })
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed', life: 4000 })
+  } finally {
+    savingDelivery.value = false
+  }
+}
+
+async function confirmMarkDelivered() {
+  try {
+    await markOrderDelivered(order.value.id)
+    await load()
+    toast.add({ severity: 'success', summary: 'Done', detail: 'Order marked as delivered', life: 3000 })
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed', life: 4000 })
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -596,6 +642,62 @@ onMounted(load)
               >{{ savingEdit ? 'Saving…' : 'Save' }}</button>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Delivery -->
+      <div v-if="auth.isAdmin" class="bg-white rounded-2xl border border-slate-200 p-5 animate-slide-up stagger-1" style="box-shadow: var(--shadow-card);">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <span class="text-base">📦</span>
+            <h3 class="font-bold text-slate-900">Delivery</h3>
+          </div>
+          <div class="flex gap-2">
+            <button
+              v-if="order.delivery_scheduled_at && !order.delivered_at"
+              class="text-xs font-semibold text-blue-600 border border-blue-200 hover:bg-blue-50 px-3 py-1.5 rounded-xl transition-all active:scale-95"
+              @click="confirmMarkDelivered"
+            >Mark Delivered ✓</button>
+            <button
+              v-if="!order.delivered_at"
+              class="text-xs font-semibold text-slate-500 border border-slate-200 hover:bg-slate-50 px-3 py-1.5 rounded-xl transition-all active:scale-95"
+              @click="openDeliveryPicker"
+            >{{ order.delivery_scheduled_at ? 'Reschedule' : 'Schedule Delivery' }}</button>
+          </div>
+        </div>
+
+        <div class="mt-3 text-sm text-slate-500">
+          <div v-if="order.delivered_at" class="flex items-center gap-2 text-green-600 font-medium">
+            <span>✓ Delivered on {{ fmtDate(order.delivered_at) }}</span>
+          </div>
+          <div v-else-if="order.delivery_scheduled_at" class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6l4 2"/></svg>
+            <span>Scheduled for {{ fmtDate(order.delivery_scheduled_at) }}</span>
+          </div>
+          <div v-else class="text-slate-400 italic">No delivery scheduled</div>
+        </div>
+
+        <div v-if="showDeliveryPicker" class="mt-3 flex flex-wrap items-center gap-2">
+          <DatePicker
+            v-model="deliveryDate"
+            show-time
+            hour-format="12"
+            date-format="M dd, yy"
+            show-icon
+            icon-display="input"
+            :min-date="new Date()"
+            placeholder="Select date and time…"
+            class="order-delivery-datepicker"
+          />
+          <button
+            class="px-3 py-1.5 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-50"
+            :disabled="!deliveryDate || savingDelivery"
+            @click="saveDeliverySchedule"
+          >{{ savingDelivery ? 'Saving…' : 'Save' }}</button>
+          <button
+            class="px-3 py-1.5 rounded-xl text-xs font-medium text-slate-500 border border-slate-200 hover:bg-slate-50 transition-colors"
+            @click="showDeliveryPicker = false"
+          >Cancel</button>
         </div>
       </div>
 
@@ -980,4 +1082,17 @@ onMounted(load)
 .slide-down-enter-active, .slide-down-leave-active { transition: all 220ms ease; overflow: hidden; }
 .slide-down-enter-from, .slide-down-leave-to { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; }
 .slide-down-enter-to, .slide-down-leave-from { opacity: 1; max-height: 600px; }
+
+.order-delivery-datepicker .p-datepicker-input {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 6px 28px 6px 12px;
+  font-size: 14px;
+  color: #1e293b;
+}
+.order-delivery-datepicker .p-datepicker-input:focus {
+  outline: none;
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+}
 </style>
