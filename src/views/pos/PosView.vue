@@ -17,6 +17,7 @@ import {
 import { isOfflineError } from '@/offline/isOfflineError.js';
 import { db } from '@/offline/db.js';
 import { useRouter } from 'vue-router';
+import Dialog from 'primevue/dialog';
 import ReceiptModal from '@/components/receipt/ReceiptModal.vue';
 import { usePrinter } from '@/composables/usePrinter.js';
 import { buildTrackingSlipBytes } from '@/utils/escpos.js';
@@ -638,7 +639,7 @@ watch(() => branch.currentBranchId, loadServices);
                             <!-- No results: prompt to create -->
                             <Transition name="dropdown">
                                 <button
-                                    v-if="customerQuery.trim() && !searchingCustomer && !customerResults.length && !showNewCustomerForm"
+                                    v-if="customerQuery.trim() && !searchingCustomer && !customerResults.length"
                                     class="flex w-full items-center gap-3 rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50 px-4 py-3.5 text-left transition-all hover:border-blue-400 hover:bg-blue-100 active:scale-[0.98]"
                                     @click="createWithQuery"
                                 >
@@ -654,48 +655,8 @@ watch(() => branch.currentBranchId, loadServices);
                             <button
                                 v-if="!customerQuery.trim() || customerResults.length"
                                 class="w-full rounded-2xl border-2 border-dashed border-slate-200 py-3.5 text-sm font-semibold text-slate-500 transition-all hover:border-blue-300 hover:text-blue-600 active:scale-[0.98]"
-                                @click="showNewCustomerForm = !showNewCustomerForm"
-                            >{{ showNewCustomerForm ? '− Cancel' : '+ New Customer' }}</button>
-
-                            <Transition name="dropdown">
-                                <div v-if="showNewCustomerForm" class="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                                    <div>
-                                        <input
-                                            v-model="newCustomer.name"
-                                            @input="capitalizeField('name'); nameError = ''"
-                                            placeholder="Full name *"
-                                            class="w-full rounded-xl border px-3 py-3 text-sm transition-all focus:border-blue-400 focus:outline-none"
-                                            :class="nameError ? 'border-red-300' : 'border-slate-200'"
-                                        />
-                                        <p v-if="nameError" class="mt-1 px-0.5 text-xs text-red-500">{{ nameError }}</p>
-                                    </div>
-                                    <div>
-                                        <input
-                                            :value="displayPhone"
-                                            @input="onPhoneInput"
-                                            placeholder="Phone number * (11 digits)"
-                                            maxlength="13"
-                                            class="w-full rounded-xl border px-3 py-3 text-sm transition-all focus:border-blue-400 focus:outline-none"
-                                            :class="phoneError ? 'border-red-300' : 'border-slate-200'"
-                                        />
-                                        <p v-if="phoneError" class="mt-1 px-0.5 text-xs text-red-500">{{ phoneError }}</p>
-                                    </div>
-                                    <input
-                                        v-model="newCustomer.address"
-                                        @input="capitalizeField('address')"
-                                        placeholder="Address (optional)"
-                                        class="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm transition-all focus:border-blue-400 focus:outline-none"
-                                    />
-                                    <div class="flex gap-2">
-                                        <button
-                                            class="flex-1 rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white transition-all hover:bg-blue-700 active:scale-95 disabled:opacity-50"
-                                            :disabled="savingCustomer || !newCustomer.name || !newCustomer.phone"
-                                            @click="saveNewCustomer"
-                                        >{{ savingCustomer ? 'Saving…' : 'Save & Select' }}</button>
-                                        <button class="px-3 text-sm text-slate-400 hover:text-slate-600" @click="showNewCustomerForm = false; newCustomer.name = ''; newCustomer.phone = ''; newCustomer.address = ''">Cancel</button>
-                                    </div>
-                                </div>
-                            </Transition>
+                                @click="showNewCustomerForm = true"
+                            >+ New Customer</button>
                         </template>
                     </div>
                 </div>
@@ -1106,6 +1067,58 @@ watch(() => branch.currentBranchId, loadServices);
                 </div>
             </Transition>
         </Teleport>
+
+        <!-- ───── New Customer Modal ───── -->
+        <Dialog
+            v-model:visible="showNewCustomerForm"
+            modal
+            header="New Customer"
+            :style="{ width: '400px', maxWidth: '95vw' }"
+            :draggable="false"
+            @hide="newCustomer.name = ''; newCustomer.phone = ''; newCustomer.address = ''; nameError = ''; phoneError = ''"
+        >
+            <div class="space-y-3 pt-1">
+                <div>
+                    <input
+                        v-model="newCustomer.name"
+                        @input="capitalizeField('name'); nameError = ''"
+                        placeholder="Full name *"
+                        class="w-full rounded-xl border px-3 py-3 text-sm transition-all focus:border-blue-400 focus:outline-none"
+                        :class="nameError ? 'border-red-300' : 'border-slate-200'"
+                    />
+                    <p v-if="nameError" class="mt-1 px-0.5 text-xs text-red-500">{{ nameError }}</p>
+                </div>
+                <div>
+                    <input
+                        :value="displayPhone"
+                        @input="onPhoneInput"
+                        placeholder="Phone number * (11 digits)"
+                        maxlength="13"
+                        class="w-full rounded-xl border px-3 py-3 text-sm transition-all focus:border-blue-400 focus:outline-none"
+                        :class="phoneError ? 'border-red-300' : 'border-slate-200'"
+                    />
+                    <p v-if="phoneError" class="mt-1 px-0.5 text-xs text-red-500">{{ phoneError }}</p>
+                </div>
+                <input
+                    v-model="newCustomer.address"
+                    @input="capitalizeField('address')"
+                    placeholder="Address (optional)"
+                    class="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm transition-all focus:border-blue-400 focus:outline-none"
+                />
+                <div class="flex gap-2 pt-1">
+                    <button
+                        class="flex-1 rounded-xl border border-slate-200 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-all"
+                        @click="showNewCustomerForm = false"
+                    >Cancel</button>
+                    <button
+                        class="flex-1 rounded-xl py-3 text-sm font-bold text-white transition-all disabled:opacity-50"
+                        style="background: linear-gradient(135deg, #2563eb, #4f46e5);"
+                        :disabled="savingCustomer || !newCustomer.name || !newCustomer.phone"
+                        @click="saveNewCustomer"
+                    >{{ savingCustomer ? 'Saving…' : 'Save & Select' }}</button>
+                </div>
+            </div>
+        </Dialog>
 
         <!-- ───── Receipt Modal ───── -->
         <ReceiptModal :order-id="receiptOrderId" @close="receiptOrderId = null" />
