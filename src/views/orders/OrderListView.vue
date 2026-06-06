@@ -311,9 +311,8 @@ onMounted(load)
               <td class="px-5 py-3.5">
                 <button
                   v-if="order.customer"
-                  class="flex items-center gap-2 cursor-pointer hover:underline"
+                  class="flex items-center gap-2 cursor-pointer"
                   :class="isDone(order) ? 'text-slate-400' : 'text-slate-700'"
-                  @click.stop="router.push('/customers/' + order.customer.id)"
                 >
                   <div class="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
                     :style="`background: hsl(${(order.customer.name?.charCodeAt(0) * 7) % 360}, 65%, 55%);`">
