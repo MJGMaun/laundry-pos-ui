@@ -84,7 +84,7 @@ const changelog = [
         title: 'New Features',
         type: 'feature',
         items: [
-          '**Schedule View** (admin/super_admin): a dedicated page showing today\'s pickups and deliveries — browse by date, one-tap to mark as picked up or delivered, with separate pending and done sections',
+          '**Schedule View** (admin): a dedicated page showing today\'s pickups and deliveries — browse by date, one-tap to mark as picked up or delivered, with separate pending and done sections',
           '**Pickup Booking**: schedule a pre-order pickup for a customer before any laundry arrives — set customer, date/time window, address, and notes; driver marks it picked up when done; the actual order is created separately once the laundry is at the shop',
           '**Delivery Tracking**: admins can schedule a delivery date/time on any order from the Order Detail page and mark it as delivered when done — delivery timestamp is recorded and shown on the order',
         ],
