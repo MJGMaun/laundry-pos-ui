@@ -1126,7 +1126,7 @@ watch(() => branch.currentBranchId, loadServices);
                         </div>
 
                         <button
-                            class="flex h-6 w-6 items-center justify-center rounded-full text-slate-300 opacity-0 transition-all group-hover:opacity-100 hover:bg-red-50 hover:text-red-500"
+                            class="flex h-6 w-6 items-center justify-center rounded-full text-slate-400 transition-all hover:bg-red-50 hover:text-red-500 active:scale-90"
                             @click="cart.removeItem(item.service_id)"
                         >
                             ✕

@@ -39,7 +39,7 @@ const router = createRouter({
           path: 'pos',
           name: 'pos',
           component: () => import('@/views/pos/PosView.vue'),
-          meta: { roles: ['super_admin', 'admin', 'cashier', 'staff'] },
+          meta: { roles: ['super_admin', 'admin', 'cashier', 'staff'], fullHeight: true },
         },
         {
           path: 'orders',
