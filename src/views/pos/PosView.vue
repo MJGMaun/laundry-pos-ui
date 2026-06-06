@@ -756,8 +756,11 @@ watch(() => branch.currentBranchId, loadServices);
                     : 'hidden sm:flex'
             "
         >
+            <!-- Scrollable: customer + cart header + items -->
+            <div class="min-h-0 flex-1 overflow-y-auto">
+
             <!-- Customer section -->
-            <div class="shrink-0 border-b border-slate-100 p-3">
+            <div class="border-b border-slate-100 p-3">
                 <div v-if="cart.customer" class="space-y-2">
                     <div
                         class="animate-scale-in flex items-center gap-2.5 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2.5"
@@ -1029,7 +1032,7 @@ watch(() => branch.currentBranchId, loadServices);
             </div>
 
             <!-- Cart items -->
-            <div class="min-h-0 flex-1 overflow-y-auto">
+            <div>
                 <div
                     v-if="!cart.items.length"
                     class="flex h-40 flex-col items-center justify-center gap-2 text-slate-300"
@@ -1131,6 +1134,8 @@ watch(() => branch.currentBranchId, loadServices);
                     </div>
                 </TransitionGroup>
             </div>
+
+            </div><!-- end scroll wrapper -->
 
             <!-- Extra fees (collapsible) -->
             <div class="shrink-0 border-t border-slate-100">
