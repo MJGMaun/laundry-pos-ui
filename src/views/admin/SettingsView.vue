@@ -47,14 +47,6 @@ const GROUPS = [
 			{ key: 'printer_name', label: 'Printer Name / Path', type: 'text' },
 		],
 	},
-	{
-		key: 'loyalty',
-		label: 'Loyalty Program',
-		fields: [
-			{ key: 'loyalty_points_per_peso', label: 'Points per Peso', type: 'number' },
-			{ key: 'loyalty_min_redeem_points', label: 'Min Redeem Points', type: 'number' },
-		],
-	},
 ]
 
 async function load() {

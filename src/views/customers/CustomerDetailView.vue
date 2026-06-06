@@ -267,11 +267,6 @@ onMounted(load)
               </div>
               <div v-if="customer.address" class="text-sm text-slate-400 mt-0.5">{{ customer.address }}</div>
               <div v-if="customer.notes" class="text-sm text-slate-400 mt-0.5 italic">{{ customer.notes }}</div>
-              <div v-if="customer.loyalty_tier" class="mt-1">
-                <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                  {{ customer.loyalty_tier?.name || 'Bronze' }}
-                </span>
-              </div>
             </div>
           </div>
           <div class="flex gap-2 items-center shrink-0 flex-wrap">
