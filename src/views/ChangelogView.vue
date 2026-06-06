@@ -52,9 +52,26 @@
 <script setup>
 const changelog = [
   {
-    version: '1.10.2',
+    version: '1.10.3',
     date: 'June 6, 2026',
     latest: true,
+    sections: [
+      {
+        title: 'Improvements',
+        type: 'improvement',
+        items: [
+          'POS: **header and navigation no longer scroll** — only the service grid and cart list scroll internally; the rest of the layout stays fixed',
+          'POS: cart **remove (✕) button is now always visible** — was hidden on touch devices since it relied on hover',
+          'Settings: **Loyalty Program** section removed (points per peso, min redeem) — stamp-based loyalty rules still work as before',
+          'Customer Detail: loyalty tier badge removed',
+        ],
+      },
+    ],
+  },
+  {
+    version: '1.10.2',
+    date: 'June 6, 2026',
+    latest: false,
     sections: [
       {
         title: 'Improvements',
