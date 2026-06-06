@@ -702,79 +702,132 @@ onMounted(load)
         </div>
       </div>
 
-      <!-- Loads -->
-      <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden animate-slide-up stagger-1" style="box-shadow: var(--shadow-card);">
-        <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-          <h3 class="font-bold text-slate-900">Loads</h3>
-          <div class="flex items-center gap-2">
-            <span class="text-xs text-slate-400">{{ order.loads?.length || 0 }} item{{ order.loads?.length !== 1 ? 's' : '' }}</span>
+      <!-- Loads + Summary/Payments -->
+      <div class="grid sm:grid-cols-2 gap-4 items-start">
+
+        <!-- Loads -->
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden animate-slide-up stagger-1" style="box-shadow: var(--shadow-card);">
+          <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <h3 class="font-bold text-slate-900">Loads</h3>
+              <span class="text-xs text-slate-400">{{ order.loads?.length || 0 }} item{{ order.loads?.length !== 1 ? 's' : '' }}</span>
+            </div>
             <button
               v-if="order.status !== 'completed' && auth.isCashier"
               class="flex items-center gap-1.5 text-xs font-semibold text-blue-600 border border-blue-200 hover:bg-blue-50 px-3 py-1.5 rounded-xl transition-all active:scale-95"
               @click="openAddLoads"
-            >
-              + Add Loads
-            </button>
+            >+ Add Loads</button>
           </div>
-        </div>
-        <div class="divide-y divide-slate-50">
-          <div
-            v-for="(load, i) in order.loads"
-            :key="load.id"
-            class="flex flex-wrap items-center gap-2 px-4 sm:px-5 py-3 hover:bg-slate-50 transition-colors animate-slide-up"
-            :style="`animation-delay: ${i * 30}ms`"
-          >
-            <div class="flex-1 min-w-0">
-              <div class="text-sm font-semibold text-slate-800">{{ load.service_name_snapshot }}</div>
-              <div class="text-xs text-slate-400 mt-0.5">{{ load.quantity }} × ₱{{ fmt(load.unit_price_snapshot) }} = ₱{{ fmt(load.line_total) }}</div>
-            </div>
-            <button
-              class="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 border border-slate-200 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50 active:scale-95 transition-all disabled:opacity-40"
-              :disabled="printingSlip === load.id"
-              @click="printSlip(load)"
-              title="Print tracking slip"
+          <div class="divide-y divide-slate-50">
+            <div v-if="!order.loads?.length" class="px-5 py-8 text-sm text-center text-slate-300">No loads added</div>
+            <div
+              v-for="(load, i) in order.loads"
+              :key="load.id"
+              class="flex flex-wrap items-center gap-2 px-4 sm:px-5 py-3 hover:bg-slate-50 transition-colors animate-slide-up"
+              :style="`animation-delay: ${i * 30}ms`"
             >
-              <svg v-if="printingSlip !== load.id" xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
-              </svg>
-              <span v-if="printingSlip !== load.id">Slip</span>
-              <span v-else>…</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Payments + Totals -->
-      <div class="grid sm:grid-cols-2 gap-4">
-
-        <!-- Payments -->
-        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden animate-slide-up stagger-2" style="box-shadow: var(--shadow-card);">
-          <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-            <div>
-              <h3 class="font-bold text-slate-900">Payments</h3>
-              <div v-if="!isPaid" class="text-xs text-amber-600 font-medium mt-0.5">
-                Balance: ₱{{ fmt(outstandingBalance) }}
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-semibold text-slate-800">{{ load.service_name_snapshot }}</div>
+                <div class="text-xs text-slate-400 mt-0.5">{{ load.quantity }} × ₱{{ fmt(load.unit_price_snapshot) }} = ₱{{ fmt(load.line_total) }}</div>
               </div>
+              <button
+                class="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 border border-slate-200 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50 active:scale-95 transition-all disabled:opacity-40"
+                :disabled="printingSlip === load.id"
+                @click="printSlip(load)"
+                title="Print tracking slip"
+              >
+                <svg v-if="printingSlip !== load.id" xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
+                </svg>
+                <span v-if="printingSlip !== load.id">Slip</span>
+                <span v-else>…</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Summary + Payments (merged) -->
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden animate-slide-up stagger-2" style="box-shadow: var(--shadow-card);">
+          <!-- Header -->
+          <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+            <div>
+              <h3 class="font-bold text-slate-900">Summary</h3>
+              <div v-if="!isPaid" class="text-xs text-amber-600 font-medium mt-0.5">Balance: ₱{{ fmt(outstandingBalance) }}</div>
               <div v-else class="text-xs text-green-600 font-medium mt-0.5">Fully paid</div>
             </div>
-            <button
-              v-if="!isPaid && auth.isCashier && order.status !== 'completed'"
-              class="flex items-center gap-1.5 text-xs font-semibold text-blue-600 border border-blue-200 hover:bg-blue-50 px-3 py-1.5 rounded-xl transition-all active:scale-95"
-              @click="openPaymentForm"
-            >
-              + Record Payment
-            </button>
+            <div class="flex items-center gap-2">
+              <button
+                v-if="!isPaid && auth.isCashier && order.status !== 'completed'"
+                class="flex items-center gap-1.5 text-xs font-semibold text-blue-600 border border-blue-200 hover:bg-blue-50 px-3 py-1.5 rounded-xl transition-all active:scale-95"
+                @click="openPaymentForm"
+              >+ Record Payment</button>
+              <button
+                v-if="order.status !== 'completed' && auth.isCashier"
+                class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 border border-slate-200 hover:bg-slate-50 px-3 py-1.5 rounded-xl transition-all active:scale-95"
+                @click="showEditForm ? showEditForm = false : openEditForm()"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                {{ showEditForm ? 'Cancel' : 'Edit' }}
+              </button>
+            </div>
           </div>
 
-          <div v-if="!order.payments?.length" class="px-5 py-8 text-sm text-center text-slate-300">No payments recorded</div>
+          <!-- Edit form -->
+          <Transition name="slide-down">
+            <div v-if="showEditForm" class="px-5 py-4 border-b border-slate-100 bg-slate-50 space-y-3">
+              <div class="flex items-center gap-3">
+                <label class="text-xs font-semibold text-slate-500 w-24 shrink-0">Extra fees</label>
+                <div class="relative flex-1">
+                  <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">₱</span>
+                  <input
+                    v-model="editForm.extra_fees"
+                    type="number" min="0" step="1"
+                    class="w-full border border-slate-200 rounded-xl pl-7 pr-3 py-2 text-sm text-right bg-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+                  />
+                </div>
+              </div>
+              <div class="flex items-start gap-3">
+                <label class="text-xs font-semibold text-slate-500 w-24 shrink-0 mt-2">Notes</label>
+                <textarea
+                  v-model="editForm.notes"
+                  rows="2"
+                  placeholder="e.g. Delivery requested"
+                  class="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all resize-none"
+                />
+              </div>
+              <div class="flex gap-2 pt-1">
+                <button
+                  class="flex-1 py-2 rounded-xl text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-white transition-all"
+                  @click="showEditForm = false"
+                >Cancel</button>
+                <button
+                  class="flex-1 py-2 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50"
+                  style="background: linear-gradient(135deg, #2563eb, #4f46e5);"
+                  :disabled="savingEdit"
+                  @click="saveEdit"
+                >{{ savingEdit ? 'Saving…' : 'Save' }}</button>
+              </div>
+            </div>
+          </Transition>
+
+          <!-- Totals -->
+          <div class="px-5 py-4 space-y-2.5 text-sm border-b border-slate-100">
+            <div class="flex justify-between text-slate-500"><span>Subtotal</span><span>₱{{ fmt(order.subtotal) }}</span></div>
+            <div v-if="Number(order.extra_fees)" class="flex justify-between text-slate-500"><span>Extra fees</span><span>₱{{ fmt(order.extra_fees) }}</span></div>
+            <div v-if="Number(order.discount_amount)" class="flex justify-between text-slate-500"><span>Discount</span><span class="text-red-500">−₱{{ fmt(order.discount_amount) }}</span></div>
+            <div class="flex justify-between font-bold text-base text-slate-900 pt-2 border-t border-slate-100">
+              <span>Total</span><span>₱{{ fmt(order.total_amount) }}</span>
+            </div>
+          </div>
+
+          <!-- Payment list -->
+          <div v-if="!order.payments?.length" class="px-5 py-6 text-sm text-center text-slate-300">No payments recorded</div>
           <div v-else class="divide-y divide-slate-50">
             <div v-for="p in order.payments" :key="p.id" class="flex items-center gap-2 px-5 py-3">
               <div
                 class="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold"
                 :style="p.type === 'refund' ? 'background:#fee2e2;color:#dc2626;' : 'background:#dbeafe;color:#1d4ed8;'"
-              >
-                {{ p.method?.charAt(0).toUpperCase() }}
-              </div>
+              >{{ p.method?.charAt(0).toUpperCase() }}</div>
               <div class="flex-1 min-w-0">
                 <div class="text-sm font-semibold text-slate-700 capitalize">{{ p.method }}</div>
                 <div class="text-xs text-slate-400 capitalize">
@@ -790,7 +843,6 @@ onMounted(load)
           <!-- Inline payment form -->
           <Transition name="slide-down">
             <div v-if="showPaymentForm" class="border-t border-slate-100 p-4 space-y-3 bg-slate-50">
-              <!-- Method -->
               <div class="flex gap-1">
                 <button
                   v-for="m in ['cash','gcash']"
@@ -802,14 +854,10 @@ onMounted(load)
                   @click="newPayment.method = m"
                 >{{ m.toUpperCase() }}</button>
               </div>
-
-              <!-- Amount (display-only) -->
               <div class="flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-xl">
                 <span class="text-xs text-slate-500">Amount</span>
                 <span class="text-base font-bold text-slate-900">₱{{ fmt(newPayment.amount) }}</span>
               </div>
-
-              <!-- Cash tendered -->
               <template v-if="newPayment.method === 'cash'">
                 <div class="grid grid-cols-4 gap-1">
                   <button
@@ -869,8 +917,6 @@ onMounted(load)
                   <span>₱{{ fmt(Number(newPayment.tendered) - Number(newPayment.amount)) }}</span>
                 </div>
               </template>
-
-              <!-- GCash ref (optional) -->
               <div v-else class="flex items-center gap-2">
                 <span class="text-xs text-slate-500 w-16 shrink-0">Ref # <span class="text-slate-400">(opt)</span></span>
                 <input
@@ -879,9 +925,7 @@ onMounted(load)
                   class="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
                 />
               </div>
-
               <div v-if="paymentFormError" class="text-xs text-red-500 font-medium px-1">{{ paymentFormError }}</div>
-
               <div class="flex gap-2 pt-1">
                 <button
                   class="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-white transition-all active:scale-[0.98]"
@@ -902,71 +946,6 @@ onMounted(load)
               </div>
             </div>
           </Transition>
-        </div>
-
-        <!-- Totals -->
-        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden animate-slide-up stagger-2" style="box-shadow: var(--shadow-card);">
-          <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-            <h3 class="font-bold text-slate-900">Summary</h3>
-            <button
-              v-if="order.status !== 'completed' && auth.isCashier"
-              class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 border border-slate-200 hover:bg-slate-50 px-3 py-1.5 rounded-xl transition-all active:scale-95"
-              @click="showEditForm ? showEditForm = false : openEditForm()"
-            >
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-              {{ showEditForm ? 'Cancel' : 'Edit' }}
-            </button>
-          </div>
-
-          <!-- Edit form -->
-          <Transition name="slide-down">
-            <div v-if="showEditForm" class="px-5 py-4 border-b border-slate-100 bg-slate-50 space-y-3">
-              <div class="flex items-center gap-3">
-                <label class="text-xs font-semibold text-slate-500 w-24 shrink-0">Extra fees</label>
-                <div class="relative flex-1">
-                  <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">₱</span>
-                  <input
-                    v-model="editForm.extra_fees"
-                    type="number" min="0" step="1"
-                    class="w-full border border-slate-200 rounded-xl pl-7 pr-3 py-2 text-sm text-right bg-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
-                  />
-                </div>
-              </div>
-              <div class="flex items-start gap-3">
-                <label class="text-xs font-semibold text-slate-500 w-24 shrink-0 mt-2">Notes</label>
-                <textarea
-                  v-model="editForm.notes"
-                  rows="2"
-                  placeholder="e.g. Delivery requested"
-                  class="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all resize-none"
-                />
-              </div>
-              <div class="flex gap-2 pt-1">
-                <button
-                  class="flex-1 py-2 rounded-xl text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-white transition-all"
-                  @click="showEditForm = false"
-                >Cancel</button>
-                <button
-                  class="flex-1 py-2 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50"
-                  style="background: linear-gradient(135deg, #2563eb, #4f46e5);"
-                  :disabled="savingEdit"
-                  @click="saveEdit"
-                >{{ savingEdit ? 'Saving…' : 'Save' }}</button>
-              </div>
-            </div>
-          </Transition>
-
-          <div class="p-5 space-y-2.5 text-sm">
-            <div class="flex justify-between text-slate-500"><span>Subtotal</span><span>₱{{ fmt(order.subtotal) }}</span></div>
-            <div v-if="Number(order.extra_fees)" class="flex justify-between text-slate-500"><span>Extra fees</span><span>₱{{ fmt(order.extra_fees) }}</span></div>
-            <div v-if="Number(order.discount_amount)" class="flex justify-between text-slate-500"><span>Discount</span><span class="text-red-500">−₱{{ fmt(order.discount_amount) }}</span></div>
-            <div class="flex justify-between font-bold text-base text-slate-900 pt-2.5 border-t border-slate-100">
-              <span>Total</span><span>₱{{ fmt(order.total_amount) }}</span>
-            </div>
-            <div v-if="order.notes" class="pt-2 border-t border-slate-100 text-xs text-slate-400">
-              Notes: {{ order.notes }}
-            </div>
-          </div>
         </div>
       </div>
     </div>
