@@ -52,22 +52,6 @@
 <script setup>
 const changelog = [
   {
-    version: '1.10.4',
-    date: 'June 6, 2026',
-    latest: true,
-    sections: [
-      {
-        title: 'Improvements',
-        type: 'improvement',
-        items: [
-          'POS: **Fees & notes** section is now collapsed by default — tap to expand when needed',
-          'POS: tapping **New Order** after a successful checkout now returns to the services list instead of staying on the cart',
-          'Day Summary: now restricted to **admin and super_admin** only',
-        ],
-      },
-    ],
-  },
-  {
     version: '1.10.2',
     date: 'June 6, 2026',
     latest: false,
@@ -84,6 +68,9 @@ const changelog = [
           'POS: cart **remove (✕) button is now always visible** — was hidden on touch devices since it relied on hover',
           'Settings: **Loyalty Program** section removed (points per peso, min redeem) — stamp-based loyalty rules still work as before',
           'Customer Detail: loyalty tier badge removed',
+		  'POS: **Fees & notes** section is now collapsed by default — tap to expand when needed',
+          'POS: tapping **New Order** after a successful checkout now returns to the services list instead of staying on the cart',
+          'Day Summary: now restricted to **admin** only',
         ],
       },
     ],
