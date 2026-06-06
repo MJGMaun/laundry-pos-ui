@@ -430,7 +430,15 @@ async function processPayment() {
             }
         }
 
-        lastOrder.value = order;
+        const totalPaid = payments.value.reduce((sum, p) => {
+            if (p.method === 'cash') {
+                const t = Number(p.tendered || 0);
+                return t > 0 ? sum + Math.min(t, Number(p.amount || t)) : sum;
+            }
+            const a = Number(p.amount || 0);
+            return a > 0 ? sum + a : sum;
+        }, 0);
+        lastOrder.value = { ...order, paid_amount: totalPaid };
         lastRedeemedReward.value = cart.appliedLoyaltyReward;
         cart.clear();
         customerLoyalty.value = null;
