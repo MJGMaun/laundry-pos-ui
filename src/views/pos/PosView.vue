@@ -598,7 +598,7 @@ const inCart = (serviceId) =>
     cart.items.some((i) => i.service_id === serviceId);
 
 const mobileTab = ref('catalog');
-const showExtras = ref(false);
+const showExtras = ref(true);
 
 onMounted(loadServices);
 watch(() => branch.currentBranchId, loadServices);
@@ -1169,31 +1169,29 @@ watch(() => branch.currentBranchId, loadServices);
                 <!-- Collapsible content -->
                 <Transition name="dropdown">
                     <div v-if="showExtras" class="space-y-2 px-3 pb-2.5">
-                        <div
-                            class="flex items-center gap-2 text-xs text-slate-500"
-                        >
-                            <span class="w-20 shrink-0">Pickup fee</span>
-                            <input
-                                v-model="cart.pickupFee"
-                                type="number"
-                                min="0"
-                                step="1"
-                                placeholder="0"
-                                class="flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-right text-sm transition-all focus:border-blue-400 focus:outline-none"
-                            />
-                        </div>
-                        <div
-                            class="flex items-center gap-2 text-xs text-slate-500"
-                        >
-                            <span class="w-20 shrink-0">Delivery fee</span>
-                            <input
-                                v-model="cart.deliveryFee"
-                                type="number"
-                                min="0"
-                                step="1"
-                                placeholder="0"
-                                class="flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-right text-sm transition-all focus:border-blue-400 focus:outline-none"
-                            />
+                        <div class="grid grid-cols-2 gap-2 text-xs text-slate-500">
+                            <div class="flex items-center gap-1.5">
+                                <span class="shrink-0">Pickup</span>
+                                <input
+                                    v-model="cart.pickupFee"
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    placeholder="0"
+                                    class="min-w-0 flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-right text-sm transition-all focus:border-blue-400 focus:outline-none"
+                                />
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <span class="shrink-0">Delivery</span>
+                                <input
+                                    v-model="cart.deliveryFee"
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    placeholder="0"
+                                    class="min-w-0 flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-right text-sm transition-all focus:border-blue-400 focus:outline-none"
+                                />
+                            </div>
                         </div>
                         <textarea
                             v-model="cart.notes"
