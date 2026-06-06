@@ -68,23 +68,6 @@ const changelog = [
     ],
   },
   {
-    version: '1.10.3',
-    date: 'June 6, 2026',
-    latest: false,
-    sections: [
-      {
-        title: 'Improvements',
-        type: 'improvement',
-        items: [
-          'POS: **header and navigation no longer scroll** — only the service grid and cart list scroll internally; the rest of the layout stays fixed',
-          'POS: cart **remove (✕) button is now always visible** — was hidden on touch devices since it relied on hover',
-          'Settings: **Loyalty Program** section removed (points per peso, min redeem) — stamp-based loyalty rules still work as before',
-          'Customer Detail: loyalty tier badge removed',
-        ],
-      },
-    ],
-  },
-  {
     version: '1.10.2',
     date: 'June 6, 2026',
     latest: false,
@@ -96,8 +79,11 @@ const changelog = [
           'Order Detail: **Add Loads** and **Record Payment** are now modals — less clutter, easier to use on small screens',
           'Order Detail: layout reorganized — Loads on the left, a combined **Summary + Payments** card on the right; totals and payment history in one place',
           'Order Detail: cashiers and staff can now **Add Loads** without a "Failed to load services" error — the services endpoint is now accessible to all roles',
-          'POS: **Fees & notes** section is now open by default so cashiers can see and fill it without an extra tap',
           'POS: Pickup fee and Delivery fee are now **side by side** (50/50) instead of stacked — saves vertical space in the cart',
+          'POS: **header and navigation no longer scroll** — only the service grid and cart list scroll internally; the rest of the layout stays fixed',
+          'POS: cart **remove (✕) button is now always visible** — was hidden on touch devices since it relied on hover',
+          'Settings: **Loyalty Program** section removed (points per peso, min redeem) — stamp-based loyalty rules still work as before',
+          'Customer Detail: loyalty tier badge removed',
         ],
       },
     ],
