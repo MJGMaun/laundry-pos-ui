@@ -887,14 +887,12 @@ watch(() => branch.currentBranchId, loadServices);
             <!-- Step 1 nav -->
             <div v-if="currentStep === 1">
                 <button
-                    class="w-full rounded-2xl py-4 text-sm font-bold transition-all active:scale-[0.98]"
-                    :class="cart.customer
-                        ? 'text-white'
-                        : 'border-2 border-slate-200 text-slate-500 hover:border-slate-300'"
-                    :style="cart.customer ? 'background:linear-gradient(135deg,#2563eb,#4f46e5);box-shadow:0 4px 14px rgba(37,99,235,0.3)' : ''"
+                    class="w-full rounded-2xl py-4 text-sm font-bold text-white transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                    style="background:linear-gradient(135deg,#2563eb,#4f46e5);box-shadow:0 4px 14px rgba(37,99,235,0.3)"
+                    :disabled="!cart.customer"
                     @click="currentStep = 2"
                 >
-                    {{ cart.customer ? 'Continue to Services →' : 'Continue as Walk-in →' }}
+                    Continue to Services →
                 </button>
             </div>
 
