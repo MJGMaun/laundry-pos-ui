@@ -145,7 +145,6 @@ async function loadServices() {
             const branchId = branch.currentBranchId
                 ? Number(branch.currentBranchId)
                 : null;
-            // Try branch-filtered first, fall back to all if nothing cached under that branch
             if (branchId) {
                 services = await db.services.where('branch_id').equals(branchId).toArray();
             }
@@ -164,7 +163,6 @@ async function loadServices() {
             if (s.category && !catMap.has(s.category_id))
                 catMap.set(s.category_id, s.category);
         });
-        // Fill in any categories missing from the service embed using the cached categories table
         if (catMap.size === 0 || services.some((s) => s.category_id && !s.category)) {
             const dbCats = await db.service_categories.toArray();
             dbCats.forEach((c) => { if (!catMap.has(c.id)) catMap.set(c.id, c); });
@@ -231,12 +229,10 @@ watchEffect(() => {
         return;
     }
 
-    // Existing pending free_load rewards
     const existingCount = loyalty.pending_rewards.filter(
         (r) => r.rule?.reward_type === 'free_load'
     ).length;
 
-    // Only eligible services earn stamps; ineligible ones are ignored (not blocking)
     const cartStamps = Math.floor(
         cart.items
             .filter((i) => i.is_loyalty_eligible)
@@ -259,7 +255,6 @@ watchEffect(() => {
         return;
     }
 
-    // Discount = sum of top N unit prices, expanded by quantity
     const expandedPrices = cart.items
         .flatMap((i) => Array(Math.floor(i.quantity)).fill(i.unit_price))
         .sort((a, b) => b - a);
@@ -283,7 +278,6 @@ async function saveNewCustomer() {
         const { createCustomer } = await import('@/api/customers.js');
         const res = await createCustomer(newCustomer.value);
         const customer = res.data.data || res.data;
-        // Cache in local db so this customer is findable in future offline searches
         await db.customers.put({
             ...customer,
             branch_id:
@@ -297,7 +291,6 @@ async function saveNewCustomer() {
         displayPhone.value = '';
     } catch (e) {
         if (isOfflineError(e)) {
-            // Create a temporary local customer so the cashier can attach them to the order
             const tempId = 'offline_' + Date.now();
             const tempCustomer = {
                 id: tempId,
@@ -308,7 +301,7 @@ async function saveNewCustomer() {
                 loyalty_points: 0,
                 total_visits: 0,
                 total_spent: '0.00',
-                _offline: true, // flag so the order knows to use offline_customer_temp_id
+                _offline: true,
             };
             await db.customers.put(tempCustomer);
             await queue.enqueueCustomer(newCustomer.value, tempId);
@@ -467,11 +460,10 @@ async function processPayment() {
         });
         const order = orderRes.data.data || orderRes.data;
 
-        // Auto-detect: tendered=0 → pay later, tendered<total → downpayment, else → full payment
         for (const p of payments.value) {
             if (p.method === 'cash') {
                 const tendered = Number(p.tendered || 0);
-                if (tendered <= 0) continue; // nothing tendered = pay later, skip
+                if (tendered <= 0) continue;
                 const amount = Math.min(tendered, Number(p.amount || tendered));
                 await createPayment(order.id, {
                     method: 'cash',
@@ -506,7 +498,6 @@ async function processPayment() {
                 customer_id: isOfflineCustomer
                     ? null
                     : cart.customer?.id || null,
-                // sync.js will resolve this temp id to the real customer id when back online
                 ...(isOfflineCustomer && {
                     offline_customer_temp_id: cart.customer.id,
                 }),
@@ -596,9 +587,10 @@ const cartItemCount = computed(() =>
 );
 const inCart = (serviceId) =>
     cart.items.some((i) => i.service_id === serviceId);
+const cartQty = (svc) =>
+    cart.items.find((i) => i.service_id === svc.id)?.quantity ?? 0;
 
 const mobileTab = ref('catalog');
-const showExtras = ref(false);
 
 onMounted(loadServices);
 watch(() => branch.currentBranchId, loadServices);
@@ -606,623 +598,364 @@ watch(() => branch.currentBranchId, loadServices);
 
 <template>
     <div class="flex h-full flex-col overflow-hidden sm:flex-row">
-        <!-- ───── LEFT: Service Catalog ───── -->
+
+        <!-- ───── LEFT: Customer Select OR Service Catalog ───── -->
         <div
             class="flex min-h-0 flex-col overflow-hidden bg-slate-50 sm:min-w-0 sm:flex-1"
-            :class="
-                mobileTab === 'catalog'
-                    ? 'flex min-w-0 flex-1 pb-14 sm:pb-0'
-                    : 'hidden sm:flex'
-            "
+            :class="mobileTab === 'catalog' ? 'flex min-w-0 flex-1 pb-14 sm:pb-0' : 'hidden sm:flex'"
         >
-            <!-- Category tabs -->
-            <div
-                class="flex shrink-0 items-center gap-1.5 overflow-x-auto border-b border-slate-200 bg-white px-4 py-3"
-                style="scrollbar-width: none"
-            >
-                <button
-                    class="cat-tab"
-                    :class="
-                        activeCategory === null
-                            ? 'cat-tab-active'
-                            : 'cat-tab-inactive'
-                    "
-                    @click="activeCategory = null"
-                >
-                    All
-                </button>
-                <button
-                    v-for="cat in categories"
-                    :key="cat.id"
-                    class="cat-tab"
-                    :class="
-                        activeCategory === cat.id
-                            ? 'cat-tab-active'
-                            : 'cat-tab-inactive'
-                    "
-                    @click="activeCategory = cat.id"
-                >
-                    {{ categoryEmoji(cat) }} {{ cat.name }}
-                </button>
-            </div>
+            <!-- ── Customer selection screen (no customer yet) ── -->
+            <div v-if="!cart.customer" class="flex flex-1 flex-col overflow-y-auto">
+                <div class="flex flex-1 flex-col items-center justify-center gap-5 p-6 sm:p-10">
+                    <div class="text-center">
+                        <div class="mb-3 text-5xl sm:text-6xl">👋</div>
+                        <h2 class="text-xl font-bold text-slate-800 sm:text-2xl">Who's the customer?</h2>
+                        <p class="mt-1 text-sm text-slate-400">Search or add a new customer to get started</p>
+                    </div>
 
-            <!-- Service grid -->
-            <div class="min-h-0 flex-1 overflow-y-auto p-4">
-                <!-- Skeleton loading -->
-                <div
-                    v-if="loadingServices"
-                    class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4"
-                >
-                    <div
-                        v-for="n in 8"
-                        :key="n"
-                        class="skeleton h-24 rounded-2xl"
-                    />
-                </div>
-
-                <div
-                    v-else-if="!filteredServices.length"
-                    class="flex h-48 flex-col items-center justify-center gap-2 text-slate-400"
-                >
-                    <span class="text-4xl">🧺</span>
-                    <span class="text-sm">No services in this category</span>
-                </div>
-
-                <div
-                    v-else
-                    class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4"
-                >
-                    <button
-                        v-for="(svc, i) in filteredServices"
-                        :key="svc.id"
-                        class="service-card animate-scale-in"
-                        :class="inCart(svc.id) ? 'service-card-active' : ''"
-                        :style="`animation-delay: ${i * 20}ms`"
-                        @click="
-                            inCart(svc.id)
-                                ? cart.removeItem(svc.id)
-                                : cart.addItem(svc)
-                        "
-                    >
-                        <div class="flex w-full items-start justify-between">
-                            <div class="service-card-emoji">
-                                {{ serviceEmoji(svc) }}
-                            </div>
-                            <div
-                                class="text-xl font-bold"
-                                style="color: #2563eb"
-                            >
-                                {{ formatPrice(svc) }}
-                            </div>
-                        </div>
-                        <div
-                            class="w-full line-clamp-2 text-sm leading-tight font-semibold text-slate-800"
-                        >
-                            {{ svc.name }}
-                        </div>
-
-                        <!-- Loyalty stamp indicator -->
-                        <div
-                            v-if="svc.is_loyalty_eligible"
-                            class="absolute top-1.5 left-1.5 text-[10px] leading-none"
-                            title="Earns loyalty stamps"
-                        >
-                            🎫
-                        </div>
-
-                        <!-- In-cart indicator: shows ✓ normally, ✕ on hover to hint removal -->
-                        <div v-if="inCart(svc.id)" class="service-card-check">
+                    <div class="w-full max-w-sm space-y-3">
+                        <!-- Big search input -->
+                        <div class="relative">
                             <svg
-                                class="check-icon h-3 w-3"
+                                class="pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-slate-400"
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
                             >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="3"
-                                    d="M5 13l4 4L19 7"
-                                />
+                                <circle cx="11" cy="11" r="8" />
+                                <path d="M21 21l-4.35-4.35" />
                             </svg>
-                            <svg
-                                class="remove-icon h-3 w-3"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="3"
-                                    d="M6 18L18 6M6 6l12 12"
-                                />
-                            </svg>
-                        </div>
-
-                        <!-- Add ripple overlay -->
-                        <div class="service-card-ripple" />
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- ───── RIGHT: Cart ───── -->
-        <div
-            class="flex min-h-0 flex-col overflow-hidden border-l border-slate-200 bg-white sm:w-72 sm:shrink-0 lg:w-80 xl:w-96"
-            :class="
-                mobileTab === 'cart'
-                    ? 'flex flex-1 pb-14 sm:pb-0'
-                    : 'hidden sm:flex'
-            "
-        >
-            <!-- Scrollable: customer + cart header + items -->
-            <div class="min-h-0 flex-1 overflow-y-auto">
-
-            <!-- Customer section -->
-            <div class="border-b border-slate-100 p-3">
-                <div v-if="cart.customer" class="space-y-2">
-                    <div
-                        class="animate-scale-in flex items-center gap-2.5 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2.5"
-                    >
-                        <div
-                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white"
-                        >
-                            {{ cart.customer.name?.charAt(0).toUpperCase() }}
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <div
-                                class="truncate text-sm font-semibold text-slate-900"
-                            >
-                                {{ cart.customer.name }}
-                            </div>
-                            <div class="text-xs text-slate-500">
-                                {{ cart.customer.phone }}
+                            <input
+                                v-model="customerQuery"
+                                placeholder="Search by name or phone…"
+                                class="w-full rounded-2xl border-2 border-slate-200 py-4 pr-4 pl-12 text-base transition-all focus:border-blue-400 focus:ring-4 focus:ring-blue-100 focus:outline-none"
+                            />
+                            <div v-if="searchingCustomer" class="absolute top-1/2 right-4 -translate-y-1/2">
+                                <svg class="h-4 w-4 animate-spin text-blue-500" viewBox="0 0 24 24" fill="none">
+                                    <circle cx="12" cy="12" r="10" stroke="rgba(59,130,246,0.3)" stroke-width="3" />
+                                    <path d="M12 2a10 10 0 0110 10" stroke="#3b82f6" stroke-width="3" stroke-linecap="round" />
+                                </svg>
                             </div>
                         </div>
-                        <button
-                            class="flex h-6 w-6 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-red-100 hover:text-red-500"
-                            @click="
-                                cart.setCustomer(null);
-                                customerLoyalty = null;
-                                selectedReward = null;
-                            "
-                        >
-                            ✕
-                        </button>
-                    </div>
 
-                    <!-- Stamp card -->
-                    <div
-                        v-if="customerLoyalty"
-                        class="space-y-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5"
-                    >
-                        <!-- Progress per rule -->
-                        <div
-                            v-for="rule in customerLoyalty.rules"
-                            :key="rule.id"
-                            class="space-y-1"
-                        >
-                            <div class="flex items-center justify-between">
-                                <span class="text-xs text-slate-500">{{
-                                    rule.reward_description
-                                }}</span>
-                                <span
-                                    class="text-xs font-semibold text-slate-700"
+                        <!-- Search results -->
+                        <Transition name="dropdown">
+                            <div v-if="customerResults.length" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                                <button
+                                    v-for="c in customerResults"
+                                    :key="c.id"
+                                    class="flex w-full items-center gap-3 border-b border-slate-100 px-4 py-3.5 text-left transition-colors last:border-0 hover:bg-blue-50 active:bg-blue-100"
+                                    @click="selectCustomer(c)"
                                 >
-                                    {{
-                                        customerLoyalty.total_stamps %
-                                        rule.every_n_stamps
-                                    }}/{{ rule.every_n_stamps }}
-                                </span>
-                            </div>
-                            <div
-                                class="h-1.5 overflow-hidden rounded-full bg-slate-200"
-                            >
-                                <div
-                                    class="h-full rounded-full transition-all duration-500"
-                                    style="
-                                        background: linear-gradient(
-                                            90deg,
-                                            #3b82f6,
-                                            #6366f1
-                                        );
-                                    "
-                                    :style="`width: ${((customerLoyalty.total_stamps % rule.every_n_stamps) / rule.every_n_stamps) * 100}%`"
-                                />
-                            </div>
-                        </div>
-
-                        <!-- Pending rewards -->
-                        <div
-                            v-if="customerLoyalty.pending_rewards.length"
-                            class="space-y-1 pt-1"
-                        >
-                            <div class="text-xs font-semibold text-slate-500">
-                                Available rewards
-                            </div>
-                            <button
-                                v-for="reward in customerLoyalty.pending_rewards"
-                                :key="reward.id"
-                                class="flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-xs font-medium transition-all"
-                                :class="
-                                    selectedReward?.id === reward.id
-                                        ? 'border-green-300 bg-green-50 text-green-700'
-                                        : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300'
-                                "
-                                @click="
-                                    selectedReward =
-                                        selectedReward?.id === reward.id
-                                            ? null
-                                            : reward
-                                "
-                            >
-                                <span>🎁</span>
-                                <span class="flex-1 truncate">{{
-                                    reward.rule?.reward_description
-                                }}</span>
-                                <span
-                                    v-if="selectedReward?.id === reward.id"
-                                    class="font-bold text-green-600"
-                                    >✓ Use</span
-                                >
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                <div v-else class="space-y-2">
-                    <div class="relative">
-                        <svg
-                            class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <circle cx="11" cy="11" r="8" />
-                            <path d="M21 21l-4.35-4.35" />
-                        </svg>
-                        <input
-                            v-model="customerQuery"
-                            placeholder="Search customer…"
-                            class="w-full rounded-xl border border-slate-200 py-2 pr-3 pl-9 text-sm transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:outline-none"
-                        />
-                        <div
-                            v-if="searchingCustomer"
-                            class="absolute top-1/2 right-3 -translate-y-1/2"
-                        >
-                            <svg
-                                class="h-3.5 w-3.5 animate-spin text-blue-500"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                            >
-                                <circle
-                                    cx="12"
-                                    cy="12"
-                                    r="10"
-                                    stroke="rgba(59,130,246,0.3)"
-                                    stroke-width="3"
-                                />
-                                <path
-                                    d="M12 2a10 10 0 0110 10"
-                                    stroke="#3b82f6"
-                                    stroke-width="3"
-                                    stroke-linecap="round"
-                                />
-                            </svg>
-                        </div>
-                    </div>
-
-                    <Transition name="dropdown">
-                        <div
-                            v-if="customerResults.length"
-                            class="overflow-hidden rounded-xl border border-slate-200 shadow-sm"
-                        >
-                            <button
-                                v-for="c in customerResults"
-                                :key="c.id"
-                                class="flex w-full items-center gap-2.5 border-b border-slate-100 px-3 py-2 text-left transition-colors last:border-0 hover:bg-slate-50"
-                                @click="selectCustomer(c)"
-                            >
-                                <div
-                                    class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700"
-                                >
-                                    {{ c.name?.charAt(0).toUpperCase() }}
-                                </div>
-                                <div class="min-w-0">
-                                    <div
-                                        class="truncate text-sm font-medium text-slate-800"
-                                    >
-                                        {{ c.name }}
+                                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-700">
+                                        {{ c.name?.charAt(0).toUpperCase() }}
                                     </div>
-                                    <div class="text-xs text-slate-400">
-                                        {{ c.phone }}
+                                    <div class="min-w-0 flex-1">
+                                        <div class="text-sm font-semibold text-slate-800">{{ c.name }}</div>
+                                        <div class="text-xs text-slate-400">{{ c.phone }}</div>
                                     </div>
-                                </div>
-                            </button>
-                        </div>
-                    </Transition>
+                                    <svg class="h-4 w-4 shrink-0 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </Transition>
 
-                    <div class="flex items-center gap-2">
+                        <!-- New customer toggle -->
                         <button
-                            class="text-xs font-medium text-blue-600 hover:text-blue-700"
+                            class="w-full rounded-2xl border-2 border-dashed border-blue-200 py-3.5 text-sm font-semibold text-blue-600 transition-all hover:border-blue-300 hover:bg-blue-50 active:scale-[0.98]"
                             @click="showNewCustomerForm = !showNewCustomerForm"
                         >
-                            + New customer
+                            {{ showNewCustomerForm ? '− Cancel' : '+ New Customer' }}
                         </button>
-                    </div>
 
-                    <Transition name="dropdown">
-                        <div
-                            v-if="showNewCustomerForm"
-                            class="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3"
-                        >
-                            <div>
+                        <!-- New customer form -->
+                        <Transition name="dropdown">
+                            <div v-if="showNewCustomerForm" class="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                                <div>
+                                    <input
+                                        v-model="newCustomer.name"
+                                        @input="capitalizeField('name'); nameError = ''"
+                                        placeholder="Full name *"
+                                        class="w-full rounded-xl border px-3 py-3 text-sm transition-all focus:border-blue-400 focus:outline-none"
+                                        :class="nameError ? 'border-red-300' : 'border-slate-200'"
+                                    />
+                                    <p v-if="nameError" class="mt-1 px-0.5 text-xs text-red-500">{{ nameError }}</p>
+                                </div>
+                                <div>
+                                    <input
+                                        :value="displayPhone"
+                                        @input="onPhoneInput"
+                                        placeholder="Phone number * (11 digits)"
+                                        maxlength="13"
+                                        class="w-full rounded-xl border px-3 py-3 text-sm transition-all focus:border-blue-400 focus:outline-none"
+                                        :class="phoneError ? 'border-red-300' : 'border-slate-200'"
+                                    />
+                                    <p v-if="phoneError" class="mt-1 px-0.5 text-xs text-red-500">{{ phoneError }}</p>
+                                </div>
                                 <input
-                                    v-model="newCustomer.name"
-                                    @input="capitalizeField('name'); nameError = ''"
-                                    placeholder="Name *"
-                                    class="w-full rounded-lg border px-2.5 py-2 text-sm transition-all focus:border-blue-400 focus:outline-none"
-                                    :class="nameError ? 'border-red-300' : 'border-slate-200'"
+                                    v-model="newCustomer.address"
+                                    @input="capitalizeField('address')"
+                                    placeholder="Address (optional)"
+                                    class="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm transition-all focus:border-blue-400 focus:outline-none"
                                 />
-                                <p v-if="nameError" class="mt-1 px-0.5 text-xs text-red-500">{{ nameError }}</p>
+                                <div class="flex gap-2">
+                                    <button
+                                        class="flex-1 rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white transition-all hover:bg-blue-700 active:scale-95 disabled:opacity-50"
+                                        :disabled="savingCustomer || !newCustomer.name || !newCustomer.phone"
+                                        @click="saveNewCustomer"
+                                    >{{ savingCustomer ? 'Saving…' : 'Save & Select' }}</button>
+                                    <button
+                                        class="px-3 text-sm text-slate-500 hover:text-slate-700"
+                                        @click="showNewCustomerForm = false"
+                                    >Cancel</button>
+                                </div>
                             </div>
-                            <div>
-                                <input
-                                    :value="displayPhone"
-                                    @input="onPhoneInput"
-                                    placeholder="Phone * (11 digits)"
-                                    maxlength="13"
-                                    class="w-full rounded-lg border px-2.5 py-2 text-sm transition-all focus:border-blue-400 focus:outline-none"
-                                    :class="
-                                        phoneError
-                                            ? 'border-red-300'
-                                            : 'border-slate-200'
-                                    "
-                                />
-                                <p
-                                    v-if="phoneError"
-                                    class="mt-1 px-0.5 text-xs text-red-500"
-                                >
-                                    {{ phoneError }}
-                                </p>
-                            </div>
-                            <input
-                                v-model="newCustomer.address"
-                                @input="capitalizeField('address')"
-                                placeholder="Address"
-                                class="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm transition-all focus:border-blue-400 focus:outline-none"
-                            />
-                            <div class="flex gap-2">
-                                <button
-                                    class="flex-1 rounded-lg bg-blue-600 py-2 text-xs font-semibold text-white transition-all hover:bg-blue-700 active:scale-95 disabled:opacity-50"
-                                    :disabled="
-                                        savingCustomer ||
-                                        !newCustomer.name ||
-                                        !newCustomer.phone
-                                    "
-                                    @click="saveNewCustomer"
-                                >
-                                    {{ savingCustomer ? 'Saving…' : 'Save' }}
-                                </button>
-                                <button
-                                    class="px-2 text-xs text-slate-500 hover:text-slate-700"
-                                    @click="showNewCustomerForm = false"
-                                >
-                                    Cancel
-                                </button>
-                            </div>
-                        </div>
-                    </Transition>
+                        </Transition>
+                    </div>
                 </div>
             </div>
 
-            <!-- Cart header -->
-            <div
-                class="flex shrink-0 items-center justify-between border-b border-slate-100 px-3 py-2"
-            >
-                <span
-                    class="text-xs font-semibold tracking-wider text-slate-500 uppercase"
-                    >Cart</span
-                >
-                <span v-if="cart.items.length" class="text-xs text-slate-400"
-                    >{{ cart.items.length }} item{{
-                        cart.items.length !== 1 ? 's' : ''
-                    }}</span
-                >
-            </div>
+            <!-- ── Service catalog (customer selected) ── -->
+            <template v-else>
+                <!-- Customer name bar -->
+                <div class="flex shrink-0 items-center justify-between border-b border-blue-100 bg-blue-50 px-4 py-2.5">
+                    <div class="flex items-center gap-2">
+                        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
+                            {{ cart.customer.name?.charAt(0).toUpperCase() }}
+                        </div>
+                        <span class="text-sm font-semibold text-slate-800">{{ cart.customer.name }}</span>
+                    </div>
+                    <button
+                        class="text-xs text-slate-400 transition-colors hover:text-red-500"
+                        @click="cart.setCustomer(null); customerLoyalty = null; selectedReward = null;"
+                    >Change</button>
+                </div>
 
-            <!-- Cart items -->
-            <div>
+                <!-- Category tabs -->
                 <div
-                    v-if="!cart.items.length"
-                    class="flex h-40 flex-col items-center justify-center gap-2 text-slate-300"
+                    class="flex shrink-0 items-center gap-1.5 overflow-x-auto border-b border-slate-200 bg-white px-4 py-3"
+                    style="scrollbar-width: none"
                 >
-                    <svg
-                        class="h-10 w-10"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                    >
-                        <circle cx="9" cy="21" r="1" />
-                        <circle cx="20" cy="21" r="1" />
-                        <path
-                            d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"
-                        />
-                    </svg>
-                    <span class="text-sm">Tap a service to add</span>
+                    <button
+                        class="cat-tab"
+                        :class="activeCategory === null ? 'cat-tab-active' : 'cat-tab-inactive'"
+                        @click="activeCategory = null"
+                    >All</button>
+                    <button
+                        v-for="cat in categories"
+                        :key="cat.id"
+                        class="cat-tab"
+                        :class="activeCategory === cat.id ? 'cat-tab-active' : 'cat-tab-inactive'"
+                        @click="activeCategory = cat.id"
+                    >{{ categoryEmoji(cat) }} {{ cat.name }}</button>
                 </div>
 
-                <TransitionGroup
-                    name="cart"
-                    tag="div"
-                    class="divide-y divide-slate-100"
-                >
+                <!-- Service grid -->
+                <div class="min-h-0 flex-1 overflow-y-auto p-4">
                     <div
-                        v-for="item in cart.items"
-                        :key="item.service_id"
-                        class="group flex items-center gap-2 px-3 py-2.5 transition-colors hover:bg-slate-50"
+                        v-if="loadingServices"
+                        class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4"
                     >
-                        <div class="min-w-0 flex-1">
-                            <div
-                                class="truncate text-sm font-semibold text-slate-800"
-                            >
-                                {{ item.service_name }}
-                            </div>
-                            <div class="text-xs text-slate-400">
-                                ₱{{ fmt(item.unit_price) }} ×
-                                {{ item.quantity }}
-                            </div>
-                        </div>
+                        <div v-for="n in 8" :key="n" class="skeleton h-28 rounded-2xl" />
+                    </div>
 
-                        <!-- Qty control -->
-                        <div class="flex shrink-0 items-center gap-1">
-                            <button
-                                class="qty-btn"
-                                @click="
-                                    cart.updateQuantity(
-                                        item.service_id,
-                                        item.quantity -
-                                            (item.pricing_type === 'per_kilo'
-                                                ? 0.5
-                                                : 1)
-                                    )
-                                "
-                            >
-                                −
-                            </button>
-                            <input
-                                :value="item.quantity"
-                                type="number"
-                                :min="item.pricing_type === 'per_kilo' ? 0.5 : 1"
-                                :step="item.pricing_type === 'per_kilo' ? 0.5 : 1"
-                                class="w-12 rounded-md border border-slate-200 px-1 py-0.5 text-center text-sm transition-all focus:border-blue-400 focus:outline-none"
-                                @change="
-                                    cart.updateQuantity(
-                                        item.service_id,
-                                        Number($event.target.value)
-                                    )
-                                "
-                            />
-                            <button
-                                class="qty-btn"
-                                @click="
-                                    cart.updateQuantity(
-                                        item.service_id,
-                                        item.quantity +
-                                            (item.pricing_type === 'per_kilo'
-                                                ? 0.5
-                                                : 1)
-                                    )
-                                "
-                            >
-                                +
-                            </button>
-                        </div>
+                    <div
+                        v-else-if="!filteredServices.length"
+                        class="flex h-48 flex-col items-center justify-center gap-2 text-slate-400"
+                    >
+                        <span class="text-4xl">🧺</span>
+                        <span class="text-sm">No services in this category</span>
+                    </div>
 
+                    <div
+                        v-else
+                        class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4"
+                    >
                         <div
-                            class="w-14 shrink-0 text-right text-sm font-bold text-slate-900"
+                            v-for="(svc, i) in filteredServices"
+                            :key="svc.id"
+                            class="service-card animate-scale-in"
+                            :class="inCart(svc.id) ? 'service-card-active' : ''"
+                            :style="`animation-delay: ${i * 20}ms`"
+                            @click="!inCart(svc.id) && cart.addItem(svc)"
                         >
-                            ₱{{ fmt(item.unit_price * item.quantity) }}
-                        </div>
+                            <div class="flex w-full items-start justify-between">
+                                <div class="service-card-emoji">{{ serviceEmoji(svc) }}</div>
+                                <div class="text-xl font-bold" style="color: #2563eb">{{ formatPrice(svc) }}</div>
+                            </div>
+                            <div class="w-full line-clamp-2 text-sm font-semibold leading-tight text-slate-800">
+                                {{ svc.name }}
+                            </div>
 
+                            <!-- Loyalty stamp indicator -->
+                            <div
+                                v-if="svc.is_loyalty_eligible"
+                                class="absolute top-1.5 left-1.5 text-[10px] leading-none"
+                                title="Earns loyalty stamps"
+                            >🎫</div>
+
+                            <!-- Qty controls + remove (when in cart) -->
+                            <div v-if="inCart(svc.id)" class="mt-1 flex w-full items-center gap-1">
+                                <div
+                                    class="flex flex-1 items-center justify-between rounded-xl px-1 py-1"
+                                    style="background: #2563eb"
+                                >
+                                    <button
+                                        class="flex h-8 w-8 items-center justify-center rounded-lg text-base font-bold text-white transition-all active:scale-90"
+                                        style="background: rgba(255,255,255,0.18)"
+                                        @click.stop="cart.updateQuantity(svc.id, cartQty(svc) - (svc.pricing_type === 'per_kilo' ? 0.5 : 1))"
+                                    >−</button>
+                                    <span class="min-w-[24px] text-center text-sm font-bold text-white">
+                                        {{ cartQty(svc) }}
+                                    </span>
+                                    <button
+                                        class="flex h-8 w-8 items-center justify-center rounded-lg text-base font-bold text-white transition-all active:scale-90"
+                                        style="background: rgba(255,255,255,0.18)"
+                                        @click.stop="cart.updateQuantity(svc.id, cartQty(svc) + (svc.pricing_type === 'per_kilo' ? 0.5 : 1))"
+                                    >+</button>
+                                </div>
+                                <button
+                                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-red-100 text-xs text-red-500 transition-all active:scale-90 hover:bg-red-200"
+                                    @click.stop="cart.removeItem(svc.id)"
+                                >✕</button>
+                            </div>
+
+                            <!-- Ripple (when not in cart) -->
+                            <div v-else class="service-card-ripple" />
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- ───── RIGHT: Order Summary ───── -->
+        <div
+            class="flex min-h-0 flex-col overflow-hidden border-l border-slate-200 bg-white sm:w-72 sm:shrink-0 lg:w-80"
+            :class="mobileTab === 'cart' ? 'flex flex-1 pb-14 sm:pb-0' : 'hidden sm:flex'"
+        >
+            <!-- Customer chip -->
+            <div class="shrink-0 border-b border-slate-100 p-3">
+                <div v-if="cart.customer" class="animate-scale-in flex items-center gap-2.5 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2.5">
+                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
+                        {{ cart.customer.name?.charAt(0).toUpperCase() }}
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="truncate text-sm font-semibold text-slate-900">{{ cart.customer.name }}</div>
+                        <div class="text-xs text-slate-500">{{ cart.customer.phone }}</div>
+                    </div>
+                    <button
+                        class="flex h-6 w-6 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-red-100 hover:text-red-500"
+                        @click="cart.setCustomer(null); customerLoyalty = null; selectedReward = null;"
+                    >✕</button>
+                </div>
+                <div v-else class="flex items-center justify-center rounded-xl border-2 border-dashed border-slate-200 py-3 text-sm text-slate-400">
+                    No customer selected
+                </div>
+            </div>
+
+            <!-- Loyalty stamp card -->
+            <div v-if="customerLoyalty" class="shrink-0 border-b border-slate-100 p-3">
+                <div class="space-y-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                    <div v-for="rule in customerLoyalty.rules" :key="rule.id" class="space-y-1">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-slate-500">{{ rule.reward_description }}</span>
+                            <span class="text-xs font-semibold text-slate-700">
+                                {{ customerLoyalty.total_stamps % rule.every_n_stamps }}/{{ rule.every_n_stamps }}
+                            </span>
+                        </div>
+                        <div class="h-1.5 overflow-hidden rounded-full bg-slate-200">
+                            <div
+                                class="h-full rounded-full transition-all duration-500"
+                                style="background: linear-gradient(90deg, #3b82f6, #6366f1)"
+                                :style="`width: ${((customerLoyalty.total_stamps % rule.every_n_stamps) / rule.every_n_stamps) * 100}%`"
+                            />
+                        </div>
+                    </div>
+                    <div v-if="customerLoyalty.pending_rewards.length" class="space-y-1 pt-1">
+                        <div class="text-xs font-semibold text-slate-500">Available rewards</div>
                         <button
-                            class="flex h-6 w-6 items-center justify-center rounded-full text-slate-400 transition-all hover:bg-red-50 hover:text-red-500 active:scale-90"
-                            @click="cart.removeItem(item.service_id)"
+                            v-for="reward in customerLoyalty.pending_rewards"
+                            :key="reward.id"
+                            class="flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-xs font-medium transition-all"
+                            :class="selectedReward?.id === reward.id ? 'border-green-300 bg-green-50 text-green-700' : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300'"
+                            @click="selectedReward = selectedReward?.id === reward.id ? null : reward"
                         >
-                            ✕
+                            <span>🎁</span>
+                            <span class="flex-1 truncate">{{ reward.rule?.reward_description }}</span>
+                            <span v-if="selectedReward?.id === reward.id" class="font-bold text-green-600">✓ Use</span>
                         </button>
                     </div>
-                </TransitionGroup>
+                </div>
             </div>
 
-            </div><!-- end scroll wrapper -->
-
-            <!-- Extra fees (collapsible) -->
-            <div class="shrink-0 border-t border-slate-100">
-                <!-- Toggle row -->
-                <button
-                    class="flex w-full items-center justify-between px-3 py-2 text-xs text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600"
-                    @click="showExtras = !showExtras"
-                >
-                    <span class="flex items-center gap-1.5 font-medium">
-                        <span>Fees &amp; notes</span>
-                        <span
-                            v-if="
-                                Number(cart.pickupFee) +
-                                    Number(cart.deliveryFee) >
-                                    0 || cart.notes
-                            "
-                            class="inline-flex h-1.5 w-1.5 items-center justify-center rounded-full bg-blue-500"
-                        />
+            <!-- Item count + clear -->
+            <div v-if="cart.items.length" class="shrink-0 border-b border-slate-100 px-3 py-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-slate-500">
+                        {{ cart.items.length }} service{{ cart.items.length !== 1 ? 's' : '' }}
+                        · {{ cartItemCount }} load{{ cartItemCount !== 1 ? 's' : '' }}
                     </span>
-                    <svg
-                        class="h-3.5 w-3.5 transition-transform duration-200"
-                        :class="showExtras ? 'rotate-180' : ''"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2.5"
-                            d="M19 9l-7 7-7-7"
-                        />
-                    </svg>
-                </button>
-
-                <!-- Collapsible content -->
-                <Transition name="dropdown">
-                    <div v-if="showExtras" class="space-y-2 px-3 pb-2.5">
-                        <div class="grid grid-cols-2 gap-2 text-xs text-slate-500">
-                            <div class="flex items-center gap-1.5">
-                                <span class="shrink-0">Pickup</span>
-                                <input
-                                    v-model="cart.pickupFee"
-                                    type="number"
-                                    min="0"
-                                    step="1"
-                                    placeholder="0"
-                                    class="min-w-0 flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-right text-sm transition-all focus:border-blue-400 focus:outline-none"
-                                />
-                            </div>
-                            <div class="flex items-center gap-1.5">
-                                <span class="shrink-0">Delivery</span>
-                                <input
-                                    v-model="cart.deliveryFee"
-                                    type="number"
-                                    min="0"
-                                    step="1"
-                                    placeholder="0"
-                                    class="min-w-0 flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-right text-sm transition-all focus:border-blue-400 focus:outline-none"
-                                />
-                            </div>
-                        </div>
-                        <textarea
-                            v-model="cart.notes"
-                            placeholder="Order notes…"
-                            rows="2"
-                            class="w-full resize-none rounded-lg border border-slate-200 px-2 py-1.5 text-sm transition-all focus:border-blue-400 focus:outline-none"
-                        />
-                        <div class="flex flex-wrap gap-1.5">
-                            <button
-                                v-for="tag in ['No spray', 'Med temp only', 'Has eco bag', 'Has basket', 'Delicate', 'No fabric softener', 'Separate colors']"
-                                :key="tag"
-                                type="button"
-                                class="px-2 py-0.5 rounded-full text-xs font-medium border transition-all active:scale-95"
-                                :class="cart.notes?.includes(tag)
-                                    ? 'bg-blue-100 border-blue-300 text-blue-700'
-                                    : 'bg-white border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-600'"
-                                @click="cart.notes = cart.notes?.includes(tag)
-                                    ? cart.notes.replace(tag, '').replace(/^[,\s]+|[,\s]+$/g, '').replace(/,\s*,/g, ',').trim()
-                                    : cart.notes ? cart.notes + ', ' + tag : tag"
-                            >{{ tag }}</button>
-                        </div>
-                    </div>
-                </Transition>
+                    <button
+                        class="text-xs text-slate-400 transition-colors hover:text-red-500"
+                        @click="cart.clear(); customerLoyalty = null; selectedReward = null;"
+                    >Clear all</button>
+                </div>
             </div>
 
-            <!-- Total + Checkout -->
+            <!-- Fees & Notes (always expanded, scrollable) -->
+            <div class="min-h-0 flex-1 overflow-y-auto p-3 space-y-2.5">
+                <div class="text-xs font-semibold tracking-wide text-slate-400 uppercase">Fees &amp; Notes</div>
+
+                <div class="grid grid-cols-2 gap-2 text-xs text-slate-500">
+                    <div class="flex items-center gap-1.5">
+                        <span class="shrink-0">Pickup</span>
+                        <input
+                            v-model="cart.pickupFee"
+                            type="number"
+                            min="0"
+                            step="1"
+                            placeholder="0"
+                            class="min-w-0 flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-right text-sm transition-all focus:border-blue-400 focus:outline-none"
+                        />
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="shrink-0">Delivery</span>
+                        <input
+                            v-model="cart.deliveryFee"
+                            type="number"
+                            min="0"
+                            step="1"
+                            placeholder="0"
+                            class="min-w-0 flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-right text-sm transition-all focus:border-blue-400 focus:outline-none"
+                        />
+                    </div>
+                </div>
+
+                <textarea
+                    v-model="cart.notes"
+                    placeholder="Order notes…"
+                    rows="2"
+                    class="w-full resize-none rounded-lg border border-slate-200 px-2 py-1.5 text-sm transition-all focus:border-blue-400 focus:outline-none"
+                />
+
+                <div class="flex flex-wrap gap-1.5">
+                    <button
+                        v-for="tag in ['No spray', 'Med temp only', 'Has eco bag', 'Has basket', 'Delicate', 'No fabric softener', 'Separate colors']"
+                        :key="tag"
+                        type="button"
+                        class="rounded-full border px-2 py-0.5 text-xs font-medium transition-all active:scale-95"
+                        :class="cart.notes?.includes(tag)
+                            ? 'bg-blue-100 border-blue-300 text-blue-700'
+                            : 'bg-white border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-600'"
+                        @click="cart.notes = cart.notes?.includes(tag)
+                            ? cart.notes.replace(tag, '').replace(/^[,\s]+|[,\s]+$/g, '').replace(/,\s*,/g, ',').trim()
+                            : cart.notes ? cart.notes + ', ' + tag : tag"
+                    >{{ tag }}</button>
+                </div>
+            </div>
+
+            <!-- Totals + Checkout -->
             <div class="shrink-0 border-t border-slate-200 p-3">
                 <div class="mb-1 flex justify-between text-xs text-slate-500">
                     <span>Subtotal</span><span>₱{{ fmt(cart.subtotal) }}</span>
@@ -1231,109 +964,60 @@ watch(() => branch.currentBranchId, loadServices);
                     v-if="Number(cart.pickupFee) + Number(cart.deliveryFee) > 0"
                     class="mb-1 flex justify-between text-xs text-slate-500"
                 >
-                    <span>Fees</span
-                    ><span
-                        >₱{{
-                            fmt(
-                                Number(cart.pickupFee) +
-                                    Number(cart.deliveryFee)
-                            )
-                        }}</span
-                    >
+                    <span>Fees</span>
+                    <span>₱{{ fmt(Number(cart.pickupFee) + Number(cart.deliveryFee)) }}</span>
                 </div>
                 <div
                     v-if="cart.loyaltyDiscount > 0"
                     class="mb-1 flex items-center justify-between text-xs"
                 >
-                    <div
-                        class="flex items-center gap-1 font-medium text-green-600"
-                    >
-                        <span
-                            >🎁
-                            {{
-                                cart.appliedLoyaltyReward?.count > 1
-                                    ? `${cart.appliedLoyaltyReward.count}× free loads`
-                                    : 'Free load'
-                            }}</span
-                        >
+                    <div class="flex items-center gap-1 font-medium text-green-600">
+                        <span>🎁 {{ cart.appliedLoyaltyReward?.count > 1 ? `${cart.appliedLoyaltyReward.count}× free loads` : 'Free load' }}</span>
                         <button
                             class="leading-none text-slate-300 transition-colors hover:text-red-400"
-                            @click="
-                                cart.clearLoyaltyReward();
-                                selectedReward = null;
-                            "
-                        >
-                            ✕
-                        </button>
+                            @click="cart.clearLoyaltyReward(); selectedReward = null;"
+                        >✕</button>
                     </div>
-                    <span class="font-semibold text-green-600"
-                        >−₱{{ fmt(cart.loyaltyDiscount) }}</span
-                    >
+                    <span class="font-semibold text-green-600">−₱{{ fmt(cart.loyaltyDiscount) }}</span>
                 </div>
-                <div
-                    class="mb-3 flex justify-between text-base font-bold text-slate-900"
-                >
+                <div class="mb-3 flex justify-between text-base font-bold text-slate-900">
                     <span>Total</span>
-                    <span class="text-xl transition-all duration-200"
-                        >₱{{ fmt(cart.total) }}</span
-                    >
+                    <span class="text-xl transition-all duration-200">₱{{ fmt(cart.total) }}</span>
                 </div>
 
                 <button
-                    class="w-full rounded-2xl py-3.5 text-sm font-bold text-white transition-all duration-200 active:scale-[0.98] disabled:opacity-40"
+                    class="w-full rounded-2xl py-4 text-sm font-bold text-white transition-all duration-200 active:scale-[0.98] disabled:opacity-40"
                     :disabled="!cart.items.length"
-                    style="
-                        background: linear-gradient(135deg, #16a34a, #15803d);
-                        box-shadow: 0 4px 14px rgba(22, 163, 74, 0.35);
-                    "
+                    style="background: linear-gradient(135deg, #16a34a, #15803d); box-shadow: 0 4px 14px rgba(22,163,74,0.35);"
                     :style="cart.items.length ? '' : 'box-shadow: none;'"
                     @click="openPayment"
                 >
                     Checkout · ₱{{ fmt(cart.total) }} →
                 </button>
-
-                <button
-                    v-if="cart.items.length"
-                    class="mt-1 w-full py-2 text-xs text-slate-400 transition-colors hover:text-red-500"
-                    @click="
-                        cart.clear();
-                        customerLoyalty = null;
-                        selectedReward = null;
-                    "
-                >
-                    Clear cart
-                </button>
             </div>
         </div>
 
         <!-- ───── Mobile Tab Bar ───── -->
-        <div
-            class="fixed right-0 bottom-0 left-0 z-20 flex border-t border-slate-200 bg-white sm:hidden"
-        >
+        <div class="fixed right-0 bottom-0 left-0 z-20 flex border-t border-slate-200 bg-white sm:hidden">
             <button
                 class="flex flex-1 flex-col items-center gap-0.5 py-2.5 text-xs font-semibold transition-colors"
-                :class="
-                    mobileTab === 'catalog' ? 'text-blue-600' : 'text-slate-400'
-                "
+                :class="mobileTab === 'catalog' ? 'text-blue-600' : 'text-slate-400'"
                 @click="mobileTab = 'catalog'"
             >
-                <span class="text-lg leading-none">🧺</span>
-                <span>Services</span>
+                <span class="text-lg leading-none">{{ cart.customer ? '🧺' : '👤' }}</span>
+                <span>{{ cart.customer ? 'Services' : 'Customer' }}</span>
             </button>
             <button
                 class="relative flex flex-1 flex-col items-center gap-0.5 py-2.5 text-xs font-semibold transition-colors"
-                :class="
-                    mobileTab === 'cart' ? 'text-blue-600' : 'text-slate-400'
-                "
+                :class="mobileTab === 'cart' ? 'text-blue-600' : 'text-slate-400'"
                 @click="mobileTab = 'cart'"
             >
                 <span class="text-lg leading-none">🛒</span>
-                <span>Cart</span>
+                <span>Order</span>
                 <span
                     v-if="cartItemCount > 0"
                     class="absolute top-1.5 right-[calc(50%-22px)] flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white"
-                    >{{ cartItemCount }}</span
-                >
+                >{{ cartItemCount }}</span>
             </button>
         </div>
 
@@ -1343,483 +1027,285 @@ watch(() => branch.currentBranchId, loadServices);
                 <div
                     v-if="showPayment"
                     class="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center"
-                    style="
-                        background: rgba(15, 23, 42, 0.6);
-                        backdrop-filter: blur(6px);
-                    "
+                    style="background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(6px);"
                 >
                     <Transition name="modal">
                         <div
                             class="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl"
-                            style="box-shadow: 0 32px 80px rgba(0, 0, 0, 0.3)"
+                            style="box-shadow: 0 32px 80px rgba(0,0,0,0.3)"
                         >
-                            <div
-                                class="border-b border-slate-100 px-6 pt-6 pb-4"
-                            >
+                            <div class="border-b border-slate-100 px-6 pt-6 pb-4">
                                 <div class="flex items-center justify-between">
                                     <div>
-                                        <h2
-                                            class="text-lg font-bold text-slate-900"
-                                        >
-                                            Payment
-                                        </h2>
-                                        <p
-                                            class="mt-0.5 text-sm text-slate-400"
-                                        >
-                                            Total:
-                                            <span
-                                                class="font-bold text-slate-800"
-                                                >₱{{ fmt(cart.total) }}</span
-                                            >
+                                        <h2 class="text-lg font-bold text-slate-900">Payment</h2>
+                                        <p class="mt-0.5 text-sm text-slate-400">
+                                            Total: <span class="font-bold text-slate-800">₱{{ fmt(cart.total) }}</span>
                                         </p>
                                     </div>
                                     <button
                                         class="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200"
                                         @click="showPayment = false"
-                                    >
-                                        ✕
-                                    </button>
+                                    >✕</button>
                                 </div>
                             </div>
 
-                            <div
-                                class="max-h-[70vh] space-y-3 overflow-y-auto px-6 py-4"
-                            >
+                            <div class="max-h-[70vh] space-y-3 overflow-y-auto px-6 py-4">
                                 <!-- Step 1: Customer -->
                                 <div
                                     class="rounded-2xl border-2 p-4 transition-all duration-200"
-                                    :class="
-                                        cart.customer
-                                            ? 'border-green-200 bg-green-50'
-                                            : 'border-blue-300 bg-blue-50'
-                                    "
+                                    :class="cart.customer ? 'border-green-200 bg-green-50' : 'border-blue-300 bg-blue-50'"
                                 >
                                     <div class="mb-3 flex items-center gap-2">
                                         <span
                                             class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white transition-colors duration-200"
-                                            :style="
-                                                cart.customer
-                                                    ? 'background:#16a34a'
-                                                    : 'background:#2563eb'
-                                            "
-                                            >{{ cart.customer ? '✓' : '1' }}</span
-                                        >
+                                            :style="cart.customer ? 'background:#16a34a' : 'background:#2563eb'"
+                                        >{{ cart.customer ? '✓' : '1' }}</span>
                                         <span
                                             class="text-sm font-semibold transition-colors duration-200"
-                                            :class="
-                                                cart.customer
-                                                    ? 'text-green-800'
-                                                    : 'text-blue-800'
-                                            "
-                                            >Customer</span
-                                        >
-                                        <span
-                                            v-if="!cart.customer"
-                                            class="text-xs text-blue-500"
-                                            >— fill in first</span
-                                        >
+                                            :class="cart.customer ? 'text-green-800' : 'text-blue-800'"
+                                        >Customer</span>
+                                        <span v-if="!cart.customer" class="text-xs text-blue-500">— fill in first</span>
                                     </div>
                                     <div class="space-y-2">
-
-                                    <!-- Selected customer chip -->
-                                    <div
-                                        v-if="cart.customer"
-                                        class="flex items-center gap-2.5 rounded-2xl border border-indigo-200 bg-indigo-50 p-2.5"
-                                    >
+                                        <!-- Selected customer chip -->
                                         <div
-                                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-                                            :style="`background: hsl(${(cart.customer.name?.charCodeAt(0) * 7) % 360}, 65%, 55%);`"
+                                            v-if="cart.customer"
+                                            class="flex items-center gap-2.5 rounded-2xl border border-indigo-200 bg-indigo-50 p-2.5"
                                         >
-                                            {{
-                                                cart.customer.name
-                                                    ?.charAt(0)
-                                                    .toUpperCase()
-                                            }}
-                                        </div>
-                                        <div class="min-w-0 flex-1">
                                             <div
-                                                class="truncate text-sm font-semibold text-slate-800"
-                                            >
-                                                {{ cart.customer.name }}
+                                                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                                                :style="`background: hsl(${(cart.customer.name?.charCodeAt(0) * 7) % 360}, 65%, 55%);`"
+                                            >{{ cart.customer.name?.charAt(0).toUpperCase() }}</div>
+                                            <div class="min-w-0 flex-1">
+                                                <div class="truncate text-sm font-semibold text-slate-800">{{ cart.customer.name }}</div>
+                                                <div class="text-xs text-slate-500">{{ cart.customer.phone }}</div>
                                             </div>
-                                            <div class="text-xs text-slate-500">
-                                                {{ cart.customer.phone }}
-                                            </div>
-                                        </div>
-                                        <button
-                                            class="flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-xs text-slate-400 transition-all hover:bg-red-50 hover:text-red-500"
-                                            @click="cart.setCustomer(null)"
-                                        >
-                                            ✕
-                                        </button>
-                                    </div>
-
-                                    <!-- Search when no customer -->
-                                    <template v-else>
-                                        <div class="relative">
-                                            <svg
-                                                class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                viewBox="0 0 24 24"
-                                            >
-                                                <circle cx="11" cy="11" r="8" />
-                                                <path d="M21 21l-4.35-4.35" />
-                                            </svg>
-                                            <input
-                                                v-model="customerQuery"
-                                                placeholder="Search customer by name or phone…"
-                                                class="w-full rounded-xl border border-slate-200 py-2.5 pr-4 pl-9 text-sm transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:outline-none"
-                                            />
-                                            <svg
-                                                v-if="searchingCustomer"
-                                                class="absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 animate-spin text-slate-400"
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                            >
-                                                <circle
-                                                    cx="12"
-                                                    cy="12"
-                                                    r="10"
-                                                    stroke="#e2e8f0"
-                                                    stroke-width="3"
-                                                />
-                                                <path
-                                                    d="M12 2a10 10 0 0110 10"
-                                                    stroke="#94a3b8"
-                                                    stroke-width="3"
-                                                    stroke-linecap="round"
-                                                />
-                                            </svg>
-                                        </div>
-
-                                        <Transition name="dropdown">
-                                            <div
-                                                v-if="customerResults.length"
-                                                class="overflow-hidden rounded-xl border border-slate-200 shadow-sm"
-                                            >
-                                                <button
-                                                    v-for="c in customerResults"
-                                                    :key="c.id"
-                                                    class="flex w-full items-center gap-2.5 border-b border-slate-100 px-3 py-2.5 text-left transition-colors last:border-0 hover:bg-slate-50"
-                                                    @click="selectCustomer(c)"
-                                                >
-                                                    <div
-                                                        class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700"
-                                                    >
-                                                        {{
-                                                            c.name
-                                                                ?.charAt(0)
-                                                                .toUpperCase()
-                                                        }}
-                                                    </div>
-                                                    <div class="min-w-0">
-                                                        <div
-                                                            class="truncate text-sm font-medium text-slate-800"
-                                                        >
-                                                            {{ c.name }}
-                                                        </div>
-                                                        <div
-                                                            class="text-xs text-slate-400"
-                                                        >
-                                                            {{ c.phone }}
-                                                        </div>
-                                                    </div>
-                                                </button>
-                                            </div>
-                                        </Transition>
-
-                                        <div class="flex items-center gap-2">
                                             <button
-                                                class="text-xs font-semibold text-blue-600 transition-colors hover:text-blue-700"
-                                                @click="
-                                                    showNewCustomerForm =
-                                                        !showNewCustomerForm
-                                                "
-                                            >
-                                                {{
-                                                    showNewCustomerForm
-                                                        ? '− Cancel'
-                                                        : '+ New customer'
-                                                }}
-                                            </button>
+                                                class="flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-xs text-slate-400 transition-all hover:bg-red-50 hover:text-red-500"
+                                                @click="cart.setCustomer(null)"
+                                            >✕</button>
                                         </div>
 
-                                        <Transition name="slide-down">
-                                            <div
-                                                v-if="showNewCustomerForm"
-                                                class="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3"
-                                            >
+                                        <!-- Search when no customer -->
+                                        <template v-else>
+                                            <div class="relative">
+                                                <svg class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
+                                                </svg>
                                                 <input
-                                                    v-model="newCustomer.name"
-                                                    @input="capitalizeField('name'); nameError = ''"
-                                                    placeholder="Name *"
-                                                    class="w-full rounded-lg border bg-white px-2.5 py-2 text-sm transition-all focus:border-blue-400 focus:outline-none"
-                                                    :class="nameError ? 'border-red-300' : 'border-slate-200'"
+                                                    v-model="customerQuery"
+                                                    placeholder="Search customer by name or phone…"
+                                                    class="w-full rounded-xl border border-slate-200 py-2.5 pr-4 pl-9 text-sm transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:outline-none"
                                                 />
-                                                <div>
-                                                    <input
-                                                        :value="displayPhone"
-                                                        @input="onPhoneInput"
-                                                        placeholder="Phone * (11 digits)"
-                                                        maxlength="13"
-                                                        class="w-full rounded-lg border bg-white px-2.5 py-2 text-sm transition-all focus:border-blue-400 focus:outline-none"
-                                                        :class="
-                                                            phoneError
-                                                                ? 'border-red-300'
-                                                                : 'border-slate-200'
-                                                        "
-                                                    />
-                                                    <p
-                                                        v-if="phoneError"
-                                                        class="mt-1 px-0.5 text-xs text-red-500"
-                                                    >
-                                                        {{ phoneError }}
-                                                    </p>
-                                                </div>
-                                                <input
-                                                    v-model="newCustomer.address"
-                                                    @input="capitalizeField('address')"
-                                                    placeholder="Address"
-                                                    class="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm transition-all focus:border-blue-400 focus:outline-none"
-                                                />
-                                                <div class="flex gap-2">
-                                                    <button
-                                                        class="flex-1 rounded-lg bg-blue-600 py-2 text-xs font-semibold text-white transition-all hover:bg-blue-700 active:scale-95 disabled:opacity-50"
-                                                        :disabled="
-                                                            savingCustomer ||
-                                                            !newCustomer.name ||
-                                                            !newCustomer.phone
-                                                        "
-                                                        @click="saveNewCustomer"
-                                                    >
-                                                        {{
-                                                            savingCustomer
-                                                                ? 'Saving…'
-                                                                : 'Save & Select'
-                                                        }}
-                                                    </button>
-                                                    <button
-                                                        class="px-3 text-xs text-slate-500 hover:text-slate-700"
-                                                        @click="
-                                                            showNewCustomerForm = false
-                                                        "
-                                                    >
-                                                        Cancel
-                                                    </button>
-                                                </div>
+                                                <svg v-if="searchingCustomer" class="absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 animate-spin text-slate-400" viewBox="0 0 24 24" fill="none">
+                                                    <circle cx="12" cy="12" r="10" stroke="#e2e8f0" stroke-width="3" />
+                                                    <path d="M12 2a10 10 0 0110 10" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" />
+                                                </svg>
                                             </div>
-                                        </Transition>
-                                    </template>
+
+                                            <Transition name="dropdown">
+                                                <div v-if="customerResults.length" class="overflow-hidden rounded-xl border border-slate-200 shadow-sm">
+                                                    <button
+                                                        v-for="c in customerResults"
+                                                        :key="c.id"
+                                                        class="flex w-full items-center gap-2.5 border-b border-slate-100 px-3 py-2.5 text-left transition-colors last:border-0 hover:bg-slate-50"
+                                                        @click="selectCustomer(c)"
+                                                    >
+                                                        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
+                                                            {{ c.name?.charAt(0).toUpperCase() }}
+                                                        </div>
+                                                        <div class="min-w-0">
+                                                            <div class="truncate text-sm font-medium text-slate-800">{{ c.name }}</div>
+                                                            <div class="text-xs text-slate-400">{{ c.phone }}</div>
+                                                        </div>
+                                                    </button>
+                                                </div>
+                                            </Transition>
+
+                                            <div class="flex items-center gap-2">
+                                                <button
+                                                    class="text-xs font-semibold text-blue-600 transition-colors hover:text-blue-700"
+                                                    @click="showNewCustomerForm = !showNewCustomerForm"
+                                                >{{ showNewCustomerForm ? '− Cancel' : '+ New customer' }}</button>
+                                            </div>
+
+                                            <Transition name="slide-down">
+                                                <div v-if="showNewCustomerForm" class="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                                    <input
+                                                        v-model="newCustomer.name"
+                                                        @input="capitalizeField('name'); nameError = ''"
+                                                        placeholder="Name *"
+                                                        class="w-full rounded-lg border bg-white px-2.5 py-2 text-sm transition-all focus:border-blue-400 focus:outline-none"
+                                                        :class="nameError ? 'border-red-300' : 'border-slate-200'"
+                                                    />
+                                                    <div>
+                                                        <input
+                                                            :value="displayPhone"
+                                                            @input="onPhoneInput"
+                                                            placeholder="Phone * (11 digits)"
+                                                            maxlength="13"
+                                                            class="w-full rounded-lg border bg-white px-2.5 py-2 text-sm transition-all focus:border-blue-400 focus:outline-none"
+                                                            :class="phoneError ? 'border-red-300' : 'border-slate-200'"
+                                                        />
+                                                        <p v-if="phoneError" class="mt-1 px-0.5 text-xs text-red-500">{{ phoneError }}</p>
+                                                    </div>
+                                                    <input
+                                                        v-model="newCustomer.address"
+                                                        @input="capitalizeField('address')"
+                                                        placeholder="Address"
+                                                        class="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm transition-all focus:border-blue-400 focus:outline-none"
+                                                    />
+                                                    <div class="flex gap-2">
+                                                        <button
+                                                            class="flex-1 rounded-lg bg-blue-600 py-2 text-xs font-semibold text-white transition-all hover:bg-blue-700 active:scale-95 disabled:opacity-50"
+                                                            :disabled="savingCustomer || !newCustomer.name || !newCustomer.phone"
+                                                            @click="saveNewCustomer"
+                                                        >{{ savingCustomer ? 'Saving…' : 'Save & Select' }}</button>
+                                                        <button
+                                                            class="px-3 text-xs text-slate-500 hover:text-slate-700"
+                                                            @click="showNewCustomerForm = false"
+                                                        >Cancel</button>
+                                                    </div>
+                                                </div>
+                                            </Transition>
+                                        </template>
                                     </div>
                                 </div>
 
                                 <!-- Step 2: Payment -->
                                 <div class="rounded-2xl border-2 border-slate-200 bg-slate-50 p-4">
                                     <div class="mb-3 flex items-center gap-2">
-                                        <span
-                                            class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-400 text-xs font-bold text-white"
-                                            >2</span
-                                        >
+                                        <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-400 text-xs font-bold text-white">2</span>
                                         <span class="text-sm font-semibold text-slate-700">Payment</span>
                                     </div>
 
-                                <div
-                                    v-for="(p, i) in payments"
-                                    :key="i"
-                                    class="animate-scale-in space-y-3"
-                                >
-                                    <div class="flex items-center gap-2">
-                                        <!-- Method tabs -->
-                                        <div class="flex flex-1 gap-1">
-                                            <button
-                                                v-for="m in ['cash', 'gcash']"
-                                                :key="m"
-                                                class="flex-1 rounded-lg py-1.5 text-xs font-semibold transition-all"
-                                                :class="
-                                                    p.method === m
-                                                        ? 'bg-blue-600 text-white shadow-sm'
-                                                        : 'border border-slate-200 bg-white text-slate-500 hover:border-slate-300'
-                                                "
-                                                @click="p.method = m"
-                                            >
-                                                {{ m.toUpperCase() }}
-                                            </button>
-                                        </div>
-                                        <button
-                                            v-if="payments.length > 1"
-                                            class="flex h-7 w-7 items-center justify-center rounded-full bg-red-100 text-xs text-red-500 transition-colors hover:bg-red-200"
-                                            @click="payments.splice(i, 1)"
-                                        >
-                                            ✕
-                                        </button>
-                                    </div>
-
-                                    <!-- ── Amount (display only) ── -->
-                                    <div class="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2.5">
-                                        <span class="text-xs text-slate-500">Amount</span>
-                                        <span class="text-base font-bold text-slate-900">₱{{ fmt(p.amount) }}</span>
-                                    </div>
-
-                                    <!-- Cash: quick-amount buttons + change -->
-                                    <template v-if="p.method === 'cash'">
-                                        <!-- Quick tendered amounts -->
-                                        <div class="grid grid-cols-3 gap-2">
-                                            <button
-                                                class="rounded-xl py-2.5 text-sm font-bold transition-all active:scale-95"
-                                                :class="p.tendered === p.amount && p.tendered !== ''
-                                                    ? 'bg-blue-600 text-white shadow-sm'
-                                                    : 'border-2 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'"
-                                                @click="p.tendered = p.amount; p.showCustom = false"
-                                            >Exact</button>
-                                            <button
-                                                v-for="b in quickAmounts()"
-                                                :key="b"
-                                                class="rounded-xl py-2.5 text-sm font-bold transition-all active:scale-95"
-                                                :class="Number(p.tendered) === b
-                                                    ? 'bg-slate-800 text-white shadow-sm'
-                                                    : 'border-2 border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'"
-                                                @click="p.tendered = String(b); p.showCustom = false"
-                                            >₱{{ b.toLocaleString() }}</button>
-                                            <button
-                                                class="rounded-xl py-2.5 text-sm font-bold transition-all active:scale-95"
-                                                :class="p.showCustom
-                                                    ? 'bg-slate-700 text-white shadow-sm'
-                                                    : 'border-2 border-slate-200 bg-white text-slate-500 hover:border-slate-300'"
-                                                @click="p.showCustom = !p.showCustom; if (p.showCustom) p.tendered = ''"
-                                            >Custom</button>
-                                        </div>
-
-                                        <!-- Custom amount input -->
-                                        <div v-if="p.showCustom" class="relative">
-                                            <span class="absolute top-1/2 left-3 -translate-y-1/2 text-sm text-slate-400">₱</span>
-                                            <input
-                                                v-model="p.tendered"
-                                                type="number"
-                                                step="1"
-                                                min="0"
-                                                placeholder="Enter amount given…"
-                                                autofocus
-                                                class="w-full rounded-xl border-2 border-slate-300 py-2.5 pr-3 pl-7 text-right text-sm font-semibold transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:outline-none"
-                                            />
-                                        </div>
-
-                                        <!-- Change -->
-                                        <Transition name="scale-in">
-                                            <div
-                                                v-if="Number(p.tendered) >= Number(p.amount) && Number(p.amount) > 0"
-                                                class="flex items-center justify-between rounded-xl px-3 py-2.5"
-                                                style="background: linear-gradient(135deg, #dcfce7, #bbf7d0);"
-                                            >
-                                                <span class="text-sm font-medium text-green-700">Change</span>
-                                                <span class="text-xl font-bold text-green-700">₱{{ fmt(Number(p.tendered) - Number(p.amount)) }}</span>
+                                    <div v-for="(p, i) in payments" :key="i" class="animate-scale-in space-y-3">
+                                        <div class="flex items-center gap-2">
+                                            <div class="flex flex-1 gap-1">
+                                                <button
+                                                    v-for="m in ['cash', 'gcash']"
+                                                    :key="m"
+                                                    class="flex-1 rounded-lg py-1.5 text-xs font-semibold transition-all"
+                                                    :class="p.method === m ? 'bg-blue-600 text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-500 hover:border-slate-300'"
+                                                    @click="p.method = m"
+                                                >{{ m.toUpperCase() }}</button>
                                             </div>
-                                        </Transition>
-                                    </template>
+                                            <button
+                                                v-if="payments.length > 1"
+                                                class="flex h-7 w-7 items-center justify-center rounded-full bg-red-100 text-xs text-red-500 transition-colors hover:bg-red-200"
+                                                @click="payments.splice(i, 1)"
+                                            >✕</button>
+                                        </div>
 
-                                    <!-- GCash: reference (optional) -->
-                                    <div v-else class="flex items-center gap-2">
-                                        <span class="w-16 shrink-0 text-xs text-slate-500">Ref # <span class="text-slate-400">(opt)</span></span>
-                                        <input
-                                            v-model="p.reference_number"
-                                            placeholder="Transaction reference (optional)"
-                                            class="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:outline-none"
-                                        />
+                                        <!-- Amount (display only) -->
+                                        <div class="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+                                            <span class="text-xs text-slate-500">Amount</span>
+                                            <span class="text-base font-bold text-slate-900">₱{{ fmt(p.amount) }}</span>
+                                        </div>
+
+                                        <!-- Cash: quick-amount buttons + change -->
+                                        <template v-if="p.method === 'cash'">
+                                            <div class="grid grid-cols-3 gap-2">
+                                                <button
+                                                    class="rounded-xl py-2.5 text-sm font-bold transition-all active:scale-95"
+                                                    :class="p.tendered === p.amount && p.tendered !== ''
+                                                        ? 'bg-blue-600 text-white shadow-sm'
+                                                        : 'border-2 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'"
+                                                    @click="p.tendered = p.amount; p.showCustom = false"
+                                                >Exact</button>
+                                                <button
+                                                    v-for="b in quickAmounts()"
+                                                    :key="b"
+                                                    class="rounded-xl py-2.5 text-sm font-bold transition-all active:scale-95"
+                                                    :class="Number(p.tendered) === b
+                                                        ? 'bg-slate-800 text-white shadow-sm'
+                                                        : 'border-2 border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'"
+                                                    @click="p.tendered = String(b); p.showCustom = false"
+                                                >₱{{ b.toLocaleString() }}</button>
+                                                <button
+                                                    class="rounded-xl py-2.5 text-sm font-bold transition-all active:scale-95"
+                                                    :class="p.showCustom
+                                                        ? 'bg-slate-700 text-white shadow-sm'
+                                                        : 'border-2 border-slate-200 bg-white text-slate-500 hover:border-slate-300'"
+                                                    @click="p.showCustom = !p.showCustom; if (p.showCustom) p.tendered = ''"
+                                                >Custom</button>
+                                            </div>
+
+                                            <div v-if="p.showCustom" class="relative">
+                                                <span class="absolute top-1/2 left-3 -translate-y-1/2 text-sm text-slate-400">₱</span>
+                                                <input
+                                                    v-model="p.tendered"
+                                                    type="number"
+                                                    step="1"
+                                                    min="0"
+                                                    placeholder="Enter amount given…"
+                                                    autofocus
+                                                    class="w-full rounded-xl border-2 border-slate-300 py-2.5 pr-3 pl-7 text-right text-sm font-semibold transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:outline-none"
+                                                />
+                                            </div>
+
+                                            <Transition name="scale-in">
+                                                <div
+                                                    v-if="Number(p.tendered) >= Number(p.amount) && Number(p.amount) > 0"
+                                                    class="flex items-center justify-between rounded-xl px-3 py-2.5"
+                                                    style="background: linear-gradient(135deg, #dcfce7, #bbf7d0);"
+                                                >
+                                                    <span class="text-sm font-medium text-green-700">Change</span>
+                                                    <span class="text-xl font-bold text-green-700">₱{{ fmt(Number(p.tendered) - Number(p.amount)) }}</span>
+                                                </div>
+                                            </Transition>
+                                        </template>
+
+                                        <!-- GCash: reference (optional) -->
+                                        <div v-else class="flex items-center gap-2">
+                                            <span class="w-16 shrink-0 text-xs text-slate-500">Ref # <span class="text-slate-400">(opt)</span></span>
+                                            <input
+                                                v-model="p.reference_number"
+                                                placeholder="Transaction reference (optional)"
+                                                class="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:outline-none"
+                                            />
+                                        </div>
                                     </div>
-                                </div>
 
-                                <!-- Split payment button -->
-                                <button
-                                    v-if="remainingAfterPayments > 0.01"
-                                    class="w-full rounded-2xl border-2 border-dashed border-blue-200 py-2.5 text-sm font-medium text-blue-600 transition-all hover:border-blue-300 hover:bg-blue-50 active:scale-[0.98]"
-                                    @click="addPaymentRow"
-                                >
-                                    + Split payment (₱{{
-                                        fmt(remainingAfterPayments)
-                                    }}
-                                    remaining)
-                                </button>
+                                    <!-- Split payment button -->
+                                    <button
+                                        v-if="remainingAfterPayments > 0.01"
+                                        class="w-full rounded-2xl border-2 border-dashed border-blue-200 py-2.5 text-sm font-medium text-blue-600 transition-all hover:border-blue-300 hover:bg-blue-50 active:scale-[0.98]"
+                                        @click="addPaymentRow"
+                                    >+ Split payment (₱{{ fmt(remainingAfterPayments) }} remaining)</button>
 
-                                <Transition name="shake">
-                                    <div
-                                        v-if="paymentError"
-                                        class="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-600"
-                                    >
-                                        <svg
-                                            class="h-4 w-4 shrink-0"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
+                                    <Transition name="shake">
+                                        <div
+                                            v-if="paymentError"
+                                            class="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-600"
                                         >
-                                            <circle cx="12" cy="12" r="10" />
-                                            <line
-                                                x1="15"
-                                                y1="9"
-                                                x2="9"
-                                                y2="15"
-                                            />
-                                            <line
-                                                x1="9"
-                                                y1="9"
-                                                x2="15"
-                                                y2="15"
-                                            />
-                                        </svg>
-                                        {{ paymentError }}
-                                    </div>
-                                </Transition>
-                                </div><!-- end step-2 -->
+                                            <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <circle cx="12" cy="12" r="10" />
+                                                <line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
+                                            </svg>
+                                            {{ paymentError }}
+                                        </div>
+                                    </Transition>
+                                </div>
                             </div>
 
-                            <div
-                                class="space-y-2 border-t border-slate-100 px-6 py-4"
-                            >
+                            <div class="space-y-2 border-t border-slate-100 px-6 py-4">
                                 <div class="flex gap-3">
                                     <button
                                         class="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-semibold text-slate-600 transition-all hover:bg-slate-50 active:scale-[0.98]"
                                         @click="showPayment = false"
-                                    >
-                                        Cancel
-                                    </button>
+                                    >Cancel</button>
                                     <button
                                         class="flex-1 rounded-2xl py-3 text-sm font-bold text-white transition-all active:scale-[0.98] disabled:opacity-50"
                                         :disabled="processingPayment"
-                                        style="
-                                            background: linear-gradient(
-                                                135deg,
-                                                #16a34a,
-                                                #15803d
-                                            );
-                                            box-shadow: 0 4px 14px
-                                                rgba(22, 163, 74, 0.35);
-                                        "
+                                        style="background: linear-gradient(135deg, #16a34a, #15803d); box-shadow: 0 4px 14px rgba(22,163,74,0.35);"
                                         @click="processPayment"
                                     >
-                                        <span v-if="!processingPayment"
-                                            >✓ {{ confirmLabel }}</span
-                                        >
-                                        <span
-                                            v-else
-                                            class="flex items-center justify-center gap-2"
-                                        >
-                                            <svg
-                                                class="h-4 w-4 animate-spin"
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                            >
-                                                <circle
-                                                    cx="12"
-                                                    cy="12"
-                                                    r="10"
-                                                    stroke="rgba(255,255,255,0.3)"
-                                                    stroke-width="3"
-                                                />
-                                                <path
-                                                    d="M12 2a10 10 0 0110 10"
-                                                    stroke="white"
-                                                    stroke-width="3"
-                                                    stroke-linecap="round"
-                                                />
+                                        <span v-if="!processingPayment">✓ {{ confirmLabel }}</span>
+                                        <span v-else class="flex items-center justify-center gap-2">
+                                            <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                                                <circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.3)" stroke-width="3" />
+                                                <path d="M12 2a10 10 0 0110 10" stroke="white" stroke-width="3" stroke-linecap="round" />
                                             </svg>
                                             Processing…
                                         </span>
@@ -1827,31 +1313,16 @@ watch(() => branch.currentBranchId, loadServices);
                                 </div>
                                 <div
                                     class="rounded-xl px-3 py-2 text-center text-xs font-medium transition-all"
-                                    :class="
-                                        effectiveTendered < 0.01
-                                            ? 'border border-amber-200 bg-amber-50 text-amber-700'
-                                            : effectiveTendered <
-                                                cart.total - 0.01
-                                              ? 'border border-blue-200 bg-blue-50 text-blue-700'
-                                              : 'border border-slate-200 bg-slate-50 text-slate-400'
-                                    "
+                                    :class="effectiveTendered < 0.01
+                                        ? 'border border-amber-200 bg-amber-50 text-amber-700'
+                                        : effectiveTendered < cart.total - 0.01
+                                            ? 'border border-blue-200 bg-blue-50 text-blue-700'
+                                            : 'border border-slate-200 bg-slate-50 text-slate-400'"
                                 >
-                                    <span v-if="effectiveTendered < 0.01"
-                                        >On Pay Later</span
-                                    >
-                                    <span
-                                        v-else-if="
-                                            effectiveTendered <
-                                            cart.total - 0.01
-                                        "
-                                        >Down payment of ₱{{
-                                            fmt(effectiveTendered)
-                                        }}
-                                        — balance ₱{{
-                                            fmt(cart.total - effectiveTendered)
-                                        }}
-                                        due on pickup</span
-                                    >
+                                    <span v-if="effectiveTendered < 0.01">On Pay Later</span>
+                                    <span v-else-if="effectiveTendered < cart.total - 0.01">
+                                        Down payment of ₱{{ fmt(effectiveTendered) }} — balance ₱{{ fmt(cart.total - effectiveTendered) }} due on pickup
+                                    </span>
                                     <span v-else>Full payment ✓</span>
                                 </div>
                             </div>
@@ -1862,10 +1333,7 @@ watch(() => branch.currentBranchId, loadServices);
         </Teleport>
 
         <!-- ───── Receipt Modal ───── -->
-        <ReceiptModal
-            :order-id="receiptOrderId"
-            @close="receiptOrderId = null"
-        />
+        <ReceiptModal :order-id="receiptOrderId" @close="receiptOrderId = null" />
 
         <!-- ───── Success Modal ───── -->
         <Teleport to="body">
@@ -1873,80 +1341,39 @@ watch(() => branch.currentBranchId, loadServices);
                 <div
                     v-if="showSuccess"
                     class="fixed inset-0 z-50 flex items-center justify-center p-4"
-                    style="
-                        background: rgba(15, 23, 42, 0.6);
-                        backdrop-filter: blur(6px);
-                    "
+                    style="background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(6px);"
                     @click.self="showSuccess = false"
                 >
                     <Transition name="modal">
                         <div
                             class="w-full max-w-sm rounded-3xl bg-white p-8 text-center"
-                            style="box-shadow: 0 32px 80px rgba(0, 0, 0, 0.3)"
+                            style="box-shadow: 0 32px 80px rgba(0,0,0,0.3)"
                         >
                             <div class="success-icon-wrapper">
                                 <div class="success-ring" />
-                                <div class="success-icon animate-bounce-in">
-                                    ✓
-                                </div>
+                                <div class="success-icon animate-bounce-in">✓</div>
                             </div>
-                            <h2
-                                class="mt-4 mb-1 text-xl font-bold text-slate-900"
-                            >
-                                Order Placed!
-                            </h2>
-                            <p class="font-mono text-sm text-slate-400">
-                                {{ lastOrder?.order_number }}
-                            </p>
-                            <div
-                                v-if="lastOrder?.customer"
-                                class="mt-2 text-sm text-slate-500"
-                            >
-                                {{
-                                    lastOrder.customer?.name ||
-                                    cart.customer?.name
-                                }}
+                            <h2 class="mt-4 mb-1 text-xl font-bold text-slate-900">Order Placed!</h2>
+                            <p class="font-mono text-sm text-slate-400">{{ lastOrder?.order_number }}</p>
+                            <div v-if="lastOrder?.customer" class="mt-2 text-sm text-slate-500">
+                                {{ lastOrder.customer?.name || cart.customer?.name }}
                             </div>
                             <div
                                 v-if="lastRedeemedReward"
                                 class="mt-3 flex items-center justify-center gap-1.5 rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-xs font-medium text-green-700"
                             >
-                                🎁
-                                {{
-                                    lastRedeemedReward.count > 1
-                                        ? `${lastRedeemedReward.count} free loads redeemed`
-                                        : '1 free load redeemed'
-                                }}
+                                🎁 {{ lastRedeemedReward.count > 1 ? `${lastRedeemedReward.count} free loads redeemed` : '1 free load redeemed' }}
                             </div>
 
-                            <!-- Print buttons -->
                             <div class="mt-5 flex gap-2">
                                 <button
-                                    class="flex-1 rounded-2xl py-3 text-sm font-bold text-white transition-all active:scale-[0.98] disabled:opacity-50"
-                                    style="
-                                        background: linear-gradient(
-                                            135deg,
-                                            #1d4ed8,
-                                            #4f46e5
-                                        );
-                                        box-shadow: 0 4px 14px
-                                            rgba(99, 102, 241, 0.3);
-                                    "
+                                    class="flex-1 rounded-2xl py-3 text-sm font-bold text-white transition-all active:scale-[0.98]"
+                                    style="background: linear-gradient(135deg, #1d4ed8, #4f46e5); box-shadow: 0 4px 14px rgba(99,102,241,0.3);"
                                     @click="receiptOrderId = lastOrder?.id"
-                                >
-                                    🖨 Receipt
-                                </button>
+                                >🖨 Receipt</button>
                                 <button
                                     class="flex-1 rounded-2xl py-3 text-sm font-bold text-white transition-all active:scale-[0.98] disabled:opacity-50"
-                                    style="
-                                        background: linear-gradient(
-                                            135deg,
-                                            #0f766e,
-                                            #0d9488
-                                        );
-                                        box-shadow: 0 4px 14px
-                                            rgba(13, 148, 136, 0.3);
-                                    "
+                                    style="background: linear-gradient(135deg, #0f766e, #0d9488); box-shadow: 0 4px 14px rgba(13,148,136,0.3);"
                                     :disabled="printingSlips"
                                     @click="printOrderSlips(lastOrder)"
                                 >
@@ -1958,32 +1385,13 @@ watch(() => branch.currentBranchId, loadServices);
                             <div class="mt-2 flex gap-2">
                                 <button
                                     class="flex-1 rounded-2xl border border-slate-200 py-3 text-sm font-semibold text-slate-600 transition-all hover:bg-slate-50 active:scale-[0.98]"
-                                    @click="
-                                        () => {
-                                            showSuccess = false;
-                                            router.push(
-                                                '/orders/' + lastOrder?.id
-                                            );
-                                        }
-                                    "
-                                >
-                                    View Order
-                                </button>
+                                    @click="() => { showSuccess = false; router.push('/orders/' + lastOrder?.id); }"
+                                >View Order</button>
                                 <button
                                     class="flex-1 rounded-2xl py-3 text-sm font-bold text-white transition-all active:scale-[0.98]"
-                                    style="
-                                        background: linear-gradient(
-                                            135deg,
-                                            #3b82f6,
-                                            #6366f1
-                                        );
-                                        box-shadow: 0 4px 14px
-                                            rgba(99, 102, 241, 0.35);
-                                    "
+                                    style="background: linear-gradient(135deg, #3b82f6, #6366f1); box-shadow: 0 4px 14px rgba(99,102,241,0.35);"
                                     @click="showSuccess = false; mobileTab = 'catalog'"
-                                >
-                                    New Order
-                                </button>
+                                >New Order</button>
                             </div>
                         </div>
                     </Transition>
@@ -2041,7 +1449,7 @@ watch(() => branch.currentBranchId, loadServices);
 .service-card:hover {
     border-color: #93c5fd;
     background: #f0f9ff;
-    transform: translateY(-3px);
+    transform: translateY(-2px);
     box-shadow: 0 8px 24px rgba(37, 99, 235, 0.12);
 }
 .service-card:active {
@@ -2050,45 +1458,21 @@ watch(() => branch.currentBranchId, loadServices);
 .service-card-active {
     border-color: #2563eb !important;
     background: #eff6ff !important;
+    cursor: default;
 }
 .service-card-active:hover {
-    border-color: #f87171 !important;
-    background: #fff1f2 !important;
-    box-shadow: 0 8px 24px rgba(239, 68, 68, 0.12) !important;
-}
-.service-card-active:hover .service-card-check {
-    background: #dc2626;
-}
-.remove-icon {
-    display: none;
-}
-.service-card-active:hover .check-icon {
-    display: none;
-}
-.service-card-active:hover .remove-icon {
-    display: block;
+    border-color: #2563eb !important;
+    background: #eff6ff !important;
+    transform: none;
+    box-shadow: none;
 }
 .service-card-emoji {
     font-size: 28px;
     line-height: 1;
     transition: transform 200ms ease;
 }
-.service-card:hover .service-card-emoji {
+.service-card:not(.service-card-active):hover .service-card-emoji {
     transform: scale(1.15) rotate(-5deg);
-}
-.service-card-check {
-    position: absolute;
-    bottom: 8px;
-    right: 8px;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: #2563eb;
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    animation: bounce-in 250ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .service-card-ripple {
     position: absolute;
@@ -2103,30 +1487,6 @@ watch(() => branch.currentBranchId, loadServices);
 }
 .service-card:active .service-card-ripple {
     opacity: 1;
-}
-
-/* Qty buttons */
-.qty-btn {
-    width: 26px;
-    height: 26px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    background: #f1f5f9;
-    border: none;
-    cursor: pointer;
-    font-size: 16px;
-    color: #475569;
-    transition: all 120ms ease;
-    line-height: 1;
-}
-.qty-btn:hover {
-    background: #e2e8f0;
-    color: #0f172a;
-}
-.qty-btn:active {
-    transform: scale(0.88);
 }
 
 /* Success icon */
@@ -2156,159 +1516,50 @@ watch(() => branch.currentBranchId, loadServices);
     border-radius: 50%;
 }
 @keyframes pulse-ring {
-    0% {
-        transform: scale(1);
-        opacity: 0.8;
-    }
-    100% {
-        transform: scale(1.6);
-        opacity: 0;
-    }
+    0% { transform: scale(1); opacity: 0.8; }
+    100% { transform: scale(1.6); opacity: 0; }
 }
 
 /* Transitions */
-.modal-backdrop-enter-active {
-    animation: fade-in 200ms ease both;
-}
-.modal-backdrop-leave-active {
-    animation: fade-in 150ms ease reverse both;
-}
-.modal-enter-active {
-    animation: scale-in 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-.modal-leave-active {
-    animation: scale-in 150ms ease reverse both;
-}
-.dropdown-enter-active {
-    animation: slide-down 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-.dropdown-leave-active {
-    animation: slide-down 120ms ease reverse both;
-}
-.scale-in-enter-active {
-    animation: scale-in 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-.scale-in-leave-active {
-    animation: scale-in 150ms ease reverse both;
-}
-.shake-enter-active {
-    animation: shake 350ms ease;
-}
-.cart-enter-active {
-    animation: cart-add 280ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-.cart-leave-active {
-    animation: slide-in-right 180ms ease reverse both;
-    position: absolute;
-    width: 100%;
-}
-.cart-move {
-    transition: transform 250ms ease;
-}
+.modal-backdrop-enter-active { animation: fade-in 200ms ease both; }
+.modal-backdrop-leave-active { animation: fade-in 150ms ease reverse both; }
+.modal-enter-active { animation: scale-in 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.modal-leave-active { animation: scale-in 150ms ease reverse both; }
+.dropdown-enter-active { animation: slide-down 180ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.dropdown-leave-active { animation: slide-down 120ms ease reverse both; }
+.scale-in-enter-active { animation: scale-in 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.scale-in-leave-active { animation: scale-in 150ms ease reverse both; }
+.shake-enter-active { animation: shake 350ms ease; }
 
 @keyframes fade-in {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 @keyframes slide-down {
-    from {
-        opacity: 0;
-        transform: translateY(-8px) scale(0.96);
-    }
-    to {
-        opacity: 1;
-        transform: none;
-    }
+    from { opacity: 0; transform: translateY(-8px) scale(0.96); }
+    to { opacity: 1; transform: none; }
 }
 @keyframes scale-in {
-    from {
-        opacity: 0;
-        transform: scale(0.92);
-    }
-    to {
-        opacity: 1;
-        transform: none;
-    }
+    from { opacity: 0; transform: scale(0.92); }
+    to { opacity: 1; transform: none; }
 }
 @keyframes bounce-in {
-    0% {
-        opacity: 0;
-        transform: scale(0.3);
-    }
-    50% {
-        transform: scale(1.08);
-    }
-    100% {
-        opacity: 1;
-        transform: none;
-    }
-}
-@keyframes cart-add {
-    0% {
-        opacity: 0;
-        transform: scale(0.8) translateX(20px);
-    }
-    60% {
-        transform: scale(1.03) translateX(0);
-    }
-    100% {
-        opacity: 1;
-        transform: none;
-    }
-}
-@keyframes slide-in-right {
-    from {
-        opacity: 0;
-        transform: translateX(20px);
-    }
-    to {
-        opacity: 1;
-        transform: none;
-    }
+    0% { opacity: 0; transform: scale(0.3); }
+    50% { transform: scale(1.08); }
+    100% { opacity: 1; transform: none; }
 }
 @keyframes shake {
-    0%,
-    100% {
-        transform: translateX(0);
-    }
-    20% {
-        transform: translateX(-6px);
-    }
-    40% {
-        transform: translateX(6px);
-    }
-    60% {
-        transform: translateX(-4px);
-    }
-    80% {
-        transform: translateX(4px);
-    }
-}
-@keyframes pulse-ring {
-    0% {
-        transform: scale(1);
-        opacity: 0.8;
-    }
-    100% {
-        transform: scale(1.6);
-        opacity: 0;
-    }
-}
-.animate-spin {
-    animation: spin 800ms linear infinite;
-}
-.animate-bounce-in {
-    animation: bounce-in 400ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
 }
 @keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
+    to { transform: rotate(360deg); }
 }
+.animate-spin { animation: spin 800ms linear infinite; }
+.animate-bounce-in { animation: bounce-in 400ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
 
 .slide-down-enter-active,
 .slide-down-leave-active {
