@@ -5,6 +5,7 @@ import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
 import { getOrder, updateOrderStatus, updateOrder, deleteOrder, markOrderDelivered } from '@/api/orders.js'
 import DatePicker from 'primevue/datepicker'
+import Dialog from 'primevue/dialog'
 import { addLoads } from '@/api/loads.js'
 import { getBranchServices } from '@/api/branches.js'
 import { useBranchStore } from '@/stores/branch.js'
@@ -710,9 +711,9 @@ onMounted(load)
             <button
               v-if="order.status !== 'completed' && auth.isCashier"
               class="flex items-center gap-1.5 text-xs font-semibold text-blue-600 border border-blue-200 hover:bg-blue-50 px-3 py-1.5 rounded-xl transition-all active:scale-95"
-              @click="showAddLoads ? showAddLoads = false : openAddLoads()"
+              @click="openAddLoads"
             >
-              {{ showAddLoads ? '✕ Cancel' : '+ Add Loads' }}
+              + Add Loads
             </button>
           </div>
         </div>
@@ -742,97 +743,6 @@ onMounted(load)
           </div>
         </div>
       </div>
-
-      <!-- Add Loads form -->
-      <Transition name="slide-down">
-        <div v-if="showAddLoads" class="bg-white rounded-2xl border border-blue-200 overflow-hidden animate-slide-up" style="box-shadow: var(--shadow-card);">
-          <div class="px-5 py-3 border-b border-slate-100 bg-blue-50">
-            <h3 class="font-semibold text-blue-800 text-sm">Add Loads to Order</h3>
-          </div>
-          <div class="p-4 space-y-2">
-            <div v-for="(row, i) in addLoadsRows" :key="i" class="flex items-center gap-2">
-              <select
-                v-model="row.service_id"
-                class="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all bg-white"
-              >
-                <option value="">Select service…</option>
-                <option v-for="s in services" :key="s.id" :value="s.id">
-                  {{ s.name }} — ₱{{ fmt(s.price) }}
-                </option>
-              </select>
-
-              <!-- Qty stepper -->
-              <div class="flex items-center gap-1 shrink-0">
-                <button
-                  class="al-qty-btn"
-                  @click="row.quantity = Math.max(rowStep(row.service_id), Number(row.quantity) - rowStep(row.service_id))"
-                >−</button>
-                <input
-                  v-model.number="row.quantity"
-                  type="number" min="0.01" step="0.5"
-                  class="w-14 text-center border border-slate-200 rounded-lg px-1 py-1.5 text-sm focus:outline-none focus:border-blue-400 transition-all"
-                />
-                <button
-                  class="al-qty-btn"
-                  @click="row.quantity = Number(row.quantity) + rowStep(row.service_id)"
-                >+</button>
-              </div>
-
-              <button
-                v-if="addLoadsRows.length > 1"
-                class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all shrink-0"
-                @click="addLoadsRows.splice(i, 1)"
-              >✕</button>
-            </div>
-
-            <button
-              class="text-xs text-blue-600 font-medium hover:text-blue-700 transition-colors"
-              @click="addLoadRow"
-            >+ Add another service</button>
-
-            <!-- Loyalty preview (mirrors POS stamp card) -->
-            <div v-if="addLoadsLoyalty" class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 space-y-2">
-              <div v-for="rule in addLoadsLoyalty.rules" :key="rule.id" class="space-y-1">
-                <div class="flex justify-between items-center">
-                  <span class="text-xs text-slate-500">{{ rule.reward_description }}</span>
-                  <span class="text-xs font-semibold text-slate-700">
-                    {{ addLoadsLoyalty.total_stamps % rule.every_n_stamps }}/{{ rule.every_n_stamps }}
-                  </span>
-                </div>
-                <div class="h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                  <div
-                    class="h-full rounded-full transition-all duration-500"
-                    style="background: linear-gradient(90deg, #3b82f6, #6366f1);"
-                    :style="`width: ${((addLoadsLoyalty.total_stamps % rule.every_n_stamps) / rule.every_n_stamps) * 100}%`"
-                  />
-                </div>
-              </div>
-              <div
-                v-if="addLoadsLoyaltyResult"
-                class="flex items-center justify-between text-xs font-semibold text-green-700 bg-green-50 border border-green-200 rounded-lg px-2.5 py-2"
-              >
-                <span>🎁 {{ addLoadsLoyaltyResult.count > 1 ? `${addLoadsLoyaltyResult.count}× free loads` : '1 free load' }} will apply</span>
-                <span>−₱{{ fmt(addLoadsLoyaltyResult.discount) }}</span>
-              </div>
-            </div>
-
-            <div v-if="addLoadsError" class="text-xs text-red-500 font-medium px-1">{{ addLoadsError }}</div>
-
-            <div class="flex gap-2 pt-2">
-              <button
-                class="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50 transition-all"
-                @click="showAddLoads = false"
-              >Cancel</button>
-              <button
-                class="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50"
-                style="background: linear-gradient(135deg, #2563eb, #4f46e5);"
-                :disabled="savingLoads"
-                @click="saveLoads"
-              >{{ savingLoads ? 'Saving…' : 'Save Loads' }}</button>
-            </div>
-          </div>
-        </div>
-      </Transition>
 
       <!-- Payments + Totals -->
       <div class="grid sm:grid-cols-2 gap-4">
@@ -1061,6 +971,97 @@ onMounted(load)
       </div>
     </div>
   </div>
+
+  <!-- Add Loads modal -->
+  <Dialog
+    v-model:visible="showAddLoads"
+    modal
+    header="Add Loads"
+    :style="{ width: '480px', maxWidth: '95vw' }"
+    :draggable="false"
+  >
+    <div class="space-y-3 pt-1">
+      <div v-for="(row, i) in addLoadsRows" :key="i" class="flex items-center gap-2">
+        <select
+          v-model="row.service_id"
+          class="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all bg-white"
+        >
+          <option value="">Select service…</option>
+          <option v-for="s in services" :key="s.id" :value="s.id">
+            {{ s.name }} — ₱{{ fmt(s.price) }}
+          </option>
+        </select>
+
+        <div class="flex items-center gap-1 shrink-0">
+          <button
+            class="al-qty-btn"
+            @click="row.quantity = Math.max(rowStep(row.service_id), Number(row.quantity) - rowStep(row.service_id))"
+          >−</button>
+          <input
+            v-model.number="row.quantity"
+            type="number" min="0.01" step="0.5"
+            class="w-14 text-center border border-slate-200 rounded-lg px-1 py-1.5 text-sm focus:outline-none focus:border-blue-400 transition-all"
+          />
+          <button
+            class="al-qty-btn"
+            @click="row.quantity = Number(row.quantity) + rowStep(row.service_id)"
+          >+</button>
+        </div>
+
+        <button
+          v-if="addLoadsRows.length > 1"
+          class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all shrink-0"
+          @click="addLoadsRows.splice(i, 1)"
+        >✕</button>
+      </div>
+
+      <button
+        class="text-xs text-blue-600 font-medium hover:text-blue-700 transition-colors"
+        @click="addLoadRow"
+      >+ Add another service</button>
+
+      <!-- Loyalty preview -->
+      <div v-if="addLoadsLoyalty" class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 space-y-2">
+        <div v-for="rule in addLoadsLoyalty.rules" :key="rule.id" class="space-y-1">
+          <div class="flex justify-between items-center">
+            <span class="text-xs text-slate-500">{{ rule.reward_description }}</span>
+            <span class="text-xs font-semibold text-slate-700">
+              {{ addLoadsLoyalty.total_stamps % rule.every_n_stamps }}/{{ rule.every_n_stamps }}
+            </span>
+          </div>
+          <div class="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+            <div
+              class="h-full rounded-full transition-all duration-500"
+              style="background: linear-gradient(90deg, #3b82f6, #6366f1);"
+              :style="`width: ${((addLoadsLoyalty.total_stamps % rule.every_n_stamps) / rule.every_n_stamps) * 100}%`"
+            />
+          </div>
+        </div>
+        <div
+          v-if="addLoadsLoyaltyResult"
+          class="flex items-center justify-between text-xs font-semibold text-green-700 bg-green-50 border border-green-200 rounded-lg px-2.5 py-2"
+        >
+          <span>🎁 {{ addLoadsLoyaltyResult.count > 1 ? `${addLoadsLoyaltyResult.count}× free loads` : '1 free load' }} will apply</span>
+          <span>−₱{{ fmt(addLoadsLoyaltyResult.discount) }}</span>
+        </div>
+      </div>
+
+      <div v-if="addLoadsError" class="text-xs text-red-500 font-medium px-1">{{ addLoadsError }}</div>
+
+      <div class="flex gap-2 pt-1">
+        <button
+          class="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50 transition-all"
+          @click="showAddLoads = false"
+        >Cancel</button>
+        <button
+          class="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50"
+          style="background: linear-gradient(135deg, #2563eb, #4f46e5);"
+          :disabled="savingLoads"
+          @click="saveLoads"
+        >{{ savingLoads ? 'Saving…' : 'Save Loads' }}</button>
+      </div>
+    </div>
+  </Dialog>
 
   <!-- Receipt modal (print / reprint) -->
   <ReceiptModal
