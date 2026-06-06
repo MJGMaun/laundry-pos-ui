@@ -73,7 +73,7 @@ const changelog = [
           'Order Detail: cashiers and staff can now **Add Loads** without a "Failed to load services" error — the services endpoint is now accessible to all roles',
           'Order Detail: **Add Loads** redesigned as a service catalog — 2-column card grid with category tabs, tap to add, inline − qty + controls on selected cards, and a running summary of selections; replaces the old dropdown rows',
           'POS: **customer selection is now required** — the walk-in shortcut is removed; staff must always search for or create a customer before proceeding',
-          'POS: typing a name with no matching results shows a **"Create \'[name]\'"** prompt — tapping it opens the new customer form with the name pre-filled',
+          'POS: typing a name with no matching results shows a **"Create \'[name]\'"** prompt — tapping it opens a modal with the name pre-filled; the "+ New Customer" button also opens the same modal',
           'POS: **Fees & notes** section is now collapsed by default — tap to expand when needed',
           'POS: tapping **New Order** after a successful checkout returns to Step 1 (customer selection)',
           'Day Summary: now restricted to **admin** only',
