@@ -598,7 +598,7 @@ const inCart = (serviceId) =>
     cart.items.some((i) => i.service_id === serviceId);
 
 const mobileTab = ref('catalog');
-const showExtras = ref(true);
+const showExtras = ref(false);
 
 onMounted(loadServices);
 watch(() => branch.currentBranchId, loadServices);
@@ -1980,7 +1980,7 @@ watch(() => branch.currentBranchId, loadServices);
                                         box-shadow: 0 4px 14px
                                             rgba(99, 102, 241, 0.35);
                                     "
-                                    @click="showSuccess = false"
+                                    @click="showSuccess = false; mobileTab = 'catalog'"
                                 >
                                     New Order
                                 </button>
