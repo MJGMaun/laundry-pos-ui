@@ -15,6 +15,7 @@ import { buildTrackingSlipBytes } from '@/utils/escpos.js'
 import { getCustomerLoyalty } from '@/api/loyalty.js'
 import { useAuthStore } from '@/stores/auth.js'
 import { useQueueStore } from '@/stores/queue.js'
+import { useSettingsStore } from '@/stores/settings.js'
 import { isOfflineError } from '@/offline/isOfflineError.js'
 import { db } from '@/offline/db.js'
 import ReceiptModal from '@/components/receipt/ReceiptModal.vue'
@@ -27,9 +28,10 @@ const route   = useRoute()
 const router  = useRouter()
 const toast   = useToast()
 const confirm = useConfirm()
-const auth    = useAuthStore()
-const queue  = useQueueStore()
-const branch = useBranchStore()
+const auth     = useAuthStore()
+const queue    = useQueueStore()
+const branch   = useBranchStore()
+const settings = useSettingsStore()
 const printer = usePrinter()
 
 const order = ref(null)
@@ -647,7 +649,7 @@ onMounted(load)
       </div>
 
       <!-- Delivery -->
-      <div v-if="auth.isAdmin" class="bg-white rounded-2xl border border-slate-200 p-5 animate-slide-up stagger-1" style="box-shadow: var(--shadow-card);">
+      <div v-if="auth.isAdmin && settings.pickupDeliveryEnabled" class="bg-white rounded-2xl border border-slate-200 p-5 animate-slide-up stagger-1" style="box-shadow: var(--shadow-card);">
         <div class="flex items-center justify-between gap-3">
           <div class="flex items-center gap-2">
             <span class="text-base">📦</span>

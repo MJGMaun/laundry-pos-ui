@@ -22,8 +22,9 @@ export const useSettingsStore = defineStore('settings', () => {
 
   const get = (key) => map.value[key]
 
-  // Default ON: only an explicit 'false' disables the Day Summary page.
-  const daySummaryEnabled = computed(() => map.value.day_summary_enabled !== 'false')
+  // Default ON: only an explicit 'false' disables the feature.
+  const daySummaryEnabled       = computed(() => map.value.day_summary_enabled !== 'false')
+  const pickupDeliveryEnabled   = computed(() => map.value.pickup_delivery_enabled !== 'false')
 
-  return { map, loaded, load, get, daySummaryEnabled }
+  return { map, loaded, load, get, daySummaryEnabled, pickupDeliveryEnabled }
 })

@@ -22,8 +22,10 @@ const settings = useSettingsStore()
 const navItems = computed(() => {
   const items = []
   if (auth.isAdmin) {
-    items.push({ to: '/dashboard', emoji: '📊', label: 'Dashboard',    color: '#fbbf24' })
-    items.push({ to: '/schedule',  emoji: '🚗', label: 'Schedule',     color: '#38bdf8' })
+    items.push({ to: '/dashboard', emoji: '📊', label: 'Dashboard', color: '#fbbf24' })
+    if (settings.pickupDeliveryEnabled) {
+      items.push({ to: '/schedule', emoji: '🚗', label: 'Schedule', color: '#38bdf8' })
+    }
   }
   if (auth.isCashier) {
     items.push({ to: '/pos',           emoji: '🛒', label: 'POS',          color: '#60a5fa' })

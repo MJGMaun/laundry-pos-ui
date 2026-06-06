@@ -25,6 +25,21 @@ const assigningUser = ref(false)
 
 const form = ref({ name: '', address: '', phone: '', email: '', tin: '', is_test: false })
 const togglingDaySummary = ref({})
+const togglingPickupDelivery = ref({})
+
+async function togglePickupDelivery(b) {
+  const next = !b.pickup_delivery_enabled
+  togglingPickupDelivery.value[b.id] = true
+  try {
+    await updateSetting('pickup_delivery_enabled', { value: next ? 'true' : 'false' }, b.id)
+    b.pickup_delivery_enabled = next
+    toast.add({ severity: 'success', summary: 'Saved', detail: `Pickup & Delivery ${next ? 'enabled' : 'disabled'} for ${b.name}`, life: 2500 })
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to update', life: 4000 })
+  } finally {
+    togglingPickupDelivery.value[b.id] = false
+  }
+}
 
 async function toggleDaySummary(b) {
   const next = !b.day_summary_enabled
@@ -182,6 +197,7 @@ onMounted(load)
             <th class="text-left px-4 py-3 font-medium text-gray-600">Branch</th>
             <th class="hidden sm:table-cell text-left px-4 py-3 font-medium text-gray-600">Address</th>
             <th class="hidden md:table-cell text-left px-4 py-3 font-medium text-gray-600">Phone</th>
+            <th class="text-center px-4 py-3 font-medium text-gray-600">Pickup &amp; Delivery</th>
             <th class="text-center px-4 py-3 font-medium text-gray-600">Day Summary</th>
             <th class="text-center px-4 py-3 font-medium text-gray-600">Status</th>
             <th class="px-4 py-3" />
@@ -195,6 +211,21 @@ onMounted(load)
             </td>
             <td class="hidden sm:table-cell px-4 py-3 text-gray-500">{{ b.address || '—' }}</td>
             <td class="hidden md:table-cell px-4 py-3 text-gray-600">{{ b.phone || '—' }}</td>
+            <td class="px-4 py-3 text-center">
+              <button
+                type="button"
+                class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-50 align-middle"
+                :class="b.pickup_delivery_enabled ? 'bg-green-500' : 'bg-gray-300'"
+                :disabled="togglingPickupDelivery[b.id]"
+                :title="b.pickup_delivery_enabled ? 'Pickup & Delivery enabled' : 'Pickup & Delivery disabled'"
+                @click="togglePickupDelivery(b)"
+              >
+                <span
+                  class="inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform"
+                  :class="b.pickup_delivery_enabled ? 'translate-x-4.5' : 'translate-x-0.5'"
+                />
+              </button>
+            </td>
             <td class="px-4 py-3 text-center">
               <button
                 type="button"
