@@ -269,6 +269,12 @@ watchEffect(() => {
     selectedReward.value = cart.appliedLoyaltyReward;
 });
 
+function createWithQuery() {
+    newCustomer.value.name = customerQuery.value.trim()
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+    showNewCustomerForm.value = true;
+}
+
 async function saveNewCustomer() {
     phoneError.value = '';
     nameError.value = '';
@@ -556,7 +562,7 @@ watch(() => branch.currentBranchId, loadServices);
                     <div class="text-center">
                         <div class="mb-3 text-5xl">👤</div>
                         <h2 class="text-xl font-bold text-slate-800 sm:text-2xl">Who's the customer?</h2>
-                        <p class="mt-1 text-sm text-slate-400">Search by name or phone, or continue as walk-in</p>
+                        <p class="mt-1 text-sm text-slate-400">Search by name or phone number</p>
                     </div>
 
                     <div class="w-full max-w-sm space-y-3">
@@ -621,8 +627,24 @@ watch(() => branch.currentBranchId, loadServices);
                                 </div>
                             </Transition>
 
-                            <!-- New customer -->
+                            <!-- No results: prompt to create -->
+                            <Transition name="dropdown">
+                                <button
+                                    v-if="customerQuery.trim() && !searchingCustomer && !customerResults.length && !showNewCustomerForm"
+                                    class="flex w-full items-center gap-3 rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50 px-4 py-3.5 text-left transition-all hover:border-blue-400 hover:bg-blue-100 active:scale-[0.98]"
+                                    @click="createWithQuery"
+                                >
+                                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">+</div>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="text-sm font-semibold text-blue-700">Create "{{ customerQuery.trim() }}"</div>
+                                        <div class="text-xs text-blue-500">No customer found — tap to create new</div>
+                                    </div>
+                                </button>
+                            </Transition>
+
+                            <!-- New customer (manual) -->
                             <button
+                                v-if="!customerQuery.trim() || customerResults.length"
                                 class="w-full rounded-2xl border-2 border-dashed border-slate-200 py-3.5 text-sm font-semibold text-slate-500 transition-all hover:border-blue-300 hover:text-blue-600 active:scale-[0.98]"
                                 @click="showNewCustomerForm = !showNewCustomerForm"
                             >{{ showNewCustomerForm ? '− Cancel' : '+ New Customer' }}</button>
@@ -662,7 +684,7 @@ watch(() => branch.currentBranchId, loadServices);
                                             :disabled="savingCustomer || !newCustomer.name || !newCustomer.phone"
                                             @click="saveNewCustomer"
                                         >{{ savingCustomer ? 'Saving…' : 'Save & Select' }}</button>
-                                        <button class="px-3 text-sm text-slate-400 hover:text-slate-600" @click="showNewCustomerForm = false">Cancel</button>
+                                        <button class="px-3 text-sm text-slate-400 hover:text-slate-600" @click="showNewCustomerForm = false; newCustomer.name = ''; newCustomer.phone = ''; newCustomer.address = ''">Cancel</button>
                                     </div>
                                 </div>
                             </Transition>
