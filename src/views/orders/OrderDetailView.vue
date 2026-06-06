@@ -243,16 +243,45 @@ async function recordPayment() {
 
 
 const showAddLoads  = ref(false)
-const addLoadsRows  = ref([])
-const addLoadsError = ref('')
-const savingLoads   = ref(false)
-const services      = ref([])
+const addLoadsRows    = ref([])
+const addLoadsError   = ref('')
+const savingLoads     = ref(false)
+const services        = ref([])
 const addLoadsLoyalty = ref(null)
+const addLoadsActiveCat = ref(null)
 
-// Step size per service (0.5 for per_kilo, 1 for everything else)
-function rowStep(serviceId) {
-  const svc = services.value.find((s) => s.id === Number(serviceId))
-  return svc?.pricing_type === 'per_kilo' ? 0.5 : 1
+const addLoadsCategories = computed(() => {
+  const map = new Map()
+  services.value.forEach((s) => {
+    if (s.category && !map.has(s.category_id))
+      map.set(s.category_id, s.category)
+  })
+  return [...map.values()]
+})
+
+const addLoadsFiltered = computed(() => {
+  const svcs = services.value
+  if (!addLoadsActiveCat.value) return svcs
+  return svcs.filter((s) => s.category_id === addLoadsActiveCat.value)
+})
+
+function catalogQty(svcId) {
+  return addLoadsRows.value.find((r) => r.service_id === svcId)?.quantity ?? 0
+}
+
+function catalogStep(svc) {
+  return svc.pricing_type === 'per_kilo' ? 0.5 : 1
+}
+
+function catalogSet(svc, qty) {
+  const idx = addLoadsRows.value.findIndex((r) => r.service_id === svc.id)
+  if (qty <= 0) {
+    if (idx !== -1) addLoadsRows.value.splice(idx, 1)
+  } else if (idx !== -1) {
+    addLoadsRows.value[idx].quantity = qty
+  } else {
+    addLoadsRows.value.push({ service_id: svc.id, quantity: qty })
+  }
 }
 
 // Mirror the POS watchEffect: compute free loads + discount for the rows being added
@@ -304,7 +333,6 @@ async function openAddLoads() {
       return
     }
   }
-  // Fetch loyalty for the order's customer
   addLoadsLoyalty.value = null
   if (order.value?.customer?.id) {
     try {
@@ -312,18 +340,15 @@ async function openAddLoads() {
       addLoadsLoyalty.value = res.data
     } catch {}
   }
-  addLoadsRows.value = [{ service_id: '', quantity: 1 }]
+  addLoadsRows.value = []
   addLoadsError.value = ''
+  addLoadsActiveCat.value = null
   showAddLoads.value = true
 }
 
-function addLoadRow() {
-  addLoadsRows.value.push({ service_id: '', quantity: 1 })
-}
-
 async function saveLoads() {
-  if (addLoadsRows.value.some((r) => !r.service_id)) {
-    addLoadsError.value = 'Select a service for each row.'
+  if (!addLoadsRows.value.length) {
+    addLoadsError.value = 'Select at least one service.'
     return
   }
   savingLoads.value = true
@@ -965,51 +990,70 @@ onMounted(load)
     v-model:visible="showAddLoads"
     modal
     header="Add Loads"
-    :style="{ width: '480px', maxWidth: '95vw' }"
+    :style="{ width: '560px', maxWidth: '96vw' }"
     :draggable="false"
   >
-    <div class="space-y-3 pt-1">
-      <div v-for="(row, i) in addLoadsRows" :key="i" class="flex items-center gap-2">
-        <select
-          v-model="row.service_id"
-          class="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all bg-white"
-        >
-          <option value="">Select service…</option>
-          <option v-for="s in services" :key="s.id" :value="s.id">
-            {{ s.name }} — ₱{{ fmt(s.price) }}
-          </option>
-        </select>
+    <div class="flex flex-col gap-3 pt-1" style="max-height: 70vh;">
 
-        <div class="flex items-center gap-1 shrink-0">
-          <button
-            class="al-qty-btn"
-            @click="row.quantity = Math.max(rowStep(row.service_id), Number(row.quantity) - rowStep(row.service_id))"
-          >−</button>
-          <input
-            v-model.number="row.quantity"
-            type="number" min="0.01" step="0.5"
-            class="w-14 text-center border border-slate-200 rounded-lg px-1 py-1.5 text-sm focus:outline-none focus:border-blue-400 transition-all"
-          />
-          <button
-            class="al-qty-btn"
-            @click="row.quantity = Number(row.quantity) + rowStep(row.service_id)"
-          >+</button>
-        </div>
-
+      <!-- Category tabs -->
+      <div v-if="addLoadsCategories.length" class="flex gap-1.5 flex-wrap shrink-0">
         <button
-          v-if="addLoadsRows.length > 1"
-          class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all shrink-0"
-          @click="addLoadsRows.splice(i, 1)"
-        >✕</button>
+          class="al-cat-tab"
+          :class="addLoadsActiveCat === null ? 'al-cat-active' : 'al-cat-inactive'"
+          @click="addLoadsActiveCat = null"
+        >All</button>
+        <button
+          v-for="cat in addLoadsCategories"
+          :key="cat.id"
+          class="al-cat-tab"
+          :class="addLoadsActiveCat === cat.id ? 'al-cat-active' : 'al-cat-inactive'"
+          @click="addLoadsActiveCat = cat.id"
+        >{{ cat.icon ? cat.icon + ' ' : '' }}{{ cat.name }}</button>
       </div>
 
-      <button
-        class="text-xs text-blue-600 font-medium hover:text-blue-700 transition-colors"
-        @click="addLoadRow"
-      >+ Add another service</button>
+      <!-- Service card grid -->
+      <div class="overflow-y-auto flex-1" style="min-height: 0;">
+        <div class="grid grid-cols-2 gap-2 pb-1">
+          <div
+            v-for="svc in addLoadsFiltered"
+            :key="svc.id"
+            class="relative rounded-xl border-2 p-3 cursor-pointer select-none transition-all active:scale-[0.97]"
+            :class="catalogQty(svc.id) ? 'border-blue-400 bg-blue-50' : 'border-slate-200 bg-white hover:border-slate-300'"
+            @click="!catalogQty(svc.id) && catalogSet(svc, catalogStep(svc))"
+          >
+            <!-- Price top-right -->
+            <div class="absolute top-2.5 right-2.5 text-xs font-bold" :class="catalogQty(svc.id) ? 'text-blue-600' : 'text-slate-400'">
+              ₱{{ fmt(svc.price) }}
+            </div>
+
+            <div class="text-sm font-semibold text-slate-800 pr-12 leading-tight">{{ svc.name }}</div>
+            <div class="text-xs text-slate-400 mt-0.5">{{ svc.pricing_type === 'per_kilo' ? 'per kilo' : svc.pricing_type === 'per_piece' ? 'per piece' : 'flat rate' }}</div>
+
+            <!-- Qty controls (when in selection) -->
+            <div v-if="catalogQty(svc.id)" class="mt-2.5 flex items-center gap-1.5">
+              <button
+                class="al-qty-btn"
+                @click.stop="catalogSet(svc, Math.max(0, catalogQty(svc.id) - catalogStep(svc)))"
+              >−</button>
+              <span class="flex-1 text-center text-sm font-bold text-blue-700">{{ catalogQty(svc.id) }}</span>
+              <button
+                class="al-qty-btn al-qty-plus"
+                @click.stop="catalogSet(svc, catalogQty(svc.id) + catalogStep(svc))"
+              >+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Selected summary -->
+      <div v-if="addLoadsRows.length" class="shrink-0 rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-600 flex flex-wrap gap-x-3 gap-y-1">
+        <span v-for="row in addLoadsRows" :key="row.service_id" class="font-medium">
+          {{ services.find(s => s.id === row.service_id)?.name }} × {{ row.quantity }}
+        </span>
+      </div>
 
       <!-- Loyalty preview -->
-      <div v-if="addLoadsLoyalty" class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 space-y-2">
+      <div v-if="addLoadsLoyalty" class="shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 space-y-2">
         <div v-for="rule in addLoadsLoyalty.rules" :key="rule.id" class="space-y-1">
           <div class="flex justify-between items-center">
             <span class="text-xs text-slate-500">{{ rule.reward_description }}</span>
@@ -1034,9 +1078,9 @@ onMounted(load)
         </div>
       </div>
 
-      <div v-if="addLoadsError" class="text-xs text-red-500 font-medium px-1">{{ addLoadsError }}</div>
+      <div v-if="addLoadsError" class="shrink-0 text-xs text-red-500 font-medium px-1">{{ addLoadsError }}</div>
 
-      <div class="flex gap-2 pt-1">
+      <div class="shrink-0 flex gap-2">
         <button
           class="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50 transition-all"
           @click="showAddLoads = false"
@@ -1044,9 +1088,9 @@ onMounted(load)
         <button
           class="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50"
           style="background: linear-gradient(135deg, #2563eb, #4f46e5);"
-          :disabled="savingLoads"
+          :disabled="savingLoads || !addLoadsRows.length"
           @click="saveLoads"
-        >{{ savingLoads ? 'Saving…' : 'Save Loads' }}</button>
+        >{{ savingLoads ? 'Saving…' : `Save Loads${addLoadsRows.length ? ` (${addLoadsRows.length})` : ''}` }}</button>
       </div>
     </div>
   </Dialog>
@@ -1063,23 +1107,38 @@ onMounted(load)
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .al-qty-btn {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: #f1f5f9;
+  background: #dbeafe;
   border: none;
   cursor: pointer;
   font-size: 16px;
-  color: #475569;
+  color: #1d4ed8;
   transition: all 120ms ease;
   line-height: 1;
   flex-shrink: 0;
 }
-.al-qty-btn:hover { background: #e2e8f0; color: #0f172a; }
+.al-qty-btn:hover { background: #bfdbfe; }
 .al-qty-btn:active { transform: scale(0.88); }
+.al-qty-plus { background: #2563eb; color: #fff; }
+.al-qty-plus:hover { background: #1d4ed8; }
+
+.al-cat-tab {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+.al-cat-active  { background: #2563eb; color: #fff; }
+.al-cat-inactive { background: #f1f5f9; color: #475569; }
+.al-cat-inactive:hover { background: #e2e8f0; }
 
 .slide-down-enter-active, .slide-down-leave-active { transition: all 220ms ease; overflow: hidden; }
 .slide-down-enter-from, .slide-down-leave-to { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; }
