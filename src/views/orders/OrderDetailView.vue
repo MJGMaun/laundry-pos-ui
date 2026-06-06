@@ -188,7 +188,7 @@ const paymentFormError = ref('')
 const newPayment = ref({ method: 'cash', amount: '', tendered: '', reference_number: '' })
 
 function openPaymentForm() {
-  newPayment.value = { method: 'cash', amount: String(outstandingBalance.value.toFixed(2)), tendered: '', reference_number: '' }
+  newPayment.value = { method: 'cash', amount: String(outstandingBalance.value.toFixed(2)), tendered: '', reference_number: '', showCustom: false }
   paymentFormError.value = ''
   showPaymentForm.value = true
 }
@@ -893,53 +893,66 @@ onMounted(load)
                 >{{ m.toUpperCase() }}</button>
               </div>
 
-              <!-- Amount -->
-              <div class="flex items-center gap-2">
-                <span class="text-xs text-slate-500 w-16 shrink-0">Amount</span>
-                <div class="relative flex-1">
-                  <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">₱</span>
-                  <input
-                    v-model="newPayment.amount"
-                    type="number" step="0.01" min="0"
-                    class="w-full border border-slate-200 rounded-xl pl-7 pr-3 py-2 text-sm text-right bg-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
-                  />
-                </div>
+              <!-- Amount (display-only) -->
+              <div class="flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-xl">
+                <span class="text-xs text-slate-500">Amount</span>
+                <span class="text-base font-bold text-slate-900">₱{{ fmt(newPayment.amount) }}</span>
               </div>
 
               <!-- Cash tendered -->
               <template v-if="newPayment.method === 'cash'">
-                <div class="flex items-center gap-2">
-                  <span class="text-xs text-slate-500 w-16 shrink-0">Tendered</span>
-                  <div class="relative flex-1">
-                    <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">₱</span>
-                    <input
-                      v-model="newPayment.tendered"
-                      type="number" step="1" min="0"
-                      placeholder="Amount given"
-                      class="w-full border border-slate-200 rounded-xl pl-7 pr-3 py-2 text-sm text-right bg-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
-                      @focus="() => { if (!newPayment.tendered) newPayment.tendered = newPayment.amount }"
-                    />
-                  </div>
-                </div>
-                <div class="flex gap-1 flex-wrap">
+                <div class="grid grid-cols-4 gap-1">
                   <button
-                    class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 border border-blue-200 text-blue-600 hover:bg-blue-100 active:scale-95 transition-all"
-                    @click="newPayment.tendered = newPayment.amount"
+                    class="col-span-4 py-1 rounded-lg text-xs font-semibold transition-all active:scale-95"
+                    :class="!newPayment.showCustom && newPayment.tendered == newPayment.amount && Number(newPayment.tendered) > 0
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300 hover:text-blue-600'"
+                    @click="newPayment.tendered = newPayment.amount; newPayment.showCustom = false"
                   >Exact</button>
                   <button
-                    v-for="d in [20, 50, 100, 200, 500, 1000]"
+                    v-for="d in [20, 50, 100, 200]"
                     :key="d"
-                    class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-slate-600 hover:border-blue-400 hover:text-blue-600 active:scale-95 transition-all"
-                    @click="newPayment.tendered = String(Number(newPayment.tendered || 0) + d)"
-                  >+{{ d }}</button>
+                    class="py-1 rounded-lg text-xs font-semibold transition-all active:scale-95"
+                    :class="!newPayment.showCustom && Number(newPayment.tendered) === d
+                      ? 'bg-slate-800 text-white'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300 hover:text-blue-600'"
+                    @click="newPayment.tendered = String(d); newPayment.showCustom = false"
+                  >₱{{ d }}</button>
                   <button
-                    class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-red-400 hover:border-red-300 hover:text-red-500 active:scale-95 transition-all"
-                    @click="newPayment.tendered = ''"
-                  >Clear</button>
+                    class="py-1 rounded-lg text-xs font-semibold transition-all active:scale-95"
+                    :class="!newPayment.showCustom && Number(newPayment.tendered) === 500
+                      ? 'bg-slate-800 text-white'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300 hover:text-blue-600'"
+                    @click="newPayment.tendered = '500'; newPayment.showCustom = false"
+                  >₱500</button>
+                  <button
+                    class="py-1 rounded-lg text-xs font-semibold transition-all active:scale-95"
+                    :class="!newPayment.showCustom && Number(newPayment.tendered) === 1000
+                      ? 'bg-slate-800 text-white'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300 hover:text-blue-600'"
+                    @click="newPayment.tendered = '1000'; newPayment.showCustom = false"
+                  >₱1000</button>
+                  <button
+                    class="col-span-2 py-1 rounded-lg text-xs font-semibold transition-all active:scale-95"
+                    :class="newPayment.showCustom
+                      ? 'bg-slate-800 text-white'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300 hover:text-blue-600'"
+                    @click="newPayment.showCustom = !newPayment.showCustom; if (!newPayment.showCustom) newPayment.tendered = ''"
+                  >Custom</button>
+                </div>
+                <div v-if="newPayment.showCustom" class="relative">
+                  <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">₱</span>
+                  <input
+                    v-model="newPayment.tendered"
+                    type="number" step="0.01" min="0"
+                    placeholder="Enter amount…"
+                    autofocus
+                    class="w-full border border-blue-300 rounded-xl pl-7 pr-3 py-2 text-sm text-right bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all"
+                  />
                 </div>
                 <div
                   v-if="Number(newPayment.tendered) >= Number(newPayment.amount) && Number(newPayment.amount) > 0"
-                  class="flex justify-between px-3 py-2 rounded-xl text-sm font-bold text-green-700"
+                  class="flex justify-between px-3 py-2 rounded-xl text-xl font-bold text-green-700"
                   style="background: linear-gradient(135deg, #dcfce7, #bbf7d0);"
                 >
                   <span>Change</span>
