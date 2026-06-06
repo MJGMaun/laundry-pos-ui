@@ -54,8 +54,16 @@ const changelog = [
   {
     version: '1.10.2',
     date: 'June 6, 2026',
-    latest: false,
+    latest: true,
     sections: [
+      {
+        title: 'New Features',
+        type: 'feature',
+        items: [
+          '**Pickup & Delivery toggle** (super admin): each branch can now have pickup & delivery turned on or off from Branch Management — when disabled, the POS hides pickup/delivery fee inputs, the Schedule page is removed from the sidebar, and the delivery card is hidden on Order Detail',
+          '**POS Wizard**: redesigned POS flow into a guided 3-step wizard — Step 1: select customer, Step 2: choose services with inline quantity controls (tap to add, − and + to adjust, ✕ to remove), Step 3: review fees, notes, and totals before placing the order',
+        ],
+      },
       {
         title: 'Improvements',
         type: 'improvement',
@@ -63,14 +71,12 @@ const changelog = [
           'Order Detail: **Add Loads** and **Record Payment** are now modals — less clutter, easier to use on small screens',
           'Order Detail: layout reorganized — Loads on the left, a combined **Summary + Payments** card on the right; totals and payment history in one place',
           'Order Detail: cashiers and staff can now **Add Loads** without a "Failed to load services" error — the services endpoint is now accessible to all roles',
-          'POS: Pickup fee and Delivery fee are now **side by side** (50/50) instead of stacked — saves vertical space in the cart',
-          'POS: **header and navigation no longer scroll** — only the service grid and cart list scroll internally; the rest of the layout stays fixed',
-          'POS: cart **remove (✕) button is now always visible** — was hidden on touch devices since it relied on hover',
+          'POS: **customer selection is now required** — the walk-in shortcut is removed; staff must always search for or create a customer before proceeding',
+          'POS: **Fees & notes** section is now collapsed by default — tap to expand when needed',
+          'POS: tapping **New Order** after a successful checkout returns to Step 1 (customer selection)',
+          'Day Summary: now restricted to **admin** only',
           'Settings: **Loyalty Program** section removed (points per peso, min redeem) — stamp-based loyalty rules still work as before',
           'Customer Detail: loyalty tier badge removed',
-		  'POS: **Fees & notes** section is now collapsed by default — tap to expand when needed',
-          'POS: tapping **New Order** after a successful checkout now returns to the services list instead of staying on the cart',
-          'Day Summary: now restricted to **admin** only',
         ],
       },
     ],
