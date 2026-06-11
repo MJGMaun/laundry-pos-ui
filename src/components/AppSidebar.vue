@@ -40,6 +40,7 @@ const navItems = computed(() => {
     }
     items.push({ to: '/reports',       emoji: '📈', label: 'Reports',       color: '#fb923c' })
     items.push({ to: '/cash-balance',  emoji: '💰', label: 'Cash Balance',   color: '#34d399' })
+    items.push({ to: '/machine-cycles', emoji: '🔄', label: 'Machine Cycles', color: '#22d3ee' })
     items.push({ to: '/expenses',  emoji: '💸', label: 'Expenses',     color: '#f87171' })
     items.push({ to: '/services',  emoji: '🧺', label: 'Services',     color: '#4ade80' })
     items.push({ to: '/loyalty',   emoji: '🎁', label: 'Loyalty',      color: '#f472b6' })

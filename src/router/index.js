@@ -100,6 +100,12 @@ const router = createRouter({
           meta: { roles: ['super_admin', 'admin'] },
         },
         {
+          path: 'machine-cycles',
+          name: 'machine-cycles',
+          component: () => import('@/views/admin/MachineCyclesView.vue'),
+          meta: { roles: ['super_admin', 'admin'] },
+        },
+        {
           path: 'expenses',
           name: 'expenses',
           component: () => import('@/views/admin/ExpensesView.vue'),
