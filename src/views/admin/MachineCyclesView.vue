@@ -26,7 +26,11 @@ const managing       = ref(false)
 const machines       = ref([])
 const newName        = ref('')
 const newType        = ref('washer')
+const newCount       = ref('')
 const addingMachine  = ref(false)
+const editingId      = ref(null) // machine whose starting count is being edited
+const editCount      = ref('')
+const savingEdit     = ref(false)
 
 const typeEmoji = { washer: '🫧', dryer: '🔥' }
 
@@ -42,6 +46,10 @@ function dateStr() {
 function fmtTime(d) {
   return new Date(d).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true })
 }
+
+const monthLabel = computed(() =>
+  (cycleDate.value || new Date()).toLocaleDateString('en-PH', { month: 'long', year: 'numeric' })
+)
 
 const totalInput = computed(() =>
   Object.values(inputs.value).reduce((sum, v) => sum + (Number(v) || 0), 0)
@@ -123,14 +131,40 @@ async function addMachine() {
   if (!newName.value.trim()) return
   addingMachine.value = true
   try {
-    await createMachine({ name: newName.value.trim(), type: newType.value })
+    await createMachine({
+      name: newName.value.trim(),
+      type: newType.value,
+      initial_cycle_count: Number(newCount.value) || 0,
+    })
     newName.value = ''
+    newCount.value = ''
     await Promise.all([loadMachines(), load()])
     toast.add({ severity: 'success', summary: 'Machine added', life: 2500 })
   } catch (e) {
     toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to add machine', life: 4000 })
   } finally {
     addingMachine.value = false
+  }
+}
+
+function openEditCount(machine) {
+  editingId.value = machine.id
+  editCount.value = machine.initial_cycle_count ?? 0
+}
+
+async function saveEditCount(machine) {
+  const value = Number(editCount.value)
+  if (editCount.value === '' || value < 0 || !Number.isInteger(value)) return
+  savingEdit.value = true
+  try {
+    await updateMachine(machine.id, { initial_cycle_count: value })
+    editingId.value = null
+    await Promise.all([loadMachines(), load()])
+    toast.add({ severity: 'success', summary: 'Starting count updated', life: 2500 })
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to update machine', life: 4000 })
+  } finally {
+    savingEdit.value = false
   }
 }
 
@@ -226,6 +260,13 @@ onMounted(load)
             <option value="washer">🫧 Washer</option>
             <option value="dryer">🔥 Dryer</option>
           </select>
+          <input
+            v-model="newCount"
+            type="number" min="0" step="1"
+            placeholder="Cycles on meter now"
+            class="w-44 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+            @keyup.enter="addMachine"
+          />
           <button
             class="px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50"
             style="background: linear-gradient(135deg, #2563eb, #4f46e5);"
@@ -244,14 +285,46 @@ onMounted(load)
             :key="m.id"
             class="flex items-center justify-between gap-3 py-2.5"
           >
-            <div class="flex items-center gap-2 min-w-0">
-              <span>{{ typeEmoji[m.type] }}</span>
-              <span class="text-sm font-medium truncate" :class="m.is_active ? 'text-gray-800' : 'text-gray-400 line-through'">
-                {{ m.name }}
-              </span>
-              <span class="text-xs text-gray-400 capitalize">{{ m.type }}</span>
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <span>{{ typeEmoji[m.type] }}</span>
+                <span class="text-sm font-medium truncate" :class="m.is_active ? 'text-gray-800' : 'text-gray-400 line-through'">
+                  {{ m.name }}
+                </span>
+                <span class="text-xs text-gray-400 capitalize">{{ m.type }}</span>
+              </div>
+              <div class="text-xs text-gray-400 tabular-nums mt-0.5">
+                Total {{ Number(m.total_cycles || 0).toLocaleString() }} cycles
+                <span class="text-gray-300">({{ Number(m.initial_cycle_count || 0).toLocaleString() }} starting + {{ Number(m.recorded_cycles || 0).toLocaleString() }} recorded)</span>
+              </div>
+              <!-- Inline edit of starting count -->
+              <div v-if="editingId === m.id" class="flex items-center gap-2 mt-2">
+                <input
+                  v-model="editCount"
+                  type="number" min="0" step="1"
+                  class="w-32 border border-gray-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+                  autofocus
+                  @keyup.enter="saveEditCount(m)"
+                  @keyup.escape="editingId = null"
+                />
+                <button
+                  class="text-xs font-semibold text-white px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
+                  style="background: linear-gradient(135deg, #2563eb, #4f46e5);"
+                  :disabled="savingEdit"
+                  @click="saveEditCount(m)"
+                >{{ savingEdit ? 'Saving…' : 'Save' }}</button>
+                <button
+                  class="text-xs font-semibold text-gray-500 border border-gray-200 hover:bg-gray-50 px-2.5 py-1.5 rounded-lg transition-all"
+                  @click="editingId = null"
+                >Cancel</button>
+              </div>
             </div>
             <div class="flex items-center gap-2 shrink-0">
+              <button
+                v-if="editingId !== m.id"
+                class="text-xs font-semibold text-blue-600 border border-blue-200 hover:bg-blue-50 px-2.5 py-1 rounded-lg transition-all"
+                @click="openEditCount(m)"
+              >Edit count</button>
               <button
                 class="text-xs font-semibold px-2.5 py-1 rounded-lg border transition-all"
                 :class="m.is_active
@@ -286,6 +359,43 @@ onMounted(load)
       <div v-if="loading" class="text-center py-16 text-gray-400">Loading…</div>
 
       <div v-else-if="cycleData" class="space-y-4">
+
+        <!-- Per-machine overview -->
+        <div v-if="cycleData.machines.length" class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div class="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-base">📊</span>
+              <h3 class="font-semibold text-gray-900">Machine Overview</h3>
+            </div>
+            <span class="text-xs text-gray-400">{{ monthLabel }}</span>
+          </div>
+
+          <!-- Column headers -->
+          <div class="flex items-center px-5 py-2 bg-gray-50 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
+            <div class="flex-1">Machine</div>
+            <div class="w-24 text-right">This Month</div>
+            <div class="w-24 text-right">All Time</div>
+          </div>
+
+          <div class="divide-y divide-gray-50">
+            <div
+              v-for="m in cycleData.machines"
+              :key="'overview-' + m.id"
+              class="flex items-center px-5 py-3"
+            >
+              <div class="flex-1 min-w-0 text-sm font-medium text-gray-800 flex items-center gap-1.5">
+                <span>{{ typeEmoji[m.type] }}</span>
+                <span class="truncate">{{ m.name }}</span>
+              </div>
+              <div class="w-24 text-right text-sm font-semibold tabular-nums text-cyan-700">
+                {{ Number(m.month_cycles || 0).toLocaleString() }}
+              </div>
+              <div class="w-24 text-right text-sm font-semibold tabular-nums text-gray-900">
+                {{ Number(m.total_cycles || 0).toLocaleString() }}
+              </div>
+            </div>
+          </div>
+        </div>
 
         <!-- No machines yet -->
         <div v-if="!cycleData.machines.length" class="flex flex-col items-center justify-center py-16 text-center bg-white rounded-xl border border-gray-200">
