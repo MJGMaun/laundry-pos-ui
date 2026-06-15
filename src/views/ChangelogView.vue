@@ -52,9 +52,26 @@
 <script setup>
 const changelog = [
   {
+    version: '1.11.0',
+    date: 'June 15, 2026',
+    latest: true,
+    sections: [
+      {
+        title: 'New Features',
+        type: 'feature',
+        items: [
+          '**Machine Cycles** (admin): a new page to track how many wash/dry cycles each machine runs — add your washers and dryers, then log readings day by day',
+          'Machine Cycles: logging is by **meter reading** — type the current total showing on each machine and the app works out how many cycles were added since the last reading, shown as a live **+N** badge beside the input; a reading below the previous total is blocked since a meter can\'t go backwards',
+          'Machine Cycles: a **per-machine overview** shows each machine\'s cycles **this month** and **all time** at a glance',
+          'Machine Cycles: when adding a machine you can set its **starting meter count**, so totals reflect cycles the machine already ran before it was added; an existing machine\'s starting count can be edited later from **Manage machines**',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.10.2',
     date: 'June 6, 2026',
-    latest: true,
+    latest: false,
     sections: [
       {
         title: 'New Features',
