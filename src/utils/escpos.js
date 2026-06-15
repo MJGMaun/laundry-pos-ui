@@ -315,8 +315,14 @@ export function buildTrackingSlipBytes(
     push(divider());
 
     // ── Payment status (BIG, centered) ────────
+    // Prefer the detailed payments array (nets out refunds); fall back to the
+    // order's paid_amount summary when no array is present — e.g. a freshly
+    // placed POS order, where payments are recorded after the order object is
+    // built, so order.payments is empty but paid_amount holds the paid total.
     const payments = (order.payments || []).filter((p) => p.type !== 'refund');
-    const totalPaid = payments.reduce((s, p) => s + Number(p.amount || 0), 0);
+    const totalPaid = payments.length
+        ? payments.reduce((s, p) => s + Number(p.amount || 0), 0)
+        : Number(order.paid_amount || 0);
     const totalDue = Number(order.total_amount || order.total_price || 0);
     const isPaid = totalPaid >= totalDue - 0.01;
 
