@@ -51,16 +51,38 @@ const monthLabel = computed(() =>
   (cycleDate.value || new Date()).toLocaleDateString('en-PH', { month: 'long', year: 'numeric' })
 )
 
-const totalInput = computed(() =>
-  Object.values(inputs.value).reduce((sum, v) => sum + (Number(v) || 0), 0)
-)
+// How many cycles a typed meter reading adds vs the machine's previous total.
+// null when the input is blank; can be negative if a reading is below previous.
+function addedFor(m) {
+  const input = inputs.value[m.id]
+  if (input === '' || input == null) return null
+  return Number(input) - Number(m.previous_total || 0)
+}
+
+// Total cycles added across all machines today (ignores blank / invalid rows)
+const totalAdded = computed(() => {
+  if (!cycleData.value) return 0
+  return cycleData.value.machines.reduce((sum, m) => {
+    const added = addedFor(m)
+    return added && added > 0 ? sum + added : sum
+  }, 0)
+})
+
+// A reading typed below the machine's previous total — can't happen on a real meter
+const hasInvalid = computed(() => {
+  if (!cycleData.value) return false
+  return cycleData.value.machines.some((m) => {
+    const added = addedFor(m)
+    return added !== null && added < 0
+  })
+})
 
 const dirty = computed(() => {
   if (!cycleData.value) return false
   return cycleData.value.machines.some((m) => {
     const input = inputs.value[m.id]
     if (input === '' || input == null) return false
-    return Number(input) !== m.cycle_count
+    return Number(input) !== m.meter_reading
   })
 })
 
@@ -73,7 +95,7 @@ async function load() {
     const res = await getMachineCycles(dateStr())
     cycleData.value = res.data
     inputs.value = Object.fromEntries(
-      res.data.machines.map((m) => [m.id, m.cycle_count ?? ''])
+      res.data.machines.map((m) => [m.id, m.meter_reading ?? ''])
     )
   } catch (e) {
     toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to load', life: 3000 })
@@ -83,25 +105,29 @@ async function load() {
 }
 
 async function saveCounts() {
-  const counts = cycleData.value.machines
+  const readings = cycleData.value.machines
     .filter((m) => inputs.value[m.id] !== '' && inputs.value[m.id] != null)
-    .map((m) => ({ machine_id: m.id, cycle_count: Number(inputs.value[m.id]) }))
+    .map((m) => ({ machine_id: m.id, total_cycle_count: Number(inputs.value[m.id]) }))
 
-  if (!counts.length) {
-    toast.add({ severity: 'warn', summary: 'Nothing to save', detail: 'Enter a count for at least one machine.', life: 3000 })
+  if (!readings.length) {
+    toast.add({ severity: 'warn', summary: 'Nothing to save', detail: 'Enter a meter reading for at least one machine.', life: 3000 })
     return
   }
-  if (counts.some((c) => c.cycle_count < 0 || !Number.isInteger(c.cycle_count))) {
-    toast.add({ severity: 'warn', summary: 'Invalid count', detail: 'Counts must be whole numbers (0 or more).', life: 3000 })
+  if (readings.some((r) => r.total_cycle_count < 0 || !Number.isInteger(r.total_cycle_count))) {
+    toast.add({ severity: 'warn', summary: 'Invalid reading', detail: 'Meter readings must be whole numbers.', life: 3000 })
+    return
+  }
+  if (hasInvalid.value) {
+    toast.add({ severity: 'warn', summary: 'Reading too low', detail: 'A reading is below the machine’s previous total. A meter can’t go down.', life: 4000 })
     return
   }
 
   saving.value = true
   try {
-    const res = await saveMachineCycles({ date: dateStr(), counts })
+    const res = await saveMachineCycles({ date: dateStr(), readings })
     cycleData.value = res.data
     inputs.value = Object.fromEntries(
-      res.data.machines.map((m) => [m.id, m.cycle_count ?? ''])
+      res.data.machines.map((m) => [m.id, m.meter_reading ?? ''])
     )
     toast.add({ severity: 'success', summary: 'Cycle counts saved', life: 2500 })
   } catch (e) {
@@ -409,9 +435,9 @@ onMounted(load)
           <div class="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
             <div class="flex items-center gap-2">
               <span class="text-base">🔄</span>
-              <h3 class="font-semibold text-gray-900">Cycles This Day</h3>
+              <h3 class="font-semibold text-gray-900">Meter Readings</h3>
             </div>
-            <span class="text-xs text-gray-400">{{ cycleData.machines.length }} machine{{ cycleData.machines.length !== 1 ? 's' : '' }}</span>
+            <span class="text-xs text-gray-400">Enter today’s total on each meter</span>
           </div>
 
           <div class="divide-y divide-gray-50">
@@ -425,24 +451,37 @@ onMounted(load)
                   <span>{{ typeEmoji[m.type] }}</span>
                   <span class="truncate">{{ m.name }}</span>
                 </div>
-                <div v-if="m.recorded_by" class="text-xs text-gray-400 mt-0.5">
-                  Recorded by {{ m.recorded_by }} · {{ fmtTime(m.recorded_at) }}
+                <div class="text-xs text-gray-400 mt-0.5">
+                  Previous total {{ Number(m.previous_total || 0).toLocaleString() }}
+                  <span v-if="m.recorded_by" class="text-gray-300">· {{ m.recorded_by }} · {{ fmtTime(m.recorded_at) }}</span>
                 </div>
-                <div v-else class="text-xs text-gray-300 mt-0.5">Not recorded yet</div>
               </div>
-              <input
-                v-model="inputs[m.id]"
-                type="number" min="0" step="1"
-                placeholder="—"
-                class="w-24 text-right border border-gray-200 rounded-xl px-3 py-2 text-sm font-semibold tabular-nums focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
-                @keyup.enter="saveCounts"
-              />
+              <div class="flex items-center gap-2 shrink-0">
+                <!-- Cycles added (delta) badge -->
+                <span
+                  v-if="addedFor(m) !== null"
+                  class="text-xs font-bold tabular-nums px-2 py-0.5 rounded-md"
+                  :class="addedFor(m) < 0
+                    ? 'text-red-600 bg-red-50'
+                    : addedFor(m) === 0 ? 'text-gray-400 bg-gray-100' : 'text-green-700 bg-green-50'"
+                >{{ addedFor(m) < 0 ? '' : '+' }}{{ Number(addedFor(m)).toLocaleString() }}</span>
+                <input
+                  v-model="inputs[m.id]"
+                  type="number" min="0" step="1"
+                  :placeholder="String(m.previous_total ?? 0)"
+                  class="w-28 text-right border rounded-xl px-3 py-2 text-sm font-semibold tabular-nums focus:outline-none focus:ring-2 transition-all"
+                  :class="addedFor(m) !== null && addedFor(m) < 0
+                    ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
+                    : 'border-gray-200 focus:border-blue-400 focus:ring-blue-100'"
+                  @keyup.enter="saveCounts"
+                />
+              </div>
             </div>
 
-            <!-- Total -->
+            <!-- Total added today -->
             <div class="flex items-center justify-between px-5 py-3 bg-gray-50">
-              <div class="text-sm font-medium text-gray-700">Total cycles</div>
-              <span class="font-bold text-gray-900 tabular-nums pr-3">{{ totalInput }}</span>
+              <div class="text-sm font-medium text-gray-700">Cycles added today</div>
+              <span class="font-bold text-green-700 tabular-nums pr-2">+{{ Number(totalAdded).toLocaleString() }}</span>
             </div>
           </div>
         </div>
@@ -452,9 +491,9 @@ onMounted(load)
           v-if="cycleData.machines.length"
           class="w-full py-3 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50"
           style="background: linear-gradient(135deg, #2563eb, #4f46e5);"
-          :disabled="saving || !dirty"
+          :disabled="saving || !dirty || hasInvalid"
           @click="saveCounts"
-        >{{ saving ? 'Saving…' : dirty ? 'Save Cycle Counts' : 'All Saved' }}</button>
+        >{{ saving ? 'Saving…' : hasInvalid ? 'Reading below previous total' : dirty ? 'Save Readings' : 'All Saved' }}</button>
 
       </div>
     </template>
