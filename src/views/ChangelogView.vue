@@ -52,9 +52,23 @@
 <script setup>
 const changelog = [
   {
+    version: '1.11.1',
+    date: 'June 22, 2026',
+    latest: true,
+    sections: [
+      {
+        title: 'Fixes',
+        type: 'fix',
+        items: [
+          'Orders: the **load count** on the Orders list now matches the Dashboard — add-ons like **Add Dry** are no longer counted as loads, and per-order categories count once per order instead of summing every line',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.11.0',
     date: 'June 15, 2026',
-    latest: true,
+    latest: false,
     sections: [
       {
         title: 'New Features',

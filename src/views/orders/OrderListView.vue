@@ -261,7 +261,7 @@ onMounted(load)
               <!-- Row 3: loads · date  |  total + paid badge -->
               <div class="flex items-end justify-between gap-2">
                 <div class="text-xs text-slate-400 leading-snug">
-                  <span>{{ order.loads ? order.loads.reduce((s, l) => s + Number(l.quantity), 0) : (order.loads_count ?? 0) }} load(s)</span>
+                  <span>{{ order.load_count ?? (order.loads_count ?? 0) }} load(s)</span>
                   <span class="mx-1">·</span>
                   <span>{{ fmtDate(order.created_at) }}</span>
                 </div>
@@ -327,7 +327,7 @@ onMounted(load)
                 <span v-else :class="['badge', `badge-${order.status}`]">{{ order.status?.replace('_', ' ') }}</span>
               </td>
               <td class="px-5 py-3.5" :class="isDone(order) ? 'text-slate-400' : 'text-slate-500'">
-                {{ order.loads ? order.loads.reduce((s, l) => s + Number(l.quantity), 0) : (order.loads_count ?? '—') }}
+                {{ order.load_count ?? (order.loads_count ?? '—') }}
               </td>
               <td class="px-5 py-3.5 text-right">
                 <div class="font-bold" :class="isDone(order) ? 'text-slate-400' : 'text-slate-900'">₱{{ fmt(order.total_amount) }}</div>
