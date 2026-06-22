@@ -57,62 +57,22 @@ const changelog = [
     latest: true,
     sections: [
       {
-        title: 'Improvements',
-        type: 'improvement',
-        items: [
-          'Order Detail: each payment now shows **when it was paid** (date and time) below its method',
-        ],
-      },
-    ],
-  },
-  {
-    version: '1.11.4',
-    date: 'June 22, 2026',
-    latest: false,
-    sections: [
-      {
-        title: 'Improvements',
-        type: 'improvement',
-        items: [
-          'Customers: editing a customer now **auto-capitalizes each word** in the Name and Address fields as you type — matching the POS new-customer form',
-        ],
-      },
-    ],
-  },
-  {
-    version: '1.11.3',
-    date: 'June 22, 2026',
-    latest: false,
-    sections: [
-      {
         title: 'New Features',
         type: 'feature',
         items: [
           'Reports: new **Loads** stat card showing the number of loads for the selected date range — counted the same way as the Dashboard (add-ons excluded)',
         ],
       },
-    ],
-  },
-  {
-    version: '1.11.2',
-    date: 'June 22, 2026',
-    latest: false,
-    sections: [
       {
         title: 'Improvements',
         type: 'improvement',
         items: [
+          'Order Detail: each payment now shows **when it was paid** (date and time) below its method',
+          'Customers: editing a customer now **auto-capitalizes each word** in the Name and Address fields as you type — matching the POS new-customer form',
           'Expenses: the **description** is now visible on mobile — shown under the category for each row',
           'Expenses: **Edit / Delete** buttons no longer get cut off on mobile — the row now fits narrow screens, with the Cash/GCash tag tucked under the amount',
         ],
       },
-    ],
-  },
-  {
-    version: '1.11.1',
-    date: 'June 22, 2026',
-    latest: false,
-    sections: [
       {
         title: 'Fixes',
         type: 'fix',
