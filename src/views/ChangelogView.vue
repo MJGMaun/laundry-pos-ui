@@ -52,7 +52,7 @@
 <script setup>
 const changelog = [
   {
-    version: '1.11.5',
+    version: '1.11.1',
     date: 'June 22, 2026',
     latest: true,
     sections: [
