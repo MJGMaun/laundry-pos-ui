@@ -52,9 +52,24 @@
 <script setup>
 const changelog = [
   {
-    version: '1.11.1',
+    version: '1.11.2',
     date: 'June 22, 2026',
     latest: true,
+    sections: [
+      {
+        title: 'Improvements',
+        type: 'improvement',
+        items: [
+          'Expenses: the **description** is now visible on mobile — shown under the category for each row',
+          'Expenses: **Edit / Delete** buttons no longer get cut off on mobile — the row now fits narrow screens, with the Cash/GCash tag tucked under the amount',
+        ],
+      },
+    ],
+  },
+  {
+    version: '1.11.1',
+    date: 'June 22, 2026',
+    latest: false,
     sections: [
       {
         title: 'Fixes',

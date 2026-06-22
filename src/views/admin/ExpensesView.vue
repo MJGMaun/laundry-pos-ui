@@ -176,32 +176,41 @@ onMounted(() => { load(); loadCategories() })
       {{ loadError }}
     </div>
 
-    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="bg-white rounded-xl border border-gray-200 overflow-x-auto">
       <div v-if="loading" class="flex items-center justify-center h-40 text-gray-400">Loading…</div>
       <div v-else-if="!expenses.length" class="flex items-center justify-center h-40 text-gray-400">No expenses found</div>
       <table v-else class="w-full text-sm">
         <thead class="bg-gray-50 border-b border-gray-200">
           <tr>
-            <th class="text-left px-4 py-3 font-medium text-gray-600">Date</th>
-            <th class="text-left px-4 py-3 font-medium text-gray-600">Category</th>
+            <th class="text-left px-3 sm:px-4 py-3 font-medium text-gray-600">Date</th>
+            <th class="text-left px-3 sm:px-4 py-3 font-medium text-gray-600">Category</th>
             <th class="hidden sm:table-cell text-left px-4 py-3 font-medium text-gray-600">Description</th>
-            <th class="text-left px-4 py-3 font-medium text-gray-600">Method</th>
-            <th class="text-right px-4 py-3 font-medium text-gray-600">Amount</th>
-            <th class="px-4 py-3" />
+            <th class="hidden sm:table-cell text-left px-4 py-3 font-medium text-gray-600">Method</th>
+            <th class="text-right px-3 sm:px-4 py-3 font-medium text-gray-600">Amount</th>
+            <th class="px-3 sm:px-4 py-3" />
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100">
           <tr v-for="e in expenses" :key="e.id">
-            <td class="px-4 py-3 text-gray-600">{{ fmtDate(e.expense_date) }}</td>
-            <td class="px-4 py-3 text-gray-800">{{ e.category?.name || '—' }}</td>
+            <td class="px-3 sm:px-4 py-3 text-gray-600 whitespace-nowrap">{{ fmtDate(e.expense_date) }}</td>
+            <td class="px-3 sm:px-4 py-3 text-gray-800">
+              {{ e.category?.name || '—' }}
+              <div v-if="e.description" class="sm:hidden text-xs text-gray-400 mt-0.5 break-words">{{ e.description }}</div>
+            </td>
             <td class="hidden sm:table-cell px-4 py-3 text-gray-500 max-w-xs truncate">{{ e.description || '—' }}</td>
-            <td class="px-4 py-3">
+            <td class="hidden sm:table-cell px-4 py-3">
               <span v-if="e.payment_method === 'gcash'" class="text-xs font-bold px-2 py-0.5 rounded-md text-white" style="background: #005eaa;">GCash</span>
               <span v-else class="text-xs font-medium px-2 py-0.5 rounded-md bg-gray-100 text-gray-600">Cash</span>
             </td>
-            <td class="px-4 py-3 text-right font-semibold text-gray-900">₱{{ fmt(e.amount) }}</td>
-            <td class="px-4 py-3 text-right">
-              <div class="flex gap-1 justify-end">
+            <td class="px-3 sm:px-4 py-3 text-right font-semibold text-gray-900 whitespace-nowrap">
+              ₱{{ fmt(e.amount) }}
+              <div class="sm:hidden mt-0.5">
+                <span v-if="e.payment_method === 'gcash'" class="text-[10px] font-bold px-1.5 py-0.5 rounded text-white" style="background: #005eaa;">GCash</span>
+                <span v-else class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">Cash</span>
+              </div>
+            </td>
+            <td class="px-3 sm:px-4 py-3 text-right">
+              <div class="flex flex-col sm:flex-row gap-1 justify-end items-end">
                 <button class="text-xs text-blue-600 hover:text-blue-700 px-2 py-1" @click="openForm(e)">Edit</button>
                 <button class="text-xs text-red-500 hover:text-red-700 px-2 py-1" @click="remove(e.id)">Del</button>
               </div>
