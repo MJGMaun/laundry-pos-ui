@@ -52,9 +52,23 @@
 <script setup>
 const changelog = [
   {
-    version: '1.11.3',
+    version: '1.11.4',
     date: 'June 22, 2026',
     latest: true,
+    sections: [
+      {
+        title: 'Improvements',
+        type: 'improvement',
+        items: [
+          'Customers: editing a customer now **auto-capitalizes each word** in the Name and Address fields as you type — matching the POS new-customer form',
+        ],
+      },
+    ],
+  },
+  {
+    version: '1.11.3',
+    date: 'June 22, 2026',
+    latest: false,
     sections: [
       {
         title: 'New Features',

@@ -182,6 +182,12 @@ async function load() {
   }
 }
 
+function capitalizeField(field) {
+  if (form.value[field]) {
+    form.value[field] = form.value[field].replace(/\b\w/g, (c) => c.toUpperCase())
+  }
+}
+
 async function save() {
   saving.value = true
   try {
@@ -296,11 +302,11 @@ onMounted(load)
 
         <!-- Edit form -->
         <div v-if="editing" class="space-y-3 border-t border-slate-100 pt-4">
-          <input v-model="form.name"     placeholder="Name"               class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-400 transition-all" />
+          <input v-model="form.name"     @input="capitalizeField('name')"    placeholder="Name"               class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-400 transition-all" />
           <input v-model="form.phone"    placeholder="Phone"              class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-400 transition-all" />
           <input v-model="form.username" placeholder="Username (optional)" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-400 transition-all" />
           <input v-model="form.email"    placeholder="Email (optional)"   class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-400 transition-all" />
-          <input v-model="form.address"  placeholder="Address"            class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-400 transition-all" />
+          <input v-model="form.address"  @input="capitalizeField('address')" placeholder="Address"            class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-400 transition-all" />
           <textarea v-model="form.notes" placeholder="Notes" rows="3"    class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:border-blue-400 transition-all" />
           <button
             class="bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-xl disabled:opacity-60 hover:bg-blue-700 transition-all active:scale-95"
