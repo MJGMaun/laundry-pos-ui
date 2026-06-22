@@ -860,6 +860,7 @@ onMounted(load)
                 <div class="text-xs text-slate-400 capitalize">
                   {{ p.type }}<template v-if="p.reference_number"> · Ref: {{ p.reference_number }}</template>
                 </div>
+                <div v-if="p.created_at" class="text-xs text-slate-400">{{ fmtDate(p.created_at) }}</div>
               </div>
               <span :class="['text-sm font-bold', p.type === 'refund' ? 'text-red-600' : 'text-green-700']">
                 {{ p.type === 'refund' ? '−' : '+' }}₱{{ fmt(p.amount) }}

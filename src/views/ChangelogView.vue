@@ -52,9 +52,23 @@
 <script setup>
 const changelog = [
   {
-    version: '1.11.4',
+    version: '1.11.5',
     date: 'June 22, 2026',
     latest: true,
+    sections: [
+      {
+        title: 'Improvements',
+        type: 'improvement',
+        items: [
+          'Order Detail: each payment now shows **when it was paid** (date and time) below its method',
+        ],
+      },
+    ],
+  },
+  {
+    version: '1.11.4',
+    date: 'June 22, 2026',
+    latest: false,
     sections: [
       {
         title: 'Improvements',
