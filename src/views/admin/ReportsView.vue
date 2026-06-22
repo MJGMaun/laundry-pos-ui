@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import DatePicker from 'primevue/datepicker'
-import { getRevenue, getProfitLoss, getServiceReport, getTopCustomers } from '@/api/reports.js'
+import { getRevenue, getProfitLoss, getServiceReport, getTopCustomers, getSalesSummary } from '@/api/reports.js'
 import { useToast } from 'primevue/usetoast'
 import { Bar } from 'vue-chartjs'
 import {
@@ -33,6 +33,7 @@ const revenue = ref([])
 const pl = ref(null)
 const services = ref([])
 const topCustomers = ref([])
+const summary = ref(null)
 const revenueChart = ref({ labels: [], datasets: [] })
 
 const chartOptions = {
@@ -59,17 +60,19 @@ async function load() {
 	loading.value = true
 	try {
 		const params = buildParams()
-		const [revRes, plRes, svcRes, custRes] = await Promise.all([
+		const [revRes, plRes, svcRes, custRes, sumRes] = await Promise.all([
 			getRevenue(params),
 			getProfitLoss(params),
 			getServiceReport(params),
 			getTopCustomers({ limit: 10 }),
+			getSalesSummary({ date_from: params.date_from, date_to: params.date_to }),
 		])
 
 		revenue.value = revRes.data.data || revRes.data
 		pl.value = plRes.data.data || plRes.data
 		services.value = svcRes.data.data || svcRes.data
 		topCustomers.value = custRes.data.data || custRes.data
+		summary.value = sumRes.data.data || sumRes.data
 
 		buildChart()
 	} finally {
@@ -133,10 +136,14 @@ onMounted(load)
 
 		<div v-else class="space-y-5">
 			<!-- P&L Summary -->
-			<div v-if="pl" class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+			<div v-if="pl" class="grid grid-cols-2 lg:grid-cols-6 gap-3">
 				<div class="bg-white rounded-xl border border-gray-200 p-4">
 					<div class="text-xs text-gray-500 mb-1">Total Revenue</div>
 					<div class="text-xl font-bold text-green-700">₱{{ fmt(pl.total_revenue || pl.revenue) }}</div>
+				</div>
+				<div class="bg-white rounded-xl border border-gray-200 p-4">
+					<div class="text-xs text-gray-500 mb-1">Loads</div>
+					<div class="text-xl font-bold text-gray-900">{{ Number(summary?.load_count || 0).toLocaleString() }}</div>
 				</div>
 				<div class="bg-white rounded-xl border border-gray-200 p-4">
 					<div class="text-xs text-gray-500 mb-1">Uncollected</div>

@@ -52,9 +52,23 @@
 <script setup>
 const changelog = [
   {
-    version: '1.11.2',
+    version: '1.11.3',
     date: 'June 22, 2026',
     latest: true,
+    sections: [
+      {
+        title: 'New Features',
+        type: 'feature',
+        items: [
+          'Reports: new **Loads** stat card showing the number of loads for the selected date range — counted the same way as the Dashboard (add-ons excluded)',
+        ],
+      },
+    ],
+  },
+  {
+    version: '1.11.2',
+    date: 'June 22, 2026',
+    latest: false,
     sections: [
       {
         title: 'Improvements',
