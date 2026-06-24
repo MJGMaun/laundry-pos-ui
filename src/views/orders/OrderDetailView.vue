@@ -200,14 +200,20 @@ const paymentFormError = ref('')
 const newPayment = ref({ method: 'cash', amount: '', tendered: '', reference_number: '' })
 
 function openPaymentForm() {
-  newPayment.value = { method: 'cash', amount: String(outstandingBalance.value.toFixed(2)), tendered: '', reference_number: '', showCustom: false }
+  newPayment.value = { method: 'cash', amount: String(outstandingBalance.value.toFixed(2)), tendered: '', reference_number: '', showCustom: false, editingAmount: false }
   paymentFormError.value = ''
   showPaymentForm.value = true
 }
 
+// Balance still owed after the amount currently entered (for the downpayment hint).
+const balanceAfterPayment = computed(() =>
+  Math.max(0, outstandingBalance.value - Number(newPayment.value.amount || 0))
+)
+
 async function recordPayment() {
   if (savingPayment.value) return
   if (!(Number(newPayment.value.amount) > 0)) { paymentFormError.value = 'Enter an amount.'; return }
+  if (Number(newPayment.value.amount) > outstandingBalance.value + 0.01) { paymentFormError.value = `Amount can't exceed the ₱${fmt(outstandingBalance.value)} balance.`; return }
   savingPayment.value = true
   paymentFormError.value = ''
   try {
@@ -1043,9 +1049,42 @@ onMounted(load)
           @click="newPayment.method = m"
         >{{ m.toUpperCase() }}</button>
       </div>
-      <div class="flex items-center justify-between px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl">
-        <span class="text-xs text-slate-500">Amount</span>
-        <span class="text-base font-bold text-slate-900">₱{{ fmt(newPayment.amount) }}</span>
+      <!-- Amount to pay now (supports partial / downpayment) -->
+      <div class="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-slate-500">Amount to pay</span>
+          <button
+            v-if="Number(newPayment.amount) !== Number(outstandingBalance.toFixed(2))"
+            class="text-xs font-semibold text-blue-600 hover:text-blue-700"
+            @click="newPayment.amount = String(outstandingBalance.toFixed(2))"
+          >Full balance ₱{{ fmt(outstandingBalance) }}</button>
+        </div>
+        <div class="relative">
+          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-base font-bold text-slate-400">₱</span>
+          <input
+            v-model="newPayment.amount"
+            type="number" min="0" step="0.01" inputmode="decimal"
+            class="w-full border border-slate-200 rounded-lg pl-7 pr-3 py-2 text-base font-bold text-right text-slate-900 bg-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+          />
+        </div>
+        <div class="flex flex-wrap gap-1">
+          <button
+            v-for="amt in [200, 500, 1000].filter((a) => a < outstandingBalance)"
+            :key="amt"
+            class="px-2.5 py-1 rounded-lg text-xs font-semibold transition-all active:scale-95"
+            :class="Number(newPayment.amount) === amt
+              ? 'bg-blue-600 text-white'
+              : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300 hover:text-blue-600'"
+            @click="newPayment.amount = String(amt)"
+          >₱{{ amt }}</button>
+        </div>
+        <div
+          v-if="balanceAfterPayment > 0.009"
+          class="flex items-center justify-between text-xs font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5"
+        >
+          <span>Remaining after this (downpayment)</span>
+          <span class="font-bold">₱{{ fmt(balanceAfterPayment) }}</span>
+        </div>
       </div>
       <template v-if="newPayment.method === 'cash'">
         <div class="grid grid-cols-4 gap-1">

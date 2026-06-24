@@ -62,6 +62,7 @@ const changelog = [
         items: [
           'POS: the **loads · total chip** in Step 2 is now tappable — it opens an **Order Summary** showing every load with its price, its add-ons as badges underneath, and a full totals breakdown (subtotal, fees, loyalty discount, total) so you can review the cart without leaving the grid',
 		  'Order Detail: Add Loads redesigned with a **two-pane layout** — service catalog on the left, a pinned **summary** on the right that lists each load with its add-ons and a running subtotal, with − qty + steppers for measured loads and add-ons',
+		  'Order Detail: **Record Payment** now accepts **partial payments / downpayments** — the amount is editable with quick ₱200 / ₱500 / ₱1000 presets and a "Full balance" shortcut, and shows the **remaining balance** left after the payment',
         ],
       },
       {
