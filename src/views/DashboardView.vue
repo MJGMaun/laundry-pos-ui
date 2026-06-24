@@ -121,7 +121,7 @@ async function load() {
     const [sumRes, revRes, custRes, svcRes, expRes, cashRes] = await Promise.all([
       getSalesSummary({ date_from: from, date_to: to }),
       getRevenue({ period: period.value }),
-      getTopCustomers({ limit: 5 }),
+      getTopCustomers({ limit: 5, date_from: from, date_to: to }),
       getServiceReport(),
       getExpenses({ date_from: from, date_to: to, per_page: 500 }),
       getCashBalance(today),

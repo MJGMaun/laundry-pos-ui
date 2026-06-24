@@ -64,7 +64,7 @@ async function load() {
 			getRevenue(params),
 			getProfitLoss(params),
 			getServiceReport(params),
-			getTopCustomers({ limit: 10 }),
+			getTopCustomers({ limit: 10, date_from: params.date_from, date_to: params.date_to }),
 			getSalesSummary({ date_from: params.date_from, date_to: params.date_to }),
 		])
 
