@@ -61,6 +61,7 @@ const changelog = [
         type: 'feature',
         items: [
           'POS: the **loads · total chip** in Step 2 is now tappable — it opens an **Order Summary** showing every load with its price, its add-ons as badges underneath, and a full totals breakdown (subtotal, fees, loyalty discount, total) so you can review the cart without leaving the grid',
+		  'Order Detail: Add Loads redesigned with a **two-pane layout** — service catalog on the left, a pinned **summary** on the right that lists each load with its add-ons and a running subtotal, with − qty + steppers for measured loads and add-ons',
         ],
       },
       {

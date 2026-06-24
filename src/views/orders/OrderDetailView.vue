@@ -323,9 +323,9 @@ const addLoadsParents = computed(() => {
   list.forEach((p) => {
     if (counts[p.name] > 1) {
       seen[p.name] = (seen[p.name] || 0) + 1
-      p.label = `${p.name} #${seen[p.name]}${p.isNew ? ' (new)' : ''}`
+      p.label = `${p.name} #${seen[p.name]}`
     } else {
-      p.label = `${p.name}${p.isNew ? ' (new)' : ''}`
+      p.label = p.name
     }
   })
   return list
@@ -389,12 +389,35 @@ function parentAddonSummary(parent) {
   return names
 }
 
-function parentLabelForRow(row) {
-  const p = addLoadsParents.value.find(
-    (x) => (row.parent_load_id && x.parent_load_id === row.parent_load_id) || (row.parent_uid != null && x.parent_uid === row.parent_uid),
-  )
-  return p?.label || 'load'
+// Grouped summary: each new primary load (or existing load gaining add-ons in
+// this batch) with its add-on rows nested beneath, mirroring the POS summary.
+const addLoadsSummary = computed(() =>
+  addLoadsParents.value
+    .map((p) => ({
+      ...p,
+      primaryRow: p.isNew ? addLoadsRows.value.find((r) => !r.is_addon && r.uid === p.parent_uid) : null,
+      addonRows: addLoadsRows.value.filter((r) => r.is_addon &&
+        ((p.parent_load_id && r.parent_load_id === p.parent_load_id) || (p.parent_uid != null && r.parent_uid === p.parent_uid))),
+    }))
+    .filter((g) => g.primaryRow || g.addonRows.length)
+)
+
+function rowSvc(row) { return services.value.find((s) => s.id === row.service_id) }
+function rowName(row) { return rowSvc(row)?.name || 'Service' }
+function rowStep(row) { return rowSvc(row)?.pricing_type === 'per_kilo' ? 0.5 : 1 }
+
+function setRowQty(row, qty) {
+  const q = Math.round(qty * 100) / 100
+  if (q <= 0) removeAddRow(row)
+  else row.quantity = q
 }
+
+const addLoadsSubtotal = computed(() =>
+  addLoadsRows.value.reduce((s, r) => {
+    const svc = rowSvc(r)
+    return s + (svc ? Number(svc.price) * Number(r.quantity) : 0)
+  }, 0)
+)
 
 // Mirror the POS watchEffect: compute free loads + discount for the rows being added
 const addLoadsLoyaltyResult = computed(() => {
@@ -1118,10 +1141,13 @@ onMounted(load)
     v-model:visible="showAddLoads"
     modal
     header="Add Loads"
-    :style="{ width: '560px', maxWidth: '96vw' }"
+    :style="{ width: '900px', maxWidth: '96vw' }"
     :draggable="false"
   >
-    <div class="flex flex-col gap-3 pt-1" style="max-height: 70vh;">
+    <div class="flex flex-col gap-4 pt-1 sm:flex-row sm:gap-5 sm:h-[68vh] sm:max-h-[620px]">
+
+      <!-- ── LEFT: service catalog ── -->
+      <div class="flex flex-col gap-3 min-h-0 sm:flex-1">
 
       <!-- Category tabs -->
       <div v-if="addLoadsCategories.length" class="flex gap-1.5 flex-wrap shrink-0">
@@ -1140,8 +1166,8 @@ onMounted(load)
       </div>
 
       <!-- Service card grid -->
-      <div class="overflow-y-auto flex-1" style="min-height: 0;">
-        <div class="grid grid-cols-2 gap-2 pb-1">
+      <div class="overflow-y-auto min-h-0 sm:flex-1 max-h-[38vh] sm:max-h-none">
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 pb-1">
           <div
             v-for="svc in addLoadsFiltered"
             :key="svc.id"
@@ -1155,7 +1181,7 @@ onMounted(load)
             </div>
 
             <div class="text-sm font-semibold text-slate-800 pr-12 leading-tight">{{ svc.name }}</div>
-            <div class="text-xs text-slate-400 mt-0.5">{{ svc.pricing_type === 'per_kilo' ? 'per kilo' : svc.pricing_type === 'per_piece' ? 'per piece' : 'flat rate' }}</div>
+            <!-- <div class="text-xs text-slate-400 mt-0.5">{{ svc.pricing_type === 'per_kilo' ? 'per kilo' : svc.pricing_type === 'per_piece' ? 'per piece' : 'flat rate' }}</div> -->
 
             <!-- Add-on: tap to attach to a load -->
             <div v-if="isAddon(svc)" class="mt-2.5 text-center text-xs font-bold rounded-lg py-1.5"
@@ -1184,14 +1210,56 @@ onMounted(load)
           </div>
         </div>
       </div>
+      </div>
+      <!-- ── /LEFT ── -->
 
-      <!-- Selected summary -->
-      <div v-if="addLoadsRows.length" class="shrink-0 rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 flex flex-wrap gap-1.5">
-        <span v-for="row in addLoadsRows" :key="row.uid" class="inline-flex items-center gap-1.5 rounded-lg bg-white border border-slate-200 px-2 py-1 text-xs font-medium text-slate-600">
-          <template v-if="row.is_addon">+ {{ services.find(s => s.id === row.service_id)?.name }} × {{ row.quantity }} <span class="text-slate-400">→ {{ parentLabelForRow(row) }}</span></template>
-          <template v-else>{{ services.find(s => s.id === row.service_id)?.name }} × {{ row.quantity }}</template>
-          <button class="text-slate-400 hover:text-red-500" @click="removeAddRow(row)">✕</button>
-        </span>
+      <!-- ── RIGHT: live summary panel ── -->
+      <div class="flex flex-col gap-3 min-h-0 sm:w-80 sm:shrink-0 sm:border-l sm:border-slate-100 sm:pl-5">
+
+      <!-- Scrollable: selected loads + loyalty -->
+      <div class="flex flex-col gap-3 overflow-y-auto min-h-0 sm:flex-1 max-h-[36vh] sm:max-h-none">
+
+      <!-- Empty placeholder -->
+      <div v-if="!addLoadsRows.length" class="rounded-xl border border-dashed border-slate-200 px-4 py-8 text-center text-xs text-slate-400">
+        Tap services on the left to add loads. They'll appear here.
+      </div>
+
+      <!-- Selected summary — loads with their add-ons nested, qty steppers -->
+      <div v-if="addLoadsRows.length" class="rounded-xl bg-slate-50 border border-slate-200 overflow-hidden">
+        <div class="flex items-center justify-between px-3 py-1.5 border-b border-slate-200/70">
+          <span class="text-[11px] font-bold uppercase tracking-wide text-slate-400">Summary</span>
+          <span class="text-xs font-semibold text-slate-500">Subtotal ₱{{ fmt(addLoadsSubtotal) }}</span>
+        </div>
+        <div class="divide-y divide-slate-200/70">
+          <div v-for="group in addLoadsSummary" :key="group.ref" class="px-3 py-2">
+            <!-- New primary load -->
+            <div v-if="group.primaryRow" class="flex items-center gap-2">
+              <div class="flex-1 min-w-0">
+                <div class="text-xs font-semibold text-slate-700 truncate">{{ group.label }}</div>
+                <div class="text-[11px] text-slate-400">₱{{ fmt(rowSvc(group.primaryRow)?.price) }} × {{ group.primaryRow.quantity }} = ₱{{ fmt((rowSvc(group.primaryRow)?.price || 0) * group.primaryRow.quantity) }}</div>
+              </div>
+              <!-- Measured loads use a qty stepper; flat-rate loads stay distinct (so add-ons can differ per load) and only get a remove button. -->
+              <div v-if="isMeasured(rowSvc(group.primaryRow) || {})" class="flex items-center gap-1.5 shrink-0">
+                <button class="al-qty-btn" @click="setRowQty(group.primaryRow, group.primaryRow.quantity - rowStep(group.primaryRow))">−</button>
+                <span class="w-8 text-center text-xs font-bold text-blue-700">{{ group.primaryRow.quantity }}</span>
+                <button class="al-qty-btn al-qty-plus" @click="setRowQty(group.primaryRow, group.primaryRow.quantity + rowStep(group.primaryRow))">+</button>
+              </div>
+              <button v-else class="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-500 transition-all" @click="removeAddRow(group.primaryRow)" title="Remove load">✕</button>
+            </div>
+            <!-- Existing load gaining add-ons -->
+            <div v-else class="text-xs font-semibold text-slate-500">{{ group.label }} <span class="text-slate-300 font-normal">· existing</span></div>
+
+            <!-- Add-ons nested under this load -->
+            <div v-for="row in group.addonRows" :key="row.uid" class="mt-1.5 flex items-center gap-2 pl-3">
+              <div class="flex-1 min-w-0 text-xs text-emerald-700 font-medium truncate">+ {{ rowName(row) }}</div>
+              <div class="flex items-center gap-1.5 shrink-0">
+                <button class="al-qty-btn" @click="setRowQty(row, row.quantity - 1)">−</button>
+                <span class="w-8 text-center text-xs font-bold text-emerald-700">{{ row.quantity }}</span>
+                <button class="al-qty-btn al-qty-plus" @click="setRowQty(row, row.quantity + 1)">+</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Loyalty preview -->
@@ -1220,6 +1288,9 @@ onMounted(load)
         </div>
       </div>
 
+      </div>
+      <!-- /scrollable -->
+
       <div v-if="addLoadsError" class="shrink-0 text-xs text-red-500 font-medium px-1">{{ addLoadsError }}</div>
 
       <div class="shrink-0 flex gap-2">
@@ -1234,6 +1305,8 @@ onMounted(load)
           @click="saveLoads"
         >{{ savingLoads ? 'Saving…' : `Save Loads${addLoadsRows.length ? ` (${addLoadsRows.length})` : ''}` }}</button>
       </div>
+      </div>
+      <!-- ── /RIGHT ── -->
     </div>
   </Dialog>
 
@@ -1253,7 +1326,10 @@ onMounted(load)
         class="flex w-full flex-col items-start rounded-xl border border-slate-200 px-4 py-3 text-left transition-all hover:border-blue-400 hover:bg-blue-50"
         @click="chooseAddLoadsParent(parent)"
       >
-        <span class="text-sm font-semibold text-slate-800">{{ parent.label }}</span>
+        <span class="flex items-center gap-1.5 text-sm font-semibold text-slate-800">
+          {{ parent.label }}
+          <span v-if="parent.isNew" class="rounded-md bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-blue-600">New</span>
+        </span>
         <span v-if="parentAddonSummary(parent).length" class="mt-1 flex flex-wrap gap-1">
           <span
             v-for="(a, ai) in parentAddonSummary(parent)"
