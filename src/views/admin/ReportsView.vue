@@ -195,7 +195,7 @@ onMounted(load)
 							<td class="px-5 py-3 text-gray-900">{{ s.service_name || s.name }}</td>
 							<td class="hidden sm:table-cell px-5 py-3 text-right text-gray-600">{{ s.order_count || s.orders || 0 }}</td>
 							<td class="hidden sm:table-cell px-5 py-3 text-right text-gray-600">{{ s.total_quantity || s.quantity || 0 }}</td>
-							<td class="px-5 py-3 text-right font-semibold text-gray-900">₱{{ fmt(s.revenue) }}</td>
+							<td class="px-5 py-3 text-right font-semibold text-gray-900">₱{{ fmt(s.total_revenue || s.revenue) }}</td>
 						</tr>
 					</tbody>
 				</table>
