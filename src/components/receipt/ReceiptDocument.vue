@@ -28,6 +28,13 @@ const nonRefundPayments = computed(() =>
   (props.order.payments || []).filter((p) => p.type !== 'refund')
 )
 
+// Primary loads with their add-ons nested underneath.
+const primaryLoads = computed(() =>
+  (props.order.loads || [])
+    .filter((l) => !l.parent_load_id)
+    .map((l) => ({ ...l, addons: l.addons || (props.order.loads || []).filter((c) => c.parent_load_id === l.id) }))
+)
+
 // Cash change = sum of all cash tendered amounts minus sum of all cash payment amounts
 const cashChange = computed(() => {
   const cashRows = nonRefundPayments.value.filter((p) => p.method === 'cash')
@@ -94,11 +101,15 @@ const balanceDue = computed(() =>
         <span class="rcp-mono">AMOUNT</span>
       </div>
       <div class="rcp-thin-line" />
-      <div v-for="load in order.loads" :key="load.id" class="rcp-item">
+      <div v-for="load in primaryLoads" :key="load.id" class="rcp-item">
         <div class="rcp-item-name">{{ load.service_name_snapshot }}</div>
         <div class="rcp-item-detail">
           <span class="rcp-item-unit">{{ load.quantity }} × ₱{{ fmt(load.unit_price_snapshot) }}</span>
           <span class="rcp-item-total rcp-mono">₱{{ fmt(load.line_total) }}</span>
+        </div>
+        <div v-for="a in load.addons" :key="a.id" class="rcp-item-detail" style="padding-left: 8px;">
+          <span class="rcp-item-unit">+ {{ a.service_name_snapshot }}<template v-if="a.quantity > 1"> ×{{ a.quantity }}</template></span>
+          <span class="rcp-item-total rcp-mono">₱{{ fmt(a.line_total) }}</span>
         </div>
       </div>
     </div>

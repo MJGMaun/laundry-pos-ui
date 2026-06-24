@@ -362,7 +362,8 @@ function quickAmounts() {
 
 async function printOrderSlips(order) {
     if (!order) return;
-    const loads = order.loads || [];
+    // Only primary loads get a slip; add-ons are listed on their parent's slip.
+    const loads = (order.loads || []).filter((l) => !l.parent_load_id);
     if (!loads.length) return;
     printingSlips.value = true;
     try {
@@ -409,7 +410,13 @@ async function processPayment() {
         const orderRes = await createOrder({
             client_id: clientId,
             customer_id: cart.customer?.id || null,
-            loads: cart.items.map((i) => ({ service_id: i.service_id, quantity: i.quantity, notes: '' })),
+            loads: cart.items.map((i) => ({
+                service_id: i.service_id,
+                quantity: i.quantity,
+                notes: '',
+                _key: 'k' + i.uid,
+                parent_key: i.is_addon ? 'k' + i.parent_uid : null,
+            })),
             notes: cart.notes || '',
             pickup_fee: cart.pickupFee || 0,
             delivery_fee: cart.deliveryFee || 0,
@@ -444,6 +451,7 @@ async function processPayment() {
         cart.clear();
         customerLoyalty.value = null;
         selectedReward.value = null;
+        currentStep.value = 1;
         showPayment.value = false;
         showSuccess.value = true;
     } catch (e) {
@@ -453,7 +461,13 @@ async function processPayment() {
                 client_id: clientId,
                 customer_id: isOfflineCustomer ? null : cart.customer?.id || null,
                 ...(isOfflineCustomer && { offline_customer_temp_id: cart.customer.id }),
-                loads: cart.items.map((i) => ({ service_id: i.service_id, quantity: i.quantity, notes: '' })),
+                loads: cart.items.map((i) => ({
+                    service_id: i.service_id,
+                    quantity: i.quantity,
+                    notes: '',
+                    _key: 'k' + i.uid,
+                    parent_key: i.is_addon ? 'k' + i.parent_uid : null,
+                })),
                 notes: cart.notes || '',
                 pickup_fee: cart.pickupFee || 0,
                 delivery_fee: cart.deliveryFee || 0,
@@ -480,11 +494,12 @@ async function processPayment() {
                 status: 'pending',
                 total_amount: cart.total,
                 paid_amount: payableRows.reduce((s, p) => s + p.amount, 0),
-                loads_count: cart.items.reduce((s, i) => s + Number(i.quantity), 0),
+                loads_count: cart.items.filter((i) => !i.is_addon).reduce((s, i) => s + Number(i.quantity), 0),
                 created_at: new Date().toISOString(),
             };
             await queue.enqueueOrder(orderData, payableRows, null, displayOrder);
             cart.clear();
+            currentStep.value = 1;
             showPayment.value = false;
             toast.add({ severity: 'warn', summary: 'Saved offline', detail: 'Order queued — will sync when connected', life: 6000 });
         } else {
@@ -507,8 +522,54 @@ function formatPrice(svc) {
 }
 
 const cartItemCount = computed(() => cart.items.reduce((s, i) => s + i.quantity, 0));
-const inCart = (serviceId) => cart.items.some((i) => i.service_id === serviceId);
-const cartQty = (svc) => cart.items.find((i) => i.service_id === svc.id)?.quantity ?? 0;
+// Grid helpers operate on the primary (non-add-on) line for a service.
+const inCart = (serviceId) => cart.items.some((i) => !i.is_addon && i.service_id === serviceId);
+const cartQty = (svc) => cart.items.find((i) => !i.is_addon && i.service_id === svc.id)?.quantity ?? 0;
+
+const isAddon = (svc) => (svc.category?.load_rule ?? svc.load_rule) === 'none';
+const isMeasured = (svc) => svc.pricing_type === 'per_kilo' || svc.pricing_type === 'per_piece';
+const addonCount = (svc) =>
+    cart.items.filter((i) => i.is_addon && i.service_id === svc.id).reduce((s, i) => s + i.quantity, 0);
+
+// Label a load, numbering duplicates of the same service (Wash #1, Wash #2).
+function loadLabel(load) {
+    const same = cart.eligibleParents.filter((p) => p.service_id === load.service_id);
+    if (same.length <= 1) return load.service_name;
+    return `${load.service_name} #${same.findIndex((p) => p.uid === load.uid) + 1}`;
+}
+
+// Add-on parent selection
+const showAddonPicker = ref(false);
+const addonPickerSvc = ref(null);
+
+// Cart overview
+const showCartSummary = ref(false);
+
+function onServiceTap(svc) {
+    if (!isAddon(svc)) {
+        // Flat-rate: add a separate load each tap. Measured: single line + stepper.
+        if (!isMeasured(svc) || !inCart(svc.id)) cart.addItem(svc);
+        return;
+    }
+    const parents = cart.eligibleParents;
+    if (!parents.length) {
+        toast.add({ severity: 'warn', summary: 'Add a load first', detail: 'Add a wash/dry before add-ons.', life: 3000 });
+        return;
+    }
+    if (parents.length === 1) {
+        cart.addAddon(svc, parents[0].uid);
+        toast.add({ severity: 'success', summary: 'Added', detail: `${svc.name} → ${parents[0].service_name}`, life: 1500 });
+        return;
+    }
+    addonPickerSvc.value = svc;
+    showAddonPicker.value = true;
+}
+
+function chooseAddonParent(parent) {
+    if (addonPickerSvc.value) cart.addAddon(addonPickerSvc.value, parent.uid);
+    showAddonPicker.value = false;
+    addonPickerSvc.value = null;
+}
 
 onMounted(loadServices);
 watch(() => branch.currentBranchId, loadServices);
@@ -674,12 +735,13 @@ watch(() => branch.currentBranchId, loadServices);
                         <div v-else class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-300 text-xs font-bold text-white">?</div>
                         <span class="text-sm font-semibold text-slate-700">{{ cart.customer?.name ?? 'Walk-in' }}</span>
                     </div>
-                    <div v-if="cart.items.length" class="flex items-center gap-1.5">
+                    <button v-if="cart.items.length" class="flex items-center gap-1.5 rounded-lg px-1.5 py-1 transition-all hover:bg-slate-100 active:scale-95" @click="showCartSummary = true">
+                        <svg class="h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
                         <span class="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">
-                            {{ cart.items.length }} service{{ cart.items.length !== 1 ? 's' : '' }}
+                            {{ cart.eligibleParents.length }} load{{ cart.eligibleParents.length !== 1 ? 's' : '' }}
                         </span>
                         <span class="text-sm font-bold text-slate-800">₱{{ fmt(cart.total) }}</span>
-                    </div>
+                    </button>
                     <span v-else class="text-xs text-slate-400">Tap services to add</span>
                 </div>
 
@@ -711,9 +773,9 @@ watch(() => branch.currentBranchId, loadServices);
                             v-for="(svc, i) in filteredServices"
                             :key="svc.id"
                             class="service-card animate-scale-in"
-                            :class="inCart(svc.id) ? 'service-card-active' : ''"
+                            :class="(isAddon(svc) ? addonCount(svc) > 0 : (isMeasured(svc) ? inCart(svc.id) : cart.loadCount(svc.id) > 0)) ? 'service-card-active' : ''"
                             :style="`animation-delay: ${i * 20}ms`"
-                            @click="!inCart(svc.id) && cart.addItem(svc)"
+                            @click="onServiceTap(svc)"
                         >
                             <div class="flex w-full items-start justify-between">
                                 <div class="service-card-emoji">{{ serviceEmoji(svc) }}</div>
@@ -723,8 +785,38 @@ watch(() => branch.currentBranchId, loadServices);
 
                             <div v-if="svc.is_loyalty_eligible" class="absolute top-1.5 left-1.5 text-[10px] leading-none" title="Earns loyalty stamps">🎫</div>
 
-                            <!-- Qty + remove controls (when in cart) -->
-                            <div v-if="inCart(svc.id)" class="mt-1 flex w-full items-center gap-1">
+                            <!-- Add-on: tap to attach to a load; manage in the review step -->
+                            <div v-if="isAddon(svc)" class="mt-1 w-full">
+                                <div v-if="addonCount(svc) > 0" class="rounded-xl px-2 py-1.5 text-center text-xs font-bold text-white" style="background: #2563eb">
+                                    {{ addonCount(svc) }} attached · tap to add
+                                </div>
+                                <div v-else class="rounded-xl bg-slate-100 px-2 py-1.5 text-center text-xs font-semibold text-slate-500">
+                                    + Add-on
+                                </div>
+                            </div>
+
+                            <!-- Flat-rate: each load is separate; − / + adjusts how many -->
+                            <div v-else-if="!isMeasured(svc)" class="mt-1 w-full">
+                                <div v-if="cart.loadCount(svc.id) > 0" class="flex items-center justify-between rounded-xl px-1 py-1" style="background: #2563eb">
+                                    <button
+                                        class="flex h-8 w-8 items-center justify-center rounded-lg text-base font-bold text-white transition-all active:scale-90"
+                                        style="background: rgba(255,255,255,0.18)"
+                                        @click.stop="cart.removeLastLoad(svc.id)"
+                                    >−</button>
+                                    <span class="text-xs font-bold text-white">{{ cart.loadCount(svc.id) }} load{{ cart.loadCount(svc.id) > 1 ? 's' : '' }}</span>
+                                    <button
+                                        class="flex h-8 w-8 items-center justify-center rounded-lg text-base font-bold text-white transition-all active:scale-90"
+                                        style="background: rgba(255,255,255,0.18)"
+                                        @click.stop="cart.addItem(svc)"
+                                    >+</button>
+                                </div>
+                                <div v-else class="rounded-xl bg-slate-100 px-2 py-1.5 text-center text-xs font-semibold text-slate-500">
+                                    + Add load
+                                </div>
+                            </div>
+
+                            <!-- Measured (per kilo/piece): qty + remove controls -->
+                            <div v-else-if="inCart(svc.id)" class="mt-1 flex w-full items-center gap-1">
                                 <div class="flex flex-1 items-center justify-between rounded-xl px-1 py-1" style="background: #2563eb">
                                     <button
                                         class="flex h-8 w-8 items-center justify-center rounded-lg text-base font-bold text-white transition-all active:scale-90"
@@ -804,14 +896,29 @@ watch(() => branch.currentBranchId, loadServices);
                             <button class="text-xs font-medium text-blue-600 hover:text-blue-700" @click="currentStep = 2">Edit</button>
                         </div>
                         <div class="divide-y divide-slate-100">
-                            <div v-for="item in cart.items" :key="item.service_id" class="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
-                                <div class="min-w-0 flex-1">
-                                    <div class="text-sm font-semibold text-slate-800">{{ item.service_name }}</div>
-                                    <div class="text-xs text-slate-400">₱{{ fmt(item.unit_price) }} each</div>
+                            <div v-for="parent in cart.eligibleParents" :key="parent.uid" class="py-2.5 first:pt-0 last:pb-0">
+                                <!-- Parent load -->
+                                <div class="flex items-center gap-3">
+                                    <div class="min-w-0 flex-1">
+                                        <div class="text-sm font-semibold text-slate-800">{{ loadLabel(parent) }}</div>
+                                        <div class="text-xs text-slate-400">₱{{ fmt(parent.unit_price) }} each</div>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <span v-if="parent.quantity > 1" class="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">×{{ parent.quantity }}</span>
+                                        <span class="w-16 text-right text-sm font-bold text-slate-900">₱{{ fmt(parent.unit_price * parent.quantity) }}</span>
+                                        <button class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-red-50 text-xs text-red-500 hover:bg-red-100" @click="cart.removeByUid(parent.uid)">✕</button>
+                                    </div>
                                 </div>
-                                <div class="flex items-center gap-2">
-                                    <span class="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">×{{ item.quantity }}</span>
-                                    <span class="w-16 text-right text-sm font-bold text-slate-900">₱{{ fmt(item.unit_price * item.quantity) }}</span>
+                                <!-- Add-ons attached to this load -->
+                                <div v-for="addon in cart.addonsFor(parent.uid)" :key="addon.uid" class="mt-1.5 flex items-center gap-3 pl-4">
+                                    <div class="min-w-0 flex-1">
+                                        <div class="text-xs font-medium text-slate-600">+ {{ addon.service_name }}</div>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">×{{ addon.quantity }}</span>
+                                        <span class="w-16 text-right text-xs font-semibold text-slate-700">₱{{ fmt(addon.unit_price * addon.quantity) }}</span>
+                                        <button class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-red-50 text-xs text-red-500 hover:bg-red-100" @click="cart.removeByUid(addon.uid)">✕</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1117,6 +1224,74 @@ watch(() => branch.currentBranchId, loadServices);
                         @click="saveNewCustomer"
                     >{{ savingCustomer ? 'Saving…' : 'Save & Select' }}</button>
                 </div>
+            </div>
+        </Dialog>
+
+        <!-- ───── Add-on Parent Picker ───── -->
+        <Dialog
+            v-model:visible="showAddonPicker"
+            modal
+            :header="addonPickerSvc ? `Attach ${addonPickerSvc.name} to…` : 'Attach to…'"
+            :style="{ width: '360px', maxWidth: '95vw' }"
+            :draggable="false"
+        >
+            <p class="mb-3 text-sm text-slate-500">Which load is this add-on for?</p>
+            <div class="space-y-2">
+                <button
+                    v-for="parent in cart.eligibleParents"
+                    :key="parent.uid"
+                    class="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 px-4 py-3 text-left transition-all hover:border-blue-400 hover:bg-blue-50"
+                    @click="chooseAddonParent(parent)"
+                >
+                    <div class="min-w-0">
+                        <div class="text-sm font-semibold text-slate-800">{{ loadLabel(parent) }}</div>
+                        <div v-if="cart.addonsFor(parent.uid).length" class="mt-1 flex flex-wrap gap-1">
+                            <span
+                                v-for="a in cart.addonsFor(parent.uid)"
+                                :key="a.uid"
+                                class="inline-flex items-center rounded-md bg-emerald-100 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700"
+                            >{{ a.service_name }}{{ a.quantity > 1 ? ' ×' + a.quantity : '' }}</span>
+                        </div>
+                        <div v-else class="mt-0.5 text-xs text-slate-300">no add-ons yet</div>
+                    </div>
+                    <span v-if="parent.quantity > 1" class="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">×{{ parent.quantity }}</span>
+                </button>
+            </div>
+        </Dialog>
+
+        <!-- ───── Cart Summary ───── -->
+        <Dialog
+            v-model:visible="showCartSummary"
+            modal
+            header="Order Summary"
+            :style="{ width: '440px', maxWidth: '96vw' }"
+            :draggable="false"
+        >
+            <div v-if="!cart.eligibleParents.length" class="py-8 text-center text-sm text-slate-400">Cart is empty</div>
+            <div v-else class="divide-y divide-slate-100">
+                <div v-for="parent in cart.eligibleParents" :key="parent.uid" class="py-2.5 first:pt-0">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <span class="text-sm font-semibold text-slate-800">{{ loadLabel(parent) }}</span>
+                            <span v-if="parent.quantity > 1" class="ml-1 text-xs text-slate-400">×{{ parent.quantity }}</span>
+                        </div>
+                        <span class="shrink-0 text-sm font-bold text-slate-900">₱{{ fmt(parent.unit_price * parent.quantity) }}</span>
+                    </div>
+                    <div v-if="cart.addonsFor(parent.uid).length" class="mt-1.5 flex flex-wrap gap-1 pl-3">
+                        <span
+                            v-for="a in cart.addonsFor(parent.uid)"
+                            :key="a.uid"
+                            class="inline-flex items-center rounded-md bg-emerald-100 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700"
+                        >+ {{ a.service_name }}{{ a.quantity > 1 ? ' ×' + a.quantity : '' }} · ₱{{ fmt(a.unit_price * a.quantity) }}</span>
+                    </div>
+                </div>
+            </div>
+            <div v-if="cart.eligibleParents.length" class="mt-3 space-y-1 border-t border-slate-200 pt-3 text-sm">
+                <div class="flex justify-between text-slate-500"><span>Subtotal</span><span>₱{{ fmt(cart.subtotal) }}</span></div>
+                <div v-if="Number(cart.pickupFee)" class="flex justify-between text-slate-500"><span>Pickup fee</span><span>₱{{ fmt(cart.pickupFee) }}</span></div>
+                <div v-if="Number(cart.deliveryFee)" class="flex justify-between text-slate-500"><span>Delivery fee</span><span>₱{{ fmt(cart.deliveryFee) }}</span></div>
+                <div v-if="cart.loyaltyDiscount > 0" class="flex justify-between text-green-700"><span>Loyalty discount</span><span>−₱{{ fmt(cart.loyaltyDiscount) }}</span></div>
+                <div class="flex justify-between border-t border-slate-100 pt-1.5 text-base font-bold text-slate-900"><span>Total</span><span>₱{{ fmt(cart.total) }}</span></div>
             </div>
         </Dialog>
 

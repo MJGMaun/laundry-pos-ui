@@ -118,7 +118,8 @@ export function buildReceiptBytes(order, settings = {}) {
     push(line('ITEMS'));
     push(bytes(CMD.BOLD_OFF));
 
-    const loads = order.loads || [];
+    // Only primary loads at the top level; add-ons are rendered nested below.
+    const loads = (order.loads || []).filter((l) => !l.parent_load_id);
     for (const load of loads) {
         const svcName =
             load.service_name_snapshot || load.service?.name || 'Service';
@@ -133,10 +134,10 @@ export function buildReceiptBytes(order, settings = {}) {
         push(bytes(CMD.BOLD_OFF));
         push(twoCol('  ' + qty + ' x ' + peso(unitPrice), peso(lineTotal)));
 
-        const addons = load.load_addons || load.addons || [];
+        const addons = load.addons || load.load_addons || [];
         for (const a of addons) {
             const aqty = a.quantity || 1;
-            const aname = a.addon_name_snapshot || a.product?.name || 'Add-on';
+            const aname = a.service_name_snapshot || a.addon_name_snapshot || a.product?.name || 'Add-on';
             const atotal = Number(a.line_total || a.total_price || 0);
             push(twoCol('  + ' + aname + ' x' + aqty, peso(atotal)));
         }
@@ -312,6 +313,18 @@ export function buildTrackingSlipBytes(
     push(bytes(CMD.DOUBLE_SIZE));
     for (const l of wrapWide(svcName)) push(wideLine(l));
     push(bytes(CMD.NORMAL_SIZE));
+
+    // ── Add-ons for this load (e.g. Add Dry, Add Fabcon) ──
+    const slipAddons = load.addons || load.load_addons || [];
+    if (slipAddons.length) {
+        push(bytes(CMD.BOLD_ON));
+        for (const a of slipAddons) {
+            const aname = a.service_name_snapshot || a.addon_name_snapshot || a.product?.name || 'Add-on';
+            const aqty = Number(a.quantity || 1);
+            push(line('+ ' + aname + (aqty > 1 ? ' x' + aqty : '')));
+        }
+        push(bytes(CMD.BOLD_OFF));
+    }
     push(divider());
 
     // ── Payment status (BIG, centered) ────────

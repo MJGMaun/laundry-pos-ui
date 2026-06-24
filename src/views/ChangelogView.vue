@@ -52,9 +52,56 @@
 <script setup>
 const changelog = [
   {
+    version: '1.13.0',
+    date: 'June 24, 2026',
+    latest: true,
+    sections: [
+      {
+        title: 'New Features',
+        type: 'feature',
+        items: [
+          'POS: the **loads · total chip** in Step 2 is now tappable — it opens an **Order Summary** showing every load with its price, its add-ons as badges underneath, and a full totals breakdown (subtotal, fees, loyalty discount, total) so you can review the cart without leaving the grid',
+        ],
+      },
+      {
+        title: 'Improvements',
+        type: 'improvement',
+        items: [
+          'Dashboard & Reports: **Top Customers now respects the selected date range** — it previously always showed all-time totals regardless of the period or dates set',
+        ],
+      },
+      {
+        title: 'Fixes',
+        type: 'fix',
+        items: [
+          'Reports: **Service Performance revenue showed ₱0** — the table was reading the wrong field; revenue per service now displays correctly',
+          'POS: after placing an order, dismissing the success popup could drop you back onto a stale review step showing **"Walk-in Customer"** — the flow now always resets to customer selection (a customer remains required for every order)',
+        ],
+      },
+    ],
+  },
+  {
+    version: '1.12.0',
+    date: 'June 22, 2026',
+    latest: false,
+    sections: [
+      {
+        title: 'New Features',
+        type: 'feature',
+        items: [
+          'POS: flat-rate services now add a **separate load per tap** (Wash #1, Wash #2…), so each load can carry its own add-ons and prints its own slip',
+          'Add-ons now attach to a **specific load**: when you add an extra (Add Dry, Add Fabcon, etc.), it links to a load — auto-attaching when there\'s only one, or asking which one when there are several',
+          'Tracking slips: add-ons no longer print their **own slip** — they\'re listed on the parent load\'s slip instead',
+          'Receipts & Order Detail: add-ons are shown **indented under the load** they belong to',
+          'Add Loads (Order Detail) supports the same add-on attachment, linking to existing or newly-added loads',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.11.1',
     date: 'June 22, 2026',
-    latest: true,
+    latest: false,
     sections: [
       {
         title: 'New Features',

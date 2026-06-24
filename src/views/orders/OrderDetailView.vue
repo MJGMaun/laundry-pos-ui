@@ -40,6 +40,15 @@ const loadError = ref('')
 const updatingStatus = ref(false)
 const statusError = ref('')
 
+// Primary loads with their add-ons nested underneath (add-ons share the loads
+// table but point at their parent via parent_load_id).
+const primaryLoads = computed(() => {
+  const loads = order.value?.loads || []
+  return loads
+    .filter((l) => !l.parent_load_id)
+    .map((l) => ({ ...l, addons: l.addons || loads.filter((c) => c.parent_load_id === l.id) }))
+})
+
 const isPaid = computed(() => {
   if (!order.value) return false
   const paid = (order.value.payments || []).reduce((sum, p) => {
@@ -265,8 +274,19 @@ const addLoadsFiltered = computed(() => {
   return svcs.filter((s) => s.category_id === addLoadsActiveCat.value)
 })
 
+let nextAddUid = 1
+
+const isAddon = (svc) => (svc.category?.load_rule ?? svc.load_rule) === 'none'
+const isMeasured = (svc) => svc.pricing_type === 'per_kilo' || svc.pricing_type === 'per_piece'
+
+// Non-add-on (primary) catalog row helpers — keyed by service_id (measured only).
 function catalogQty(svcId) {
-  return addLoadsRows.value.find((r) => r.service_id === svcId)?.quantity ?? 0
+  return addLoadsRows.value.find((r) => !r.is_addon && r.service_id === svcId)?.quantity ?? 0
+}
+
+// Number of separate flat-rate loads queued for a service.
+function catalogLoadCount(svcId) {
+  return addLoadsRows.value.filter((r) => !r.is_addon && r.service_id === svcId).length
 }
 
 function catalogStep(svc) {
@@ -274,14 +294,106 @@ function catalogStep(svc) {
 }
 
 function catalogSet(svc, qty) {
-  const idx = addLoadsRows.value.findIndex((r) => r.service_id === svc.id)
+  const idx = addLoadsRows.value.findIndex((r) => !r.is_addon && r.service_id === svc.id)
   if (qty <= 0) {
     if (idx !== -1) addLoadsRows.value.splice(idx, 1)
   } else if (idx !== -1) {
     addLoadsRows.value[idx].quantity = qty
   } else {
-    addLoadsRows.value.push({ service_id: svc.id, quantity: qty })
+    addLoadsRows.value.push({ uid: nextAddUid++, service_id: svc.id, quantity: qty, is_addon: false, parent_load_id: null, parent_uid: null })
   }
+}
+
+// Add-ons: total qty across all parents for a service (for the card badge).
+function catalogAddonCount(svcId) {
+  return addLoadsRows.value.filter((r) => r.is_addon && r.service_id === svcId).reduce((s, r) => s + r.quantity, 0)
+}
+
+// Valid parents = existing primary loads on the order + new primary rows in this
+// batch, with duplicate service names numbered (Wash #1, Wash #2).
+const addLoadsParents = computed(() => {
+  const list = []
+  primaryLoads.value.forEach((l) => list.push({ ref: 'e' + l.id, name: l.service_name_snapshot, parent_load_id: l.id, parent_uid: null, isNew: false }))
+  addLoadsRows.value.filter((r) => !r.is_addon).forEach((r) =>
+    list.push({ ref: 'n' + r.uid, name: services.value.find((s) => s.id === r.service_id)?.name || 'New load', parent_load_id: null, parent_uid: r.uid, isNew: true }))
+
+  const counts = {}
+  list.forEach((p) => { counts[p.name] = (counts[p.name] || 0) + 1 })
+  const seen = {}
+  list.forEach((p) => {
+    if (counts[p.name] > 1) {
+      seen[p.name] = (seen[p.name] || 0) + 1
+      p.label = `${p.name} #${seen[p.name]}${p.isNew ? ' (new)' : ''}`
+    } else {
+      p.label = `${p.name}${p.isNew ? ' (new)' : ''}`
+    }
+  })
+  return list
+})
+
+function addAddonRow(svc, parent) {
+  const existing = addLoadsRows.value.find(
+    (r) => r.is_addon && r.service_id === svc.id && r.parent_load_id === parent.parent_load_id && r.parent_uid === parent.parent_uid,
+  )
+  if (existing) existing.quantity += 1
+  else addLoadsRows.value.push({ uid: nextAddUid++, service_id: svc.id, quantity: 1, is_addon: true, parent_load_id: parent.parent_load_id, parent_uid: parent.parent_uid })
+}
+
+const showAddLoadsParent = ref(false)
+const addLoadsAddonSvc = ref(null)
+
+function onCatalogTap(svc) {
+  if (!isAddon(svc)) {
+    if (isMeasured(svc)) {
+      if (!catalogQty(svc.id)) catalogSet(svc, catalogStep(svc))
+    } else {
+      // Flat-rate: each tap adds a separate load.
+      addLoadsRows.value.push({ uid: nextAddUid++, service_id: svc.id, quantity: 1, is_addon: false, parent_load_id: null, parent_uid: null })
+    }
+    return
+  }
+  const parents = addLoadsParents.value
+  if (!parents.length) {
+    toast.add({ severity: 'warn', summary: 'Add a load first', detail: 'Add a wash/dry before add-ons.', life: 3000 })
+    return
+  }
+  if (parents.length === 1) {
+    addAddonRow(svc, parents[0])
+    return
+  }
+  addLoadsAddonSvc.value = svc
+  showAddLoadsParent.value = true
+}
+
+function chooseAddLoadsParent(parent) {
+  if (addLoadsAddonSvc.value) addAddonRow(addLoadsAddonSvc.value, parent)
+  showAddLoadsParent.value = false
+  addLoadsAddonSvc.value = null
+}
+
+function removeAddRow(row) {
+  // Removing a primary row drops its add-on rows too.
+  addLoadsRows.value = addLoadsRows.value.filter((r) => r.uid !== row.uid && r.parent_uid !== row.uid)
+}
+
+// Add-ons already on a parent: existing ones saved on the order + ones queued in this batch.
+function parentAddonSummary(parent) {
+  const names = []
+  if (parent.parent_load_id) {
+    const l = primaryLoads.value.find((x) => x.id === parent.parent_load_id)
+    ;(l?.addons || []).forEach((a) => names.push(a.service_name_snapshot + (a.quantity > 1 ? ' ×' + a.quantity : '')))
+  }
+  addLoadsRows.value
+    .filter((r) => r.is_addon && ((parent.parent_load_id && r.parent_load_id === parent.parent_load_id) || (parent.parent_uid != null && r.parent_uid === parent.parent_uid)))
+    .forEach((r) => names.push((services.value.find((s) => s.id === r.service_id)?.name || 'Add-on') + (r.quantity > 1 ? ' ×' + r.quantity : '')))
+  return names
+}
+
+function parentLabelForRow(row) {
+  const p = addLoadsParents.value.find(
+    (x) => (row.parent_load_id && x.parent_load_id === row.parent_load_id) || (row.parent_uid != null && x.parent_uid === row.parent_uid),
+  )
+  return p?.label || 'load'
 }
 
 // Mirror the POS watchEffect: compute free loads + discount for the rows being added
@@ -356,7 +468,13 @@ async function saveLoads() {
   try {
     const loyalty = addLoadsLoyaltyResult.value
     await addLoads(order.value.id, {
-      loads: addLoadsRows.value,
+      loads: addLoadsRows.value.map((r) => ({
+        service_id: r.service_id,
+        quantity: r.quantity,
+        _key: 'k' + r.uid,
+        parent_key: r.is_addon && r.parent_uid != null ? 'k' + r.parent_uid : null,
+        parent_load_id: r.is_addon ? r.parent_load_id : null,
+      })),
       ...(loyalty ? { discount_amount: loyalty.discount, loyalty_free_loads: loyalty.count } : {}),
     })
     showAddLoads.value = false
@@ -737,7 +855,7 @@ onMounted(load)
           <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
             <div class="flex items-center gap-2">
               <h3 class="font-bold text-slate-900">Loads</h3>
-              <span class="text-xs text-slate-400">{{ order.loads?.length || 0 }} item{{ order.loads?.length !== 1 ? 's' : '' }}</span>
+              <span class="text-xs text-slate-400">{{ primaryLoads.length }} item{{ primaryLoads.length !== 1 ? 's' : '' }}</span>
             </div>
             <button
               v-if="order.status !== 'completed' && auth.isCashier"
@@ -746,29 +864,38 @@ onMounted(load)
             >+ Add Loads</button>
           </div>
           <div class="divide-y divide-slate-50">
-            <div v-if="!order.loads?.length" class="px-5 py-8 text-sm text-center text-slate-300">No loads added</div>
+            <div v-if="!primaryLoads.length" class="px-5 py-8 text-sm text-center text-slate-300">No loads added</div>
             <div
-              v-for="(load, i) in order.loads"
+              v-for="(load, i) in primaryLoads"
               :key="load.id"
-              class="flex flex-wrap items-center gap-2 px-4 sm:px-5 py-3 hover:bg-slate-50 transition-colors animate-slide-up"
+              class="px-4 sm:px-5 py-3 hover:bg-slate-50 transition-colors animate-slide-up"
               :style="`animation-delay: ${i * 30}ms`"
             >
-              <div class="flex-1 min-w-0">
-                <div class="text-sm font-semibold text-slate-800">{{ load.service_name_snapshot }}</div>
-                <div class="text-xs text-slate-400 mt-0.5">{{ load.quantity }} × ₱{{ fmt(load.unit_price_snapshot) }} = ₱{{ fmt(load.line_total) }}</div>
+              <div class="flex flex-wrap items-center gap-2">
+                <div class="flex-1 min-w-0">
+                  <div class="text-sm font-semibold text-slate-800">{{ load.service_name_snapshot }}</div>
+                  <div class="text-xs text-slate-400 mt-0.5">{{ load.quantity }} × ₱{{ fmt(load.unit_price_snapshot) }} = ₱{{ fmt(load.line_total) }}</div>
+                </div>
+                <button
+                  class="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 border border-slate-200 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50 active:scale-95 transition-all disabled:opacity-40"
+                  :disabled="printingSlip === load.id"
+                  @click="printSlip(load)"
+                  title="Print tracking slip"
+                >
+                  <svg v-if="printingSlip !== load.id" xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
+                  </svg>
+                  <span v-if="printingSlip !== load.id">Slip</span>
+                  <span v-else>…</span>
+                </button>
               </div>
-              <button
-                class="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 border border-slate-200 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50 active:scale-95 transition-all disabled:opacity-40"
-                :disabled="printingSlip === load.id"
-                @click="printSlip(load)"
-                title="Print tracking slip"
-              >
-                <svg v-if="printingSlip !== load.id" xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
-                </svg>
-                <span v-if="printingSlip !== load.id">Slip</span>
-                <span v-else>…</span>
-              </button>
+              <!-- Add-ons attached to this load -->
+              <div v-for="a in load.addons" :key="a.id" class="flex items-center gap-2 pl-4 mt-1.5">
+                <div class="flex-1 min-w-0">
+                  <div class="text-xs font-medium text-slate-600">+ {{ a.service_name_snapshot }}</div>
+                </div>
+                <div class="text-xs text-slate-400">{{ a.quantity }} × ₱{{ fmt(a.unit_price_snapshot) }} = ₱{{ fmt(a.line_total) }}</div>
+              </div>
             </div>
           </div>
         </div>
@@ -1019,19 +1146,31 @@ onMounted(load)
             v-for="svc in addLoadsFiltered"
             :key="svc.id"
             class="relative rounded-xl border-2 p-3 cursor-pointer select-none transition-all active:scale-[0.97]"
-            :class="catalogQty(svc.id) ? 'border-blue-400 bg-blue-50' : 'border-slate-200 bg-white hover:border-slate-300'"
-            @click="!catalogQty(svc.id) && catalogSet(svc, catalogStep(svc))"
+            :class="(isAddon(svc) ? catalogAddonCount(svc.id) : (isMeasured(svc) ? catalogQty(svc.id) : catalogLoadCount(svc.id))) ? 'border-blue-400 bg-blue-50' : 'border-slate-200 bg-white hover:border-slate-300'"
+            @click="onCatalogTap(svc)"
           >
             <!-- Price top-right -->
-            <div class="absolute top-2.5 right-2.5 text-xs font-bold" :class="catalogQty(svc.id) ? 'text-blue-600' : 'text-slate-400'">
+            <div class="absolute top-2.5 right-2.5 text-xs font-bold" :class="(isAddon(svc) ? catalogAddonCount(svc.id) : (isMeasured(svc) ? catalogQty(svc.id) : catalogLoadCount(svc.id))) ? 'text-blue-600' : 'text-slate-400'">
               ₱{{ fmt(svc.price) }}
             </div>
 
             <div class="text-sm font-semibold text-slate-800 pr-12 leading-tight">{{ svc.name }}</div>
             <div class="text-xs text-slate-400 mt-0.5">{{ svc.pricing_type === 'per_kilo' ? 'per kilo' : svc.pricing_type === 'per_piece' ? 'per piece' : 'flat rate' }}</div>
 
-            <!-- Qty controls (when in selection) -->
-            <div v-if="catalogQty(svc.id)" class="mt-2.5 flex items-center gap-1.5">
+            <!-- Add-on: tap to attach to a load -->
+            <div v-if="isAddon(svc)" class="mt-2.5 text-center text-xs font-bold rounded-lg py-1.5"
+                 :class="catalogAddonCount(svc.id) ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'">
+              {{ catalogAddonCount(svc.id) ? `${catalogAddonCount(svc.id)} attached · tap to add` : '+ Add-on' }}
+            </div>
+
+            <!-- Flat-rate: each tap adds a separate load -->
+            <div v-else-if="!isMeasured(svc)" class="mt-2.5 text-center text-xs font-bold rounded-lg py-1.5"
+                 :class="catalogLoadCount(svc.id) ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'">
+              {{ catalogLoadCount(svc.id) ? `${catalogLoadCount(svc.id)} load${catalogLoadCount(svc.id) > 1 ? 's' : ''} · tap to add` : '+ Add load' }}
+            </div>
+
+            <!-- Measured (per kilo/piece): qty controls -->
+            <div v-else-if="catalogQty(svc.id)" class="mt-2.5 flex items-center gap-1.5">
               <button
                 class="al-qty-btn"
                 @click.stop="catalogSet(svc, Math.max(0, catalogQty(svc.id) - catalogStep(svc)))"
@@ -1047,9 +1186,11 @@ onMounted(load)
       </div>
 
       <!-- Selected summary -->
-      <div v-if="addLoadsRows.length" class="shrink-0 rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-600 flex flex-wrap gap-x-3 gap-y-1">
-        <span v-for="row in addLoadsRows" :key="row.service_id" class="font-medium">
-          {{ services.find(s => s.id === row.service_id)?.name }} × {{ row.quantity }}
+      <div v-if="addLoadsRows.length" class="shrink-0 rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 flex flex-wrap gap-1.5">
+        <span v-for="row in addLoadsRows" :key="row.uid" class="inline-flex items-center gap-1.5 rounded-lg bg-white border border-slate-200 px-2 py-1 text-xs font-medium text-slate-600">
+          <template v-if="row.is_addon">+ {{ services.find(s => s.id === row.service_id)?.name }} × {{ row.quantity }} <span class="text-slate-400">→ {{ parentLabelForRow(row) }}</span></template>
+          <template v-else>{{ services.find(s => s.id === row.service_id)?.name }} × {{ row.quantity }}</template>
+          <button class="text-slate-400 hover:text-red-500" @click="removeAddRow(row)">✕</button>
         </span>
       </div>
 
@@ -1093,6 +1234,35 @@ onMounted(load)
           @click="saveLoads"
         >{{ savingLoads ? 'Saving…' : `Save Loads${addLoadsRows.length ? ` (${addLoadsRows.length})` : ''}` }}</button>
       </div>
+    </div>
+  </Dialog>
+
+  <!-- Add-on parent picker (Add Loads) -->
+  <Dialog
+    v-model:visible="showAddLoadsParent"
+    modal
+    :header="addLoadsAddonSvc ? `Attach ${addLoadsAddonSvc.name} to…` : 'Attach to…'"
+    :style="{ width: '360px', maxWidth: '95vw' }"
+    :draggable="false"
+  >
+    <p class="mb-3 text-sm text-slate-500">Which load is this add-on for?</p>
+    <div class="space-y-2">
+      <button
+        v-for="parent in addLoadsParents"
+        :key="parent.ref"
+        class="flex w-full flex-col items-start rounded-xl border border-slate-200 px-4 py-3 text-left transition-all hover:border-blue-400 hover:bg-blue-50"
+        @click="chooseAddLoadsParent(parent)"
+      >
+        <span class="text-sm font-semibold text-slate-800">{{ parent.label }}</span>
+        <span v-if="parentAddonSummary(parent).length" class="mt-1 flex flex-wrap gap-1">
+          <span
+            v-for="(a, ai) in parentAddonSummary(parent)"
+            :key="ai"
+            class="inline-flex items-center rounded-md bg-emerald-100 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700"
+          >{{ a }}</span>
+        </span>
+        <span v-else class="mt-0.5 text-xs text-slate-300">no add-ons yet</span>
+      </button>
     </div>
   </Dialog>
 
