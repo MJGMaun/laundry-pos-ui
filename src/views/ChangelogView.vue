@@ -52,9 +52,24 @@
 <script setup>
 const changelog = [
   {
+    version: '1.14.0',
+    date: 'June 30, 2026',
+    latest: true,
+    sections: [
+      {
+        title: 'Improvements',
+        type: 'improvement',
+        items: [
+          'Expenses: added a **search box** — filter by description or category name as you type',
+          'Expenses: the month filter is now a **date-range picker** (like Orders), defaulting to the current month',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.13.0',
     date: 'June 24, 2026',
-    latest: true,
+    latest: false,
     sections: [
       {
         title: 'New Features',

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import DatePicker from 'primevue/datepicker'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
@@ -18,8 +18,21 @@ const loadError = ref('')
 const showForm = ref(false)
 const editingId = ref(null)
 const saving = ref(false)
-const filterMonth = ref(new Date())
 const filterCat = ref('')
+const search = ref('')
+
+// Default to the current month: [first day, last day]
+function currentMonthRange() {
+  const now = new Date()
+  return [new Date(now.getFullYear(), now.getMonth(), 1), new Date(now.getFullYear(), now.getMonth() + 1, 0)]
+}
+const dateRange = ref(currentMonthRange())
+
+function toYMD(d) {
+  if (!d) return null
+  const date = new Date(d)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
 
 function unwrap(res) {
   const candidates = [res.data?.expenses?.data, res.data?.data?.data, res.data?.data, res.data]
@@ -33,11 +46,10 @@ async function load() {
   loadError.value = ''
   try {
     const params = {}
-    if (filterMonth.value) {
-      const d = new Date(filterMonth.value)
-      params.month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    }
-    if (filterCat.value)   params.category_id = filterCat.value
+    if (dateRange.value?.[0]) params.date_from = toYMD(dateRange.value[0])
+    if (dateRange.value?.[1]) params.date_to   = toYMD(dateRange.value[1])
+    if (filterCat.value)      params.category_id = filterCat.value
+    if (search.value.trim())  params.search = search.value.trim()
     const res = await getExpenses(params)
     expenses.value = unwrap(res)
   } catch (e) {
@@ -136,6 +148,13 @@ function fmtDate(d) {
 
 const monthlyTotal = () => expenses.value.reduce((s, e) => s + Number(e.amount), 0)
 
+// Live search with a small debounce so we don't fire a request per keystroke
+let searchTimer = null
+watch(search, () => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(load, 350)
+})
+
 onMounted(() => { load(); loadCategories() })
 </script>
 
@@ -149,21 +168,39 @@ onMounted(() => { load(); loadCategories() })
     </div>
 
     <!-- Filters -->
-    <div class="flex flex-wrap gap-2 mb-4">
-      <DatePicker
-        v-model="filterMonth"
-        view="month"
-        date-format="MM yy"
-        show-icon
-        icon-display="input"
-        placeholder="Select month"
-        class="reports-datepicker"
-        @update:model-value="load"
-      />
-      <select v-model="filterCat" class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm" @change="load">
+    <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 mb-4">
+      <div class="relative flex items-center w-full sm:w-auto">
+        <DatePicker
+          v-model="dateRange"
+          selection-mode="range"
+          :manual-input="false"
+          date-format="M dd, yy"
+          show-icon
+          icon-display="input"
+          placeholder="Date range…"
+          class="reports-datepicker w-full sm:w-auto"
+          @update:model-value="(v) => { if (!v || (v[0] && v[1])) load() }"
+        />
+        <button
+          v-if="dateRange"
+          class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors leading-none"
+          style="font-size: 16px; line-height: 1;"
+          @click.stop="dateRange = null; load()"
+        >×</button>
+      </div>
+      <select v-model="filterCat" class="w-full sm:w-auto border border-gray-300 rounded-lg px-3 py-1.5 text-sm" @change="load">
         <option value="">All categories</option>
         <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
       </select>
+      <div class="relative w-full sm:w-auto sm:flex-none sm:ml-auto">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input
+          v-model="search"
+          type="search"
+          placeholder="Search description or category…"
+          class="w-full sm:w-64 border border-gray-300 rounded-lg pl-9 pr-4 py-1.5 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+        />
+      </div>
     </div>
 
     <!-- Total -->
@@ -265,3 +302,15 @@ onMounted(() => { load(); loadCategories() })
     </Teleport>
   </div>
 </template>
+
+<style scoped>
+/* On mobile the date-range picker fills its full-width row */
+.reports-datepicker :deep(.p-datepicker-input) {
+  width: 100%;
+}
+@media (min-width: 640px) {
+  .reports-datepicker :deep(.p-datepicker-input) {
+    width: auto;
+  }
+}
+</style>
