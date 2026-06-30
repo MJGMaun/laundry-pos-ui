@@ -20,18 +20,26 @@ onMounted(async () => {
 })
 
 // ── Stamp helpers ──────────────────────────────────────────────────────────────
+// The reward is granted on the every_n_stamps-th stamp, but we present the card
+// as needing one fewer (the final stamp is "the reward load"). So the customer
+// sees a target of every_n_stamps - 1 across the counter, dots, and progress.
+function cardTarget(rule) {
+  return Math.max(1, rule.every_n_stamps - 1)
+}
 function stampsInCycle(rule) {
   return data.value.total_stamps % rule.every_n_stamps
 }
 function progressPct(rule) {
-  return (stampsInCycle(rule) / rule.every_n_stamps) * 100
+  return (stampsInCycle(rule) / cardTarget(rule)) * 100
 }
+// Stamps left to "complete" the card. The final stamp (the reward load) is
+// framed as the next load, so we count down to every_n_stamps - 1.
 function stampsUntilNext(rule) {
-  return rule.every_n_stamps - stampsInCycle(rule)
+  return rule.every_n_stamps - stampsInCycle(rule) - 1
 }
 function stampDots(rule) {
   const filled = stampsInCycle(rule)
-  const display = Math.min(rule.every_n_stamps, 20)
+  const display = Math.min(cardTarget(rule), 20)
   return Array.from({ length: display }, (_, i) => i < filled)
 }
 const pendingCount = computed(() => data.value?.pending_rewards?.length ?? 0)
@@ -115,9 +123,9 @@ const glareStyle = computed(() => ({
     <template v-else>
       <!-- Header -->
       <div class="text-center mb-8 animate-fade-up">
-        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-3 text-3xl" style="background: linear-gradient(135deg, #2563eb, #0ea5e9); box-shadow: 0 8px 32px rgba(37,99,235,0.4);">
+        <!-- <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-3 text-3xl" style="background: linear-gradient(135deg, #2563eb, #0ea5e9); box-shadow: 0 8px 32px rgba(37,99,235,0.4);">
           <i class="pi pi-sync" style="font-size: 1rem"></i>
-        </div>
+        </div> -->
         <h1 class="text-xl font-bold text-white">{{ data.branch?.name }}</h1>
         <p class="text-slate-400 text-sm mt-0.5">{{ data.branch?.address }}</p>
         <p class="text-slate-400 text-sm mt-0.5">{{ data.branch?.phone }}</p>
@@ -164,10 +172,10 @@ const glareStyle = computed(() => ({
               <div class="flex items-start justify-between gap-2">
                 <div>
                   <p class="text-white text-sm font-semibold leading-tight">{{ rule.reward_description }}</p>
-                  <p class="text-blue-300/50 text-xs mt-0.5">Every {{ rule.every_n_stamps }} stamps</p>
+                  <p class="text-blue-300/50 text-xs mt-0.5">{{ rule.description }}</p>
                 </div>
                 <div class="text-right shrink-0">
-                  <span class="text-blue-200 text-xs font-semibold">{{ stampsInCycle(rule) }}/{{ rule.every_n_stamps }}</span>
+                  <span class="text-blue-200 text-xs font-semibold">{{ stampsInCycle(rule) }}/{{ cardTarget(rule) }}</span>
                 </div>
               </div>
 
@@ -185,8 +193,8 @@ const glareStyle = computed(() => ({
 </span>
                   <span v-else class="text-blue-400/30 text-xs">·</span>
                 </div>
-                <div v-if="rule.every_n_stamps > 20" class="flex items-center px-2">
-                  <span class="text-blue-300/40 text-xs">+{{ rule.every_n_stamps - 20 }} more</span>
+                <div v-if="cardTarget(rule) > 20" class="flex items-center px-2">
+                  <span class="text-blue-300/40 text-xs">+{{ cardTarget(rule) - 20 }} more</span>
                 </div>
               </div>
 
@@ -200,8 +208,8 @@ const glareStyle = computed(() => ({
               </div>
 
               <p class="text-blue-300/50 text-xs text-center">
-                <template v-if="stampsUntilNext(rule) === 0">🎉 Reward ready!</template>
-                <template v-else>{{ stampsUntilNext(rule) }} more stamp{{ stampsUntilNext(rule) !== 1 ? 's' : '' }} until your next reward</template>
+                <template v-if="stampsUntilNext(rule) === 0">🎉 Your next load earns your reward!</template>
+                <template v-else>{{ stampsUntilNext(rule) }} more stamp{{ stampsUntilNext(rule) !== 1 ? 's' : '' }} until your reward</template>
               </p>
             </div>
 
@@ -240,7 +248,7 @@ const glareStyle = computed(() => ({
         </div>
       </div>
 
-      <p class="text-slate-600 text-xs mt-8 text-center">Powered by Laundry POS</p>
+      <p class="text-slate-600 text-xs mt-8 text-center">Powered by Labamban Laundry Hub</p>
     </template>
   </div>
 </template>
