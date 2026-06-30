@@ -78,7 +78,8 @@ async function load() {
       const q = filters.value.search.toLowerCase()
       cached = cached.filter(o =>
         o.order_number?.toLowerCase().includes(q) ||
-        o.customer?.name?.toLowerCase().includes(q)
+        o.customer?.name?.toLowerCase().includes(q) ||
+        String(o.total_amount ?? '').includes(q)
       )
     }
     cached.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
@@ -187,7 +188,7 @@ onMounted(load)
           <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
           <input
             v-model="filters.search"
-            placeholder="Search order # or customer…"
+            placeholder="Search order #, customer, or amount…"
             class="w-full sm:w-60 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all hover:border-slate-300"
             @keyup.enter="applyFilters"
           />
