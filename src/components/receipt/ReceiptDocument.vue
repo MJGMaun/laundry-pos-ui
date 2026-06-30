@@ -173,7 +173,7 @@ const balanceDue = computed(() =>
         <div v-else>Earn loyalty stamps with this order!</div>
         <div v-if="order.customer.loyalty_stamp_count != null" class="rcp-stamps">
           ⭐ Stamps: {{ order.customer.loyalty_cycle_size
-            ? (order.customer.loyalty_stamp_count % order.customer.loyalty_cycle_size) + '/' + order.customer.loyalty_cycle_size
+            ? (order.customer.loyalty_stamp_count % order.customer.loyalty_cycle_size) + '/' + Math.max(1, order.customer.loyalty_cycle_size - 1)
             : order.customer.loyalty_stamp_count }}
         </div>
       </div>

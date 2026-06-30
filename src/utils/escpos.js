@@ -219,8 +219,10 @@ export function buildReceiptBytes(order, settings = {}) {
             if (pts) push(line('Points Earned: ' + pts));
             if (stampCount != null) {
                 push(bytes(CMD.BOLD_ON));
+                // Show the target as cycleSize - 1: the final stamp is the
+                // reward load, matching the loyalty card's framing.
                 const stampDisplay = cycleSize
-                    ? (stampCount % cycleSize) + '/' + cycleSize
+                    ? (stampCount % cycleSize) + '/' + Math.max(1, cycleSize - 1)
                     : String(stampCount);
                 push(line('Stamps: ' + stampDisplay));
                 push(bytes(CMD.BOLD_OFF));
