@@ -63,6 +63,7 @@ const changelog = [
           'Expenses: added a **search box** — filter by description or category name as you type',
           'Expenses: the month filter is now a **date-range picker** (like Orders), defaulting to the current month',
           'Orders: the **Unpaid filter** is now available to all roles (previously super admin only)',
+          'POS: **GCash now supports partial payments** — the amount is editable (with a Full shortcut and quick ₱200/₱500/₱1000 chips), so you can take a GCash downpayment and leave the balance owing, matching Record Payment on Order Detail',
         ],
       },
     ],

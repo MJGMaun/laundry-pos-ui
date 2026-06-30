@@ -356,6 +356,13 @@ function addPaymentRow() {
     });
 }
 
+// The most a given row can cover: the cart total minus what the other rows
+// already account for. Used as the "Full" shortcut for editable GCash amounts.
+function rowFull(i) {
+    const others = payments.value.reduce((s, p, idx) => (idx === i ? s : s + Number(p.amount || 0)), 0);
+    return Math.max(0, cart.total - others);
+}
+
 function quickAmounts() {
     return [0, 20, 50, 100, 200, 500, 1000];
 }
@@ -398,6 +405,7 @@ async function printOrderSlips(order) {
 
 async function processPayment() {
     if (!cart.items.length) { paymentError.value = 'Cart is empty.'; return; }
+    if (paymentTotal.value > cart.total + 0.01) { paymentError.value = 'Payment exceeds the order total.'; return; }
     processingPayment.value = true;
     paymentError.value = '';
     const clientId = crypto.randomUUID
@@ -1068,13 +1076,38 @@ watch(() => branch.currentBranchId, loadServices);
                                                 :key="m"
                                                 class="flex-1 rounded-lg py-1.5 text-xs font-semibold transition-all"
                                                 :class="p.method === m ? 'bg-blue-600 text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-500 hover:border-slate-300'"
-                                                @click="p.method = m"
+                                                @click="p.method = m; p.amount = String(rowFull(i).toFixed(2)); p.tendered = ''; p.showCustom = false"
                                             >{{ m.toUpperCase() }}</button>
                                         </div>
                                         <button v-if="payments.length > 1" class="flex h-7 w-7 items-center justify-center rounded-full bg-red-100 text-xs text-red-500 transition-colors hover:bg-red-200" @click="payments.splice(i, 1)">✕</button>
                                     </div>
 
-                                    <div class="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+                                    <!-- GCash amount is editable (supports partial / downpayment); cash amount is fixed and driven by the tendered buttons below -->
+                                    <div v-if="p.method === 'gcash'" class="space-y-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-xs text-slate-500">Amount</span>
+                                            <button
+                                                v-if="Number(p.amount) !== Number(rowFull(i).toFixed(2))"
+                                                class="text-xs font-semibold text-blue-600 hover:text-blue-700"
+                                                @click="p.amount = String(rowFull(i).toFixed(2))"
+                                            >Full ₱{{ fmt(rowFull(i)) }}</button>
+                                        </div>
+                                        <div class="relative">
+                                            <span class="absolute top-1/2 left-3 -translate-y-1/2 text-base font-bold text-slate-400">₱</span>
+                                            <input v-model="p.amount" type="number" min="0" step="0.01" inputmode="decimal"
+                                                class="w-full rounded-lg border border-slate-200 bg-white py-2 pr-3 pl-7 text-right text-base font-bold text-slate-900 transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:outline-none" />
+                                        </div>
+                                        <div class="flex flex-wrap gap-1">
+                                            <button
+                                                v-for="amt in [200, 500, 1000].filter((a) => a < rowFull(i))"
+                                                :key="amt"
+                                                class="rounded-lg px-2.5 py-1 text-xs font-semibold transition-all active:scale-95"
+                                                :class="Number(p.amount) === amt ? 'bg-blue-600 text-white' : 'border border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-600'"
+                                                @click="p.amount = String(amt)"
+                                            >₱{{ amt.toLocaleString() }}</button>
+                                        </div>
+                                    </div>
+                                    <div v-else class="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2.5">
                                         <span class="text-xs text-slate-500">Amount</span>
                                         <span class="text-base font-bold text-slate-900">₱{{ fmt(p.amount) }}</span>
                                     </div>
