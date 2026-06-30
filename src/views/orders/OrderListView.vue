@@ -102,6 +102,12 @@ function isPaid(order) {
   return Number(order.paid_amount) >= Number(order.total_amount)
 }
 
+// Partial = something paid but not the full total (a downpayment).
+function isPartial(order) {
+  const paid = Number(order.paid_amount)
+  return paid > 0 && paid < Number(order.total_amount)
+}
+
 function isDone(order) {
   return order.status === 'completed'
 }
@@ -265,11 +271,11 @@ onMounted(load)
                   <span>{{ fmtDate(order.created_at) }}</span>
                 </div>
                 <div class="text-right shrink-0">
-                  <div class="font-bold text-sm" :class="isDone(order) ? 'text-slate-400' : 'text-slate-900'">₱{{ fmt(order.total_amount) }}</div>
+                  <div class="font-bold text-sm" :class="isDone(order) ? 'text-slate-400' : (isPaid(order) ? 'text-green-600' : (isPartial(order) ? 'text-slate-900' : 'text-amber-600'))">₱{{ fmt(order.total_amount) }}</div>
                   <div
-                    class="text-[11px] font-semibold mt-0.5"
-                    :class="isPaid(order) ? 'text-green-600' : 'text-amber-600'"
-                  >{{ isPaid(order) ? '✓ Paid' : '⚠ Unpaid' }}</div>
+                    v-if="isPartial(order)"
+                    class="text-[11px] font-semibold mt-0.5 whitespace-nowrap text-amber-600"
+                  >₱{{ fmt(order.paid_amount) }} / ₱{{ fmt(order.total_amount) }}</div>
                 </div>
               </div>
             </div>
@@ -329,10 +335,9 @@ onMounted(load)
                 {{ order.load_count ?? (order.loads_count ?? '—') }}
               </td>
               <td class="px-5 py-3.5 text-right">
-                <div class="font-bold" :class="isDone(order) ? 'text-slate-400' : 'text-slate-900'">₱{{ fmt(order.total_amount) }}</div>
-                <div class="text-xs mt-0.5 font-semibold"
-                  :class="isPaid(order) ? 'text-green-600' : 'text-amber-600'">
-                  {{ isPaid(order) ? '✓ Paid' : '⚠ Unpaid' }}
+                <div class="font-bold" :class="isDone(order) ? 'text-slate-400' : (isPaid(order) ? 'text-green-600' : (isPartial(order) ? 'text-slate-900' : 'text-amber-600'))">₱{{ fmt(order.total_amount) }}</div>
+                <div v-if="isPartial(order)" class="text-xs mt-0.5 font-semibold whitespace-nowrap text-amber-600">
+                  ₱{{ fmt(order.paid_amount) }} / ₱{{ fmt(order.total_amount) }}
                 </div>
               </td>
               <td class="hidden md:table-cell px-5 py-3.5 text-xs" :class="isDone(order) ? 'text-slate-300' : 'text-slate-400'">{{ fmtDate(order.created_at) }}</td>
