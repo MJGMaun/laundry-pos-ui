@@ -208,7 +208,7 @@ const glareStyle = computed(() => ({
               </div>
 
               <p class="text-blue-300/50 text-xs text-center">
-                <template v-if="stampsUntilNext(rule) === 0">🎉 Your next load earns your reward!</template>
+                <template v-if="stampsUntilNext(rule) === 0">Your next load earns your reward! 🎉 </template>
                 <template v-else>{{ stampsUntilNext(rule) }} more stamp{{ stampsUntilNext(rule) !== 1 ? 's' : '' }} until your reward</template>
               </p>
             </div>
@@ -248,7 +248,7 @@ const glareStyle = computed(() => ({
         </div>
       </div>
 
-      <p class="text-slate-600 text-xs mt-8 text-center">Powered by Labamban Laundry Hub</p>
+      <p class="text-slate-600 text-xs mt-8 text-center">Powered by {{ data.branch?.name || 'Laundry POS' }}</p>
     </template>
   </div>
 </template>
