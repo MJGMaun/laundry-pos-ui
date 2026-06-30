@@ -62,6 +62,7 @@ const changelog = [
         items: [
           'Expenses: added a **search box** — filter by description or category name as you type',
           'Expenses: the month filter is now a **date-range picker** (like Orders), defaulting to the current month',
+          'Orders: the **Unpaid filter** is now available to all roles (previously super admin only)',
         ],
       },
     ],
