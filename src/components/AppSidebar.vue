@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.js'
 import { useBranchStore } from '@/stores/branch.js'
 import { useSettingsStore } from '@/stores/settings.js'
+import { useChatStore } from '@/stores/chat.js'
 
 defineProps({ open: Boolean })
 const emit = defineEmits(['close'])
@@ -17,6 +18,7 @@ const route    = useRoute()
 const auth     = useAuthStore()
 const branch   = useBranchStore()
 const settings = useSettingsStore()
+const chat     = useChatStore()
 
 // ── Nav items ─────────────────────────────────────────────────────────────────
 const navItems = computed(() => {
@@ -34,6 +36,7 @@ const navItems = computed(() => {
   } else {
     items.push({ to: '/orders',        emoji: '📋', label: 'Orders',       color: '#a78bfa' })
   }
+  items.push({ to: '/messages',    emoji: '💬', label: 'Messages',     color: '#38bdf8', badge: chat.unreadCount })
   if (auth.isAdmin) {
     if (settings.daySummaryEnabled) {
       items.push({ to: '/day-summary', emoji: '🧾', label: 'Day Summary',  color: '#fbbf24' })
@@ -151,9 +154,23 @@ function isActive(path) {
             {{ item.label }}
           </span>
 
+          <!-- Unread badge (expanded) -->
+          <span
+            v-if="open && item.badge > 0"
+            class="ml-auto flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
+            style="background: #ef4444;"
+          >{{ item.badge > 99 ? '99+' : item.badge }}</span>
+
+          <!-- Unread badge (collapsed dot) -->
+          <div
+            v-if="!open && item.badge > 0"
+            class="absolute right-1 top-1 h-2 w-2 rounded-full ring-2"
+            style="background: #ef4444; --tw-ring-color: #0a1628;"
+          />
+
           <!-- Collapsed active dot -->
           <div
-            v-if="!open && isActive(item.to)"
+            v-if="!open && isActive(item.to) && !(item.badge > 0)"
             class="absolute right-1.5 top-1.5 w-1.5 h-1.5 rounded-full"
             :style="`background: ${item.color};`"
           />

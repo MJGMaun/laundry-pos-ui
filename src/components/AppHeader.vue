@@ -4,6 +4,7 @@ import { useOnline } from '@vueuse/core'
 import { useAuthStore } from '@/stores/auth.js'
 import { useBranchStore } from '@/stores/branch.js'
 import { useQueueStore } from '@/stores/queue.js'
+import { useChatStore } from '@/stores/chat.js'
 import { useRouter } from 'vue-router'
 
 defineEmits(['toggle-sidebar'])
@@ -13,6 +14,7 @@ const branch = useBranchStore()
 const router = useRouter()
 const isOnline = useOnline()
 const queue = useQueueStore()
+const chat = useChatStore()
 
 const showUserMenu = ref(false)
 
@@ -81,6 +83,22 @@ async function logout() {
         <span class="text-sm font-medium text-blue-700 max-w-[90px] sm:max-w-none truncate">{{ branch.currentBranch.name }}</span>
       </div>
     </div>
+
+    <!-- Messages -->
+    <RouterLink
+      to="/messages"
+      class="relative flex items-center justify-center w-9 h-9 rounded-lg text-slate-500 transition-all duration-150 hover:bg-slate-100 hover:text-slate-700 active:scale-95"
+      aria-label="Messages"
+    >
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4-.8L3 20l1.3-3.9A7.96 7.96 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+      </svg>
+      <span
+        v-if="chat.unreadCount > 0"
+        class="absolute -top-0.5 -right-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold text-white ring-2 ring-white"
+        style="background: #ef4444;"
+      >{{ chat.unreadCount > 99 ? '99+' : chat.unreadCount }}</span>
+    </RouterLink>
 
     <!-- POS shortcut -->
     <RouterLink

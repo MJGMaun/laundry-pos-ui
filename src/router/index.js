@@ -70,6 +70,12 @@ const router = createRouter({
           meta: { roles: ['super_admin', 'admin', 'cashier', 'staff'] },
         },
         {
+          path: 'messages',
+          name: 'messages',
+          component: () => import('@/views/MessagesView.vue'),
+          meta: { roles: ['super_admin', 'admin', 'cashier', 'staff'], fullHeight: true },
+        },
+        {
           path: 'schedule',
           name: 'schedule',
           component: () => import('@/views/ScheduleView.vue'),

@@ -57,6 +57,13 @@ const changelog = [
     latest: true,
     sections: [
       {
+        title: 'New Features',
+        type: 'feature',
+        items: [
+          '**Staff chat** — a new Messages page lets you chat with co-workers in your branch: search someone by username to start a direct message, or use the shared **branch group chat**. An unread badge on the sidebar shows how many new messages are waiting.',
+        ],
+      },
+      {
         title: 'Improvements',
         type: 'improvement',
         items: [

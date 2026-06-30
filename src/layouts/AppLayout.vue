@@ -1,18 +1,27 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppSidebar from '@/components/AppSidebar.vue'
 import AppHeader from '@/components/AppHeader.vue'
 import { useBranchStore } from '@/stores/branch.js'
 import { useSettingsStore } from '@/stores/settings.js'
+import { useChatStore } from '@/stores/chat.js'
 
 const sidebarOpen = ref(window.innerWidth >= 1024)
 const branch = useBranchStore()
 const settings = useSettingsStore()
+const chat = useChatStore()
 const route = useRoute()
 
-onMounted(settings.load)
-watch(() => branch.currentBranchId, settings.load)
+onMounted(() => {
+  settings.load()
+  chat.startPolling()
+})
+onUnmounted(() => chat.stopPolling())
+watch(() => branch.currentBranchId, () => {
+  settings.load()
+  chat.refreshUnread()
+})
 </script>
 
 <template>
