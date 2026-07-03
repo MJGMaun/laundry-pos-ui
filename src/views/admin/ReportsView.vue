@@ -162,7 +162,7 @@ onMounted(load)
 				</div>
 				<div class="bg-white rounded-xl border border-gray-200 p-4">
 					<div class="text-xs text-gray-500 mb-1">Margin</div>
-					<div class="text-xl font-bold text-gray-900">{{ Number(pl.margin || pl.profit_margin || 0).toFixed(1) }}%</div>
+					<div class="text-xl font-bold text-gray-900">{{ Number(pl.profit_margin_pct ?? pl.margin ?? pl.profit_margin ?? 0).toFixed(1) }}%</div>
 				</div>
 			</div>
 
