@@ -169,9 +169,23 @@ router.beforeEach(async (to) => {
 
   if (!auth.user && auth.token) {
     await auth.fetchUser()
-    if (auth.isSuperAdmin) {
-      const branch = useBranchStore()
-      try { await branch.loadBranches() } catch {}
+  }
+
+  // The branch list lives in memory only. After a full reload the cached user
+  // short-circuits the fetch above, so the list would otherwise stay empty and
+  // the header dropdown would collapse to just "All branches". Repopulate it
+  // whenever it's missing for an authenticated user. currentBranchId is
+  // restored from localStorage separately, so the active selection is preserved.
+  if (auth.isAuthenticated) {
+    const branch = useBranchStore()
+    if (!branch.branches.length) {
+      if (auth.isSuperAdmin) {
+        try { await branch.loadBranches() } catch {}
+      } else if (auth.user?.branches?.length) {
+        branch.setBranches(auth.user.branches)
+      } else {
+        try { await branch.loadBranches() } catch {}
+      }
     }
   }
 
