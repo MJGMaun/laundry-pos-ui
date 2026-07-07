@@ -452,16 +452,21 @@ const addLoadsLoyaltyResult = computed(() => {
   const totalFreeLoads = existingCount + newCount
   if (totalFreeLoads === 0) return null
 
-  // Free loads apply only to loyalty-eligible services (the ones that earn
-  // stamps), cheapest first, and never redeem more rewards than there are
-  // eligible loads to apply them to.
-  const eligiblePrices = rows
-    .flatMap((r) => {
-      const svc = services.value.find((s) => s.id === Number(r.service_id))
+  // Preview of the server-side calc: free loads apply to the cheapest
+  // loyalty-eligible loads across the WHOLE order (existing loads + the ones
+  // being added), never more than there are eligible loads to cover. The
+  // backend recomputes this authoritatively on save (see reconcileFreeLoadDiscount).
+  const unitsOf = (list, priceOf) =>
+    list.flatMap((l) => {
+      const svc = services.value.find((s) => s.id === Number(l.service_id))
       if (!svc || !svc.is_loyalty_eligible) return []
-      return Array(Math.max(1, Math.floor(Number(r.quantity || 1)))).fill(Number(svc.price))
+      return Array(Math.max(1, Math.floor(Number(l.quantity || 1)))).fill(priceOf(l, svc))
     })
-    .sort((a, b) => a - b)
+
+  const eligiblePrices = [
+    ...unitsOf(order.value?.loads || [], (l, svc) => Number(l.unit_price_snapshot ?? svc.price)),
+    ...unitsOf(rows, (l, svc) => Number(svc.price)),
+  ].sort((a, b) => a - b)
 
   const redeemCount = Math.min(totalFreeLoads, eligiblePrices.length)
   if (redeemCount === 0) return null
@@ -501,7 +506,9 @@ async function saveLoads() {
   savingLoads.value = true
   addLoadsError.value = ''
   try {
-    const loyalty = addLoadsLoyaltyResult.value
+    // The loyalty discount + reward redemption is recomputed server-side from
+    // the whole order after the loads are added; addLoadsLoyaltyResult is only
+    // a client-side preview, so we don't send discount fields here.
     await addLoads(order.value.id, {
       loads: addLoadsRows.value.map((r) => ({
         service_id: r.service_id,
@@ -510,7 +517,6 @@ async function saveLoads() {
         parent_key: r.is_addon && r.parent_uid != null ? 'k' + r.parent_uid : null,
         parent_load_id: r.is_addon ? r.parent_load_id : null,
       })),
-      ...(loyalty ? { discount_amount: loyalty.discount, loyalty_free_loads: loyalty.count } : {}),
     })
     showAddLoads.value = false
     await load()
