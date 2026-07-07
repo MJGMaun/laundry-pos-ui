@@ -275,6 +275,44 @@ onMounted(load)
           </div>
         </div>
 
+        <!-- Unpaid orders: orders made in this range that still owe money -->
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div class="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-base">⚠️</span>
+              <h3 class="font-semibold text-gray-900">Not Yet Paid</h3>
+            </div>
+            <span v-if="(cashData.unpaid || []).length" class="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg">
+              ₱{{ fmt(cashData.unpaid_total) }} outstanding
+            </span>
+            <span v-else class="text-xs text-gray-400">All paid 🎉</span>
+          </div>
+
+          <div v-if="!(cashData.unpaid && cashData.unpaid.length)" class="px-5 py-6 text-center text-sm text-gray-400">
+            Every order {{ cashData.is_range ? 'in this range' : 'on this date' }} is fully paid.
+          </div>
+
+          <div v-else class="divide-y divide-gray-50">
+            <div
+              v-for="o in cashData.unpaid"
+              :key="o.order_id"
+              class="flex items-center justify-between gap-3 px-5 py-3"
+            >
+              <div class="min-w-0">
+                <div class="text-sm font-medium text-gray-800 truncate">{{ o.customer_name || 'Walk-in' }}</div>
+                <div class="text-xs text-gray-400 flex items-center gap-1.5 flex-wrap">
+                  <RouterLink :to="`/orders/${o.order_id}`" class="font-mono text-blue-500 hover:text-blue-700 hover:underline">
+                    {{ o.order_number }}
+                  </RouterLink>
+                  <span v-if="cashData.is_range">· made {{ fmtDate(o.created_at) }}</span>
+                  <span>· paid ₱{{ fmt(o.net_paid) }} of ₱{{ fmt(o.total_amount) }}</span>
+                </div>
+              </div>
+              <span class="text-sm font-bold tabular-nums text-amber-700 shrink-0">₱{{ fmt(o.balance_due) }} due</span>
+            </div>
+          </div>
+        </div>
+
 		<!-- Payments today (what makes up the totals) -->
         <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div class="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
