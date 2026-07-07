@@ -52,9 +52,43 @@
 <script setup>
 const changelog = [
   {
+    version: '1.15.0',
+    date: 'July 7, 2026',
+    latest: true,
+    sections: [
+      {
+        title: 'New Features',
+        type: 'feature',
+        items: [
+          '**Payments page** (admin) — search every payment across all orders by date range, method (Cash/GCash), order #, or customer, with Collected / Refunds / Net totals. A mistaken payment can be **deleted** here or from Order Detail — totals, reports, cash balance, and the customer\'s total spent all update, and an order that\'s no longer fully paid reverts from Completed to Claimed',
+          '**Backdate orders & payments** (admin) — orders that were missed on their real date can now be entered with a custom **order date** on the POS review step (checkout payments follow the same date), and Record Payment on Order Detail gets an optional date too. Backdated entries land on the right day in every report; future dates are blocked',
+          '**Cash Balance date range** — pick any range instead of a single day, with **Today / Yesterday / 7 days / This month** presets. A range shows summed totals and net cash; single-day keeps the drawer view with starting float',
+          '**Deleted Records page** (super admin) — an audit log of soft-deleted payments, orders, expenses, customers, services, and machines across all branches, with context and deletion timestamps. View-only',
+          '**Live loyalty stamp preview** — the POS shows a 🎫 stamp counter beside the customer\'s name that ticks up as stamp-earning services are added, and the Review step (plus Add Loads on Order Detail) shows each card\'s progress **before → after** this order with a 🎁 celebration when a reward is unlocked',
+        ],
+      },
+      {
+        title: 'Improvements',
+        type: 'improvement',
+        items: [
+          'Loyalty: a free-load reward now discounts the **cheapest stamp-earning service** in the order — previously it took the most expensive line, even services that don\'t earn stamps',
+          'Loyalty: rewards are never wasted — if the cart has fewer eligible loads than pending free loads, only what fits is redeemed and the rest stay on the customer\'s card',
+        ],
+      },
+      {
+        title: 'Bug Fixes',
+        type: 'fix',
+        items: [
+          'Order Detail: the free-load discount shown when adding loads was **never actually applied** — it\'s now computed and redeemed on the server from the whole order (existing + new loads)',
+          'Reports: the **Margin** card always showed 0.0% due to a field-name mismatch',
+          'Fixed the **branch selector** only showing "All branches" after a page reload until logging in again',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.14.0',
     date: 'June 30, 2026',
-    latest: true,
     sections: [
       {
         title: 'New Features',
