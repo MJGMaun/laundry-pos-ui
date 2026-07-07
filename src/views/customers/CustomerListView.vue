@@ -1,21 +1,29 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { getCustomers } from '@/api/customers.js'
 import { isOfflineError } from '@/offline/isOfflineError.js'
 import { db } from '@/offline/db.js'
 import { useBranchStore } from '@/stores/branch.js'
+import { useAuthStore } from '@/stores/auth.js'
 
 const router = useRouter()
 const toast = useToast()
 const branch = useBranchStore()
+const auth = useAuthStore()
+
+// Cashiers/staff can search for a customer but not browse the whole list;
+// admins get the full paginated list.
+const canBrowse = auth.isAdmin
 
 const customers = ref([])
 const loading = ref(false)
 const search = ref('')
 const page = ref(1)
 const total = ref(0)
+const lastPage = ref(1)
+let searchTimer = null
 const showForm = ref(false)
 const saving = ref(false)
 const form = ref({ name: '', username: '', phone: '', email: '', address: '', notes: '' })
@@ -40,6 +48,13 @@ function capitalizeFirst(field) {
 }
 
 async function load() {
+  // Search-only mode: no query yet → show nothing instead of the full list.
+  if (!canBrowse && !search.value.trim()) {
+    customers.value = []
+    total.value = 0
+    lastPage.value = 1
+    return
+  }
   loading.value = true
   try {
     const params = { page: page.value, per_page: 20 }
@@ -47,6 +62,7 @@ async function load() {
     const res = await getCustomers(params)
     customers.value = res.data.data || res.data
     total.value = res.data.total || customers.value.length
+    lastPage.value = res.data.last_page || 1
   } catch (e) {
     if (!isOfflineError(e)) throw e
     const branchId = branch.currentBranchId ? Number(branch.currentBranchId) : null
@@ -64,10 +80,18 @@ async function load() {
     cached.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
     customers.value = cached
     total.value = cached.length
+    lastPage.value = 1 // offline cache is a single unpaginated list
   } finally {
     loading.value = false
   }
 }
+
+// Search as you type (debounced) resets to page 1; page changes reload.
+watch(search, () => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => { page.value = 1; load() }, 350)
+})
+watch(page, load)
 
 async function saveCustomer() {
   saving.value = true
@@ -107,16 +131,22 @@ onMounted(load)
     </div>
 
     <div class="mb-4">
-      <input
-        v-model="search"
-        placeholder="Search by name or phone…"
-        class="w-full sm:w-80 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        @keyup.enter="page = 1; load()"
-      />
+      <div class="flex items-center gap-3">
+        <input
+          v-model="search"
+          placeholder="Search by name or phone…"
+          class="w-full sm:w-80 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <span v-if="total" class="text-xs text-gray-400 shrink-0">{{ total }} customer{{ total !== 1 ? 's' : '' }}</span>
+      </div>
     </div>
 
     <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
       <div v-if="loading" class="flex items-center justify-center h-40 text-gray-400">Loading…</div>
+      <div v-else-if="!customers.length && !canBrowse && !search.trim()" class="flex flex-col items-center justify-center h-40 gap-1 text-gray-400">
+        <span class="text-2xl">🔍</span>
+        <span class="text-sm">Search by name or phone to find a customer</span>
+      </div>
       <div v-else-if="!customers.length" class="flex items-center justify-center h-40 text-gray-400">No customers found</div>
       <table v-else class="w-full text-sm">
         <thead class="bg-gray-50 border-b border-gray-200">
@@ -143,6 +173,21 @@ onMounted(load)
           </tr>
         </tbody>
       </table>
+
+      <!-- Pagination -->
+      <div v-if="lastPage > 1" class="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
+        <button
+          class="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-all"
+          :disabled="page <= 1 || loading"
+          @click="page--"
+        >← Prev</button>
+        <span class="text-xs text-gray-400">Page {{ page }} of {{ lastPage }}</span>
+        <button
+          class="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-all"
+          :disabled="page >= lastPage || loading"
+          @click="page++"
+        >Next →</button>
+      </div>
     </div>
 
     <!-- New customer modal -->

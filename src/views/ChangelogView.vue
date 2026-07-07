@@ -74,6 +74,7 @@ const changelog = [
         items: [
           'Loyalty: a free-load reward now discounts the **cheapest stamp-earning service** in the order — previously it took the most expensive line, even services that don\'t earn stamps',
           'Loyalty: rewards are never wasted — if the cart has fewer eligible loads than pending free loads, only what fits is redeemed and the rest stay on the customer\'s card',
+          'Customers: cashiers and staff are now **search-only** — they find a customer by typing a name or phone instead of browsing the full list (admins keep the browsable list); search happens as you type',
         ],
       },
       {
@@ -83,6 +84,7 @@ const changelog = [
           'Order Detail: the free-load discount shown when adding loads was **never actually applied** — it\'s now computed and redeemed on the server from the whole order (existing + new loads)',
           'Reports: the **Margin** card always showed 0.0% due to a field-name mismatch',
           'Fixed the **branch selector** only showing "All branches" after a page reload until logging in again',
+          'Customers: the list now has **pagination** with a total count — previously only the first 20 customers were ever shown, with no way to reach the rest',
         ],
       },
     ],
