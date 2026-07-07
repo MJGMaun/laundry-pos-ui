@@ -100,6 +100,12 @@ const router = createRouter({
           meta: { roles: ['super_admin', 'admin'] },
         },
         {
+          path: 'payments',
+          name: 'payments',
+          component: () => import('@/views/admin/PaymentsView.vue'),
+          meta: { roles: ['super_admin', 'admin'] },
+        },
+        {
           path: 'day-summary',
           name: 'day-summary',
           component: () => import('@/views/DaySummaryView.vue'),

@@ -9,7 +9,7 @@ import Dialog from 'primevue/dialog'
 import { addLoads } from '@/api/loads.js'
 import { getBranchServices } from '@/api/branches.js'
 import { useBranchStore } from '@/stores/branch.js'
-import { createPayment } from '@/api/payments.js'
+import { createPayment, deletePayment } from '@/api/payments.js'
 import { usePrinter } from '@/composables/usePrinter.js'
 import { buildTrackingSlipBytes } from '@/utils/escpos.js'
 import { getCustomerLoyalty } from '@/api/loyalty.js'
@@ -189,6 +189,27 @@ function revertOrderStatus() {
         }
       } finally {
         updatingStatus.value = false
+      }
+    },
+  })
+}
+
+// Admin-only: remove a mistaken payment. The backend reverses its side
+// effects (customer total_spent, auto-complete status) and soft-deletes.
+function confirmDeletePayment(p) {
+  confirm.require({
+    message: `Delete this ₱${fmt(p.amount)} ${p.method} ${p.type}? Totals, reports, and the customer's spend will be updated.`,
+    header: 'Delete payment',
+    icon: 'pi pi-exclamation-triangle',
+    rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
+    acceptProps: { label: 'Delete', severity: 'danger' },
+    accept: async () => {
+      try {
+        await deletePayment(p.id)
+        toast.add({ severity: 'success', summary: 'Payment deleted', life: 2500 })
+        await load()
+      } catch (e) {
+        toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to delete payment', life: 4000 })
       }
     },
   })
@@ -1077,6 +1098,12 @@ onMounted(load)
               <span :class="['text-sm font-bold', p.type === 'refund' ? 'text-red-600' : 'text-green-700']">
                 {{ p.type === 'refund' ? '−' : '+' }}₱{{ fmt(p.amount) }}
               </span>
+              <button
+                v-if="auth.isAdmin"
+                class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-red-50 text-xs text-red-500 hover:bg-red-100 transition-all active:scale-95"
+                title="Delete payment"
+                @click="confirmDeletePayment(p)"
+              >✕</button>
             </div>
           </div>
 
