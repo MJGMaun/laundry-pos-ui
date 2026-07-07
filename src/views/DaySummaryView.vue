@@ -43,7 +43,7 @@ async function load() {
   loading.value = true
   data.value = null
   try {
-    const [cashRes, setRes] = await Promise.all([getCashBalance(today), getSettings()])
+    const [cashRes, setRes] = await Promise.all([getCashBalance({ date: today }), getSettings()])
     data.value = cashRes.data
     const flat = {}
     ;(setRes.data.settings || []).forEach((s) => { flat[s.key] = s.value })

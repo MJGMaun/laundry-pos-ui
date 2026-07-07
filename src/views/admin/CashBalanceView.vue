@@ -10,12 +10,28 @@ const toast       = useToast()
 const branchStore = useBranchStore()
 const authStore   = useAuthStore()
 
-const cashDate     = ref(new Date())
+const cashRange    = ref([new Date(), new Date()]) // [from, to] — same day = single-day drawer view
 const cashData     = ref(null)
 const cashLoading  = ref(false)
 const editingStart = ref(false)
 const startInput   = ref('')
 const savingStart  = ref(false)
+
+const presets = [
+  { label: 'Today',     range: () => [new Date(), new Date()] },
+  { label: 'Yesterday', range: () => { const d = new Date(); d.setDate(d.getDate() - 1); return [d, new Date(d)] } },
+  { label: '7 days',    range: () => { const d = new Date(); d.setDate(d.getDate() - 6); return [d, new Date()] } },
+  { label: 'This month', range: () => { const n = new Date(); return [new Date(n.getFullYear(), n.getMonth(), 1), n] } },
+]
+
+function applyPreset(p) {
+  cashRange.value = p.range()
+}
+
+function presetActive(p) {
+  const [f, t] = p.range()
+  return fromStr() === localYMD(f) && toStr() === localYMD(t)
+}
 
 function fmt(n) {
   return Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -34,17 +50,24 @@ function localYMD(d) {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
-function cashDateStr() {
-    return cashDate.value ? localYMD(cashDate.value) : localYMD(new Date())
+function fromStr() {
+  return cashRange.value?.[0] ? localYMD(cashRange.value[0]) : localYMD(new Date())
+}
+
+function toStr() {
+  // While picking a range the second date is null — treat as single day.
+  return cashRange.value?.[1] ? localYMD(cashRange.value[1]) : fromStr()
 }
 
 async function load() {
   // super_admin must have a branch selected
   if (authStore.isSuperAdmin && !branchStore.currentBranchId) return
+  // Wait until the range picker has both ends (it emits [from, null] mid-pick).
+  if (cashRange.value?.[0] && cashRange.value?.[1] === null) return
   cashLoading.value = true
   cashData.value = null
   try {
-    const res = await getCashBalance(cashDateStr())
+    const res = await getCashBalance({ date_from: fromStr(), date_to: toStr() })
     cashData.value = res.data
   } catch (e) {
     toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to load', life: 3000 })
@@ -62,7 +85,7 @@ async function saveStartingBalance() {
   if (startInput.value === '' || Number(startInput.value) < 0) return
   savingStart.value = true
   try {
-    const res = await setCashBalance({ date: cashDateStr(), starting_balance: Number(startInput.value) })
+    const res = await setCashBalance({ date: fromStr(), starting_balance: Number(startInput.value) })
     cashData.value = res.data
     editingStart.value = false
     toast.add({ severity: 'success', summary: 'Starting balance saved', life: 2500 })
@@ -73,8 +96,8 @@ async function saveStartingBalance() {
   }
 }
 
-// Reload when date changes
-watch(cashDate, load)
+// Reload when the range changes (deep — the picker mutates the array)
+watch(cashRange, load, { deep: true })
 
 // Reload when super_admin switches branch
 watch(() => branchStore.currentBranchId, (id) => {
@@ -109,18 +132,30 @@ onMounted(load)
     </div>
 
     <template v-else>
-      <!-- Date picker -->
-      <div class="flex items-center gap-3 bg-white rounded-xl border border-gray-200 p-3 mb-4">
+      <!-- Date range picker -->
+      <div class="flex flex-wrap items-center gap-3 bg-white rounded-xl border border-gray-200 p-3 mb-4">
         <span class="text-sm text-gray-500 font-medium">Date</span>
         <DatePicker
-          v-model="cashDate"
-          date-format="M dd, yy"
+          v-model="cashRange"
+          selection-mode="range"
+          :manual-input="false"
+          date-format="M dd"
           show-icon
           icon-display="input"
-          placeholder="Select date"
-          class="cash-datepicker"
-          @update:model-value="load"
+          placeholder="Select date or range"
+          class="cash-datepicker cash-datepicker-range"
         />
+        <div class="flex flex-wrap items-center gap-1.5">
+          <button
+            v-for="p in presets"
+            :key="p.label"
+            class="px-2.5 py-1 rounded-lg text-xs font-semibold transition-all active:scale-95"
+            :class="presetActive(p)
+              ? 'bg-blue-600 text-white'
+              : 'bg-white text-gray-600 border border-gray-200 hover:border-blue-300 hover:text-blue-600'"
+            @click="applyPreset(p)"
+          >{{ p.label }}</button>
+        </div>
       </div>
 
       <!-- Loading -->
@@ -128,8 +163,13 @@ onMounted(load)
 
       <div v-else-if="cashData" class="space-y-4">
 
-        <!-- Starting balance card -->
-        <div class="bg-white rounded-xl border border-gray-200 p-5">
+        <!-- Range summary note -->
+        <div v-if="cashData.is_range" class="flex items-center gap-2 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2.5">
+          📊 Totals for {{ fmtDate(cashData.date_from) }} – {{ fmtDate(cashData.date_to) }}. Starting float and drawer total are per-day, so they're hidden for ranges.
+        </div>
+
+        <!-- Starting balance card (single day only — the float is per-day) -->
+        <div v-if="!cashData.is_range" class="bg-white rounded-xl border border-gray-200 p-5">
           <div class="flex items-center justify-between mb-1">
             <span class="text-sm font-semibold text-gray-600">Starting Balance (float)</span>
             <button
@@ -183,8 +223,8 @@ onMounted(load)
               <span class="font-semibold text-red-600">−₱{{ fmt(cashData.expenses) }}</span>
             </div>
             <div class="flex items-center justify-between px-5 py-3 bg-gray-50">
-              <div class="text-sm font-medium text-gray-700">Total in Drawer</div>
-              <span class="font-bold text-gray-900">₱{{ fmt(cashData.total_in_drawer) }}</span>
+              <div class="text-sm font-medium text-gray-700">{{ cashData.is_range ? 'Net Cash' : 'Total in Drawer' }}</div>
+              <span class="font-bold text-gray-900">₱{{ fmt(cashData.is_range ? cashData.to_remit_cash : cashData.total_in_drawer) }}</span>
             </div>
           </div>
         </div>
@@ -225,7 +265,7 @@ onMounted(load)
               {{ cashData.to_remit_cash < 0 ? '-' : '' }}₱{{ fmt(Math.abs(cashData.to_remit_cash)) }}
             </div>
             <div class="text-xs mt-1" :class="cashData.to_remit_cash >= 0 ? 'text-green-600' : 'text-red-500'">
-              Drawer total minus starting float
+              {{ cashData.is_range ? 'Cash payments minus cash expenses' : 'Drawer total minus starting float' }}
             </div>
           </div>
           <div class="bg-blue-50 border border-blue-200 rounded-xl p-5">
@@ -240,13 +280,13 @@ onMounted(load)
           <div class="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
             <div class="flex items-center gap-2">
               <span class="text-base">🧾</span>
-              <h3 class="font-semibold text-gray-900">Payments This Day</h3>
+              <h3 class="font-semibold text-gray-900">{{ cashData.is_range ? `Payments (${fmtDate(cashData.date_from)} – ${fmtDate(cashData.date_to)})` : 'Payments This Day' }}</h3>
             </div>
             <span class="text-xs text-gray-400">{{ (cashData.payments || []).length }} payment{{ (cashData.payments || []).length !== 1 ? 's' : '' }}</span>
           </div>
 
           <div v-if="!(cashData.payments && cashData.payments.length)" class="px-5 py-8 text-center text-sm text-gray-400">
-            No payments recorded on this date.
+            No payments recorded {{ cashData.is_range ? 'in this range' : 'on this date' }}.
           </div>
 
           <div v-else class="divide-y divide-gray-50">
@@ -264,7 +304,7 @@ onMounted(load)
                   <span v-if="p.order_created_at">·</span>
                   <span v-if="p.order_created_at">made {{ fmtDate(p.order_created_at) }}</span>
                   <span>·</span>
-                  <span>paid {{ fmtTime(p.created_at) }}</span>
+                  <span>paid {{ cashData.is_range ? fmtDate(p.created_at) + ' ' : '' }}{{ fmtTime(p.created_at) }}</span>
                 </div>
               </div>
               <div class="flex items-center gap-2 shrink-0">
@@ -295,6 +335,9 @@ onMounted(load)
   font-size: 14px;
   color: #111827;
   width: 150px;
+}
+.cash-datepicker-range .p-datepicker-input {
+  width: 210px;
 }
 .cash-datepicker .p-datepicker-input:focus {
   outline: none;

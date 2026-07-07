@@ -124,7 +124,7 @@ async function load() {
       getTopCustomers({ limit: 5, date_from: from, date_to: to }),
       getServiceReport(),
       getExpenses({ date_from: from, date_to: to, per_page: 500 }),
-      getCashBalance(today),
+      getCashBalance({ date: today }),
     ])
 
     const sum = sumRes.data.data || sumRes.data
