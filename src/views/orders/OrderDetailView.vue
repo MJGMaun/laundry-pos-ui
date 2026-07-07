@@ -198,9 +198,10 @@ const showPaymentForm = ref(false)
 const savingPayment = ref(false)
 const paymentFormError = ref('')
 const newPayment = ref({ method: 'cash', amount: '', tendered: '', reference_number: '' })
+const todayStr = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD, local tz
 
 function openPaymentForm() {
-  newPayment.value = { method: 'cash', amount: String(outstandingBalance.value.toFixed(2)), tendered: '', reference_number: '', showCustom: false, editingAmount: false }
+  newPayment.value = { method: 'cash', amount: String(outstandingBalance.value.toFixed(2)), tendered: '', reference_number: '', payment_date: '', showCustom: false, editingAmount: false }
   paymentFormError.value = ''
   showPaymentForm.value = true
 }
@@ -221,6 +222,7 @@ async function recordPayment() {
     const payData = { method: p.method, amount: Number(p.amount), type: 'payment' }
     if (p.method === 'cash') payData.tendered = Number(p.tendered || p.amount)
     else payData.reference_number = p.reference_number || ''
+    if (auth.isAdmin && p.payment_date) payData.payment_date = p.payment_date
     await createPayment(order.value.id, payData)
     showPaymentForm.value = false
     await load()
@@ -234,6 +236,7 @@ async function recordPayment() {
       const payData = { method: p.method, amount: Number(p.amount), type: 'payment' }
       if (p.method === 'cash') payData.tendered = Number(p.tendered || p.amount)
       else payData.reference_number = p.reference_number || ''
+      if (auth.isAdmin && p.payment_date) payData.payment_date = p.payment_date
       await queue.enqueueRequest('POST', `/orders/${order.value.id}/payments`, payData)
       const covers = Number(p.amount) >= outstandingBalance.value - 0.01
       if (covers && order.value.status === 'claimed') {
@@ -1205,6 +1208,19 @@ onMounted(load)
           placeholder="Transaction reference (optional)"
           class="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
         />
+      </div>
+      <!-- Admin-only: backdate a payment missed on its real date -->
+      <div v-if="auth.isAdmin" class="flex items-center gap-2">
+        <span class="text-xs text-slate-500 w-16 shrink-0">Date <span class="text-slate-400">(opt)</span></span>
+        <input
+          v-model="newPayment.payment_date"
+          type="date" :max="todayStr"
+          class="flex-1 rounded-xl border px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all"
+          :class="newPayment.payment_date && newPayment.payment_date !== todayStr ? 'border-amber-400 bg-amber-50' : 'border-slate-200 focus:border-blue-400'"
+        />
+      </div>
+      <div v-if="auth.isAdmin && newPayment.payment_date && newPayment.payment_date !== todayStr" class="text-[11px] font-medium text-amber-600 px-1">
+        ⚠️ Backdated — this payment will be recorded on {{ newPayment.payment_date }}
       </div>
       <div v-if="paymentFormError" class="text-xs text-red-500 font-medium px-1">{{ paymentFormError }}</div>
       <div class="flex gap-2 pt-1">

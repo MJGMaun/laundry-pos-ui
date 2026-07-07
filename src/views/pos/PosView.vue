@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, watch, watchEffect } from 'vue';
 import { useCartStore } from '@/stores/cart.js';
+import { useAuthStore } from '@/stores/auth.js';
 import { useBranchStore } from '@/stores/branch.js';
 import { useSettingsStore } from '@/stores/settings.js';
 import { useQueueStore } from '@/stores/queue.js';
@@ -23,7 +24,13 @@ import { usePrinter } from '@/composables/usePrinter.js';
 import { buildTrackingSlipBytes } from '@/utils/escpos.js';
 
 const cart = useCartStore();
+const auth = useAuthStore();
 const branch = useBranchStore();
+
+// Admin-only: backdate an order that was missed on its real date.
+// Empty = today (server default). Sent as order_date + payment_date.
+const orderDate = ref('');
+const todayStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD, local tz
 const settings = useSettingsStore();
 const queue = useQueueStore();
 const toast = useToast();
@@ -483,19 +490,22 @@ async function processPayment() {
             delivery_fee: cart.deliveryFee || 0,
             discount_amount: cart.loyaltyDiscount || 0,
             loyalty_free_loads: cart.appliedLoyaltyReward?.count || 0,
+            ...(auth.isAdmin && orderDate.value ? { order_date: orderDate.value } : {}),
         });
         const order = orderRes.data.data || orderRes.data;
 
+        // Backdated order → backdate its checkout payments to the same date.
+        const paymentDate = auth.isAdmin && orderDate.value ? { payment_date: orderDate.value } : {};
         for (const p of payments.value) {
             if (p.method === 'cash') {
                 const tendered = Number(p.tendered || 0);
                 if (tendered <= 0) continue;
                 const amount = Math.min(tendered, Number(p.amount || tendered));
-                await createPayment(order.id, { method: 'cash', amount, tendered, type: 'payment' });
+                await createPayment(order.id, { method: 'cash', amount, tendered, type: 'payment', ...paymentDate });
             } else {
                 const amount = Number(p.amount || 0);
                 if (amount <= 0) continue;
-                await createPayment(order.id, { method: p.method, amount, type: 'payment', reference_number: p.reference_number || '' });
+                await createPayment(order.id, { method: p.method, amount, type: 'payment', reference_number: p.reference_number || '', ...paymentDate });
             }
         }
 
@@ -512,6 +522,7 @@ async function processPayment() {
         cart.clear();
         customerLoyalty.value = null;
         selectedReward.value = null;
+        orderDate.value = '';
         currentStep.value = 1;
         showPayment.value = false;
         showSuccess.value = true;
@@ -1027,6 +1038,21 @@ watch(() => branch.currentBranchId, loadServices);
                     <!-- Fees & Notes -->
                     <div class="rounded-2xl border border-slate-200 bg-white p-4">
                         <div class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Fees &amp; Notes</div>
+
+                        <!-- Admin-only: backdate an order missed on its real date -->
+                        <div v-if="auth.isAdmin" class="mb-3">
+                            <label class="mb-1 block text-xs text-slate-500">Order date <span class="text-slate-400">(admin — leave empty for today)</span></label>
+                            <div class="flex items-center gap-2">
+                                <input v-model="orderDate" type="date" :max="todayStr"
+                                    class="flex-1 rounded-xl border px-3 py-2.5 text-sm transition-all focus:outline-none"
+                                    :class="orderDate && orderDate !== todayStr ? 'border-amber-400 bg-amber-50 focus:border-amber-500' : 'border-slate-200 focus:border-blue-400'" />
+                                <button v-if="orderDate" class="rounded-lg px-2 py-1 text-xs font-medium text-slate-400 hover:bg-slate-100 hover:text-slate-600" @click="orderDate = ''">Reset</button>
+                            </div>
+                            <div v-if="orderDate && orderDate !== todayStr" class="mt-1.5 flex items-center gap-1 text-[11px] font-medium text-amber-600">
+                                ⚠️ Backdated — this order and its payments will be recorded on {{ orderDate }}
+                            </div>
+                        </div>
+
                         <div v-if="settings.pickupDeliveryEnabled" class="grid grid-cols-2 gap-3">
                             <div>
                                 <label class="mb-1 block text-xs text-slate-500">Pickup fee</label>
