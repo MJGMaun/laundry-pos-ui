@@ -127,8 +127,9 @@ onMounted(load)
             <div v-if="hasAmount()" class="text-sm font-semibold tabular-nums text-gray-900">
               ₱{{ fmt(r.amount) }}<span v-if="amountLabel()" class="ml-1 text-[10px] font-normal text-gray-400">{{ amountLabel() }}</span>
             </div>
-            <div class="text-xs text-red-500 font-medium whitespace-nowrap">
+            <div class="text-xs text-red-500 font-medium whitespace-nowrap text-right">
               deleted {{ fmtWhen(r.deleted_at) }}
+              <div v-if="r.deleted_by_name" class="text-gray-500 font-semibold">by {{ r.deleted_by_name }}</div>
             </div>
           </div>
         </div>
