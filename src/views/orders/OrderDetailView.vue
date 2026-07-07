@@ -452,16 +452,22 @@ const addLoadsLoyaltyResult = computed(() => {
   const totalFreeLoads = existingCount + newCount
   if (totalFreeLoads === 0) return null
 
-  const expandedPrices = rows
+  // Free loads apply only to loyalty-eligible services (the ones that earn
+  // stamps), cheapest first, and never redeem more rewards than there are
+  // eligible loads to apply them to.
+  const eligiblePrices = rows
     .flatMap((r) => {
       const svc = services.value.find((s) => s.id === Number(r.service_id))
-      if (!svc) return []
+      if (!svc || !svc.is_loyalty_eligible) return []
       return Array(Math.max(1, Math.floor(Number(r.quantity || 1)))).fill(Number(svc.price))
     })
-    .sort((a, b) => b - a)
+    .sort((a, b) => a - b)
 
-  const discount = expandedPrices.slice(0, totalFreeLoads).reduce((s, p) => s + p, 0)
-  return { count: totalFreeLoads, discount }
+  const redeemCount = Math.min(totalFreeLoads, eligiblePrices.length)
+  if (redeemCount === 0) return null
+
+  const discount = eligiblePrices.slice(0, redeemCount).reduce((s, p) => s + p, 0)
+  return { count: redeemCount, discount }
 })
 
 async function openAddLoads() {

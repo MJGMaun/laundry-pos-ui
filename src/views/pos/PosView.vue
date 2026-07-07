@@ -261,12 +261,25 @@ watchEffect(() => {
         return;
     }
 
-    const expandedPrices = cart.items
+    // Free loads apply only to loyalty-eligible services (the ones that earn
+    // stamps), and to the cheapest of those first — so the reward covers the
+    // smallest-value eligible loads. Never redeem more rewards than there are
+    // eligible loads to apply them to; leftover rewards stay pending.
+    const eligiblePrices = cart.items
+        .filter((i) => i.is_loyalty_eligible)
         .flatMap((i) => Array(Math.floor(i.quantity)).fill(i.unit_price))
-        .sort((a, b) => b - a);
-    const discount = expandedPrices.slice(0, totalFreeLoads).reduce((s, p) => s + p, 0);
+        .sort((a, b) => a - b);
+    const redeemCount = Math.min(totalFreeLoads, eligiblePrices.length);
 
-    cart.applyLoyaltyReward({ count: totalFreeLoads }, discount);
+    if (redeemCount === 0) {
+        cart.clearLoyaltyReward();
+        selectedReward.value = null;
+        return;
+    }
+
+    const discount = eligiblePrices.slice(0, redeemCount).reduce((s, p) => s + p, 0);
+
+    cart.applyLoyaltyReward({ count: redeemCount }, discount);
     selectedReward.value = cart.appliedLoyaltyReward;
 });
 
