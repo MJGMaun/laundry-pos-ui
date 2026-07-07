@@ -283,6 +283,46 @@ watchEffect(() => {
     selectedReward.value = cart.appliedLoyaltyReward;
 });
 
+// Live loyalty preview for the POS UI: how many stamps this cart adds, each
+// rule's cycle progress before → after, and any rewards newly unlocked.
+const loyaltyPreview = computed(() => {
+    const loyalty = customerLoyalty.value;
+    if (!loyalty) return null;
+
+    const stampsToAdd = Math.floor(
+        cart.items
+            .filter((i) => i.is_loyalty_eligible)
+            .reduce((s, i) => s + Number(i.quantity), 0)
+    );
+    const current = loyalty.total_stamps;
+    const prospective = current + stampsToAdd;
+
+    const rules = (loyalty.rules || []).map((rule) => {
+        const every = rule.every_n_stamps;
+        const beforeInCycle = current % every;
+        const earned = Math.max(0, Math.floor(prospective / every) - Math.floor(current / every));
+        const rawAfter = prospective % every;
+        // On an exact boundary the cycle reads 0; show it full so the
+        // "you just filled the card" moment lands alongside the reward badge.
+        const afterInCycle = earned > 0 && rawAfter === 0 ? every : rawAfter;
+        return {
+            id: rule.id,
+            description: rule.reward_description,
+            rewardLabel: rule.reward_type === 'free_load' ? 'Free load' : rule.reward_description,
+            every,
+            beforeInCycle,
+            afterInCycle,
+            beforePct: Math.min(100, (beforeInCycle / every) * 100),
+            afterPct: Math.min(100, (afterInCycle / every) * 100),
+            earned,
+            wrapped: earned > 0,
+        };
+    });
+
+    const newRewards = rules.reduce((s, r) => s + r.earned, 0);
+    return { stampsToAdd, current, prospective, rules, newRewards };
+});
+
 function createWithQuery() {
     newCustomer.value.name = customerQuery.value.trim()
         .replace(/\b\w/g, (c) => c.toUpperCase());
@@ -755,6 +795,20 @@ watch(() => branch.currentBranchId, loadServices);
                         </div>
                         <div v-else class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-300 text-xs font-bold text-white">?</div>
                         <span class="text-sm font-semibold text-slate-700">{{ cart.customer?.name ?? 'Walk-in' }}</span>
+
+                        <!-- Live loyalty stamp meter — ticks up as stamp-earning services are added -->
+                        <template v-if="loyaltyPreview && loyaltyPreview.stampsToAdd > 0">
+                            <span
+                                v-if="loyaltyPreview.newRewards > 0"
+                                :key="'lreward-' + loyaltyPreview.newRewards"
+                                class="loyalty-reward-chip animate-bounce-in flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-extrabold text-white"
+                            >🎁 {{ loyaltyPreview.newRewards > 1 ? loyaltyPreview.newRewards + '× rewards!' : 'Reward unlocked!' }}</span>
+                            <span
+                                v-else
+                                :key="'lstamp-' + loyaltyPreview.stampsToAdd"
+                                class="animate-stamp-pop flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-bold text-blue-700"
+                            >🎫 +{{ loyaltyPreview.stampsToAdd }} stamp{{ loyaltyPreview.stampsToAdd !== 1 ? 's' : '' }}</span>
+                        </template>
                     </div>
                     <button v-if="cart.items.length" class="flex items-center gap-1.5 rounded-lg px-1.5 py-1 transition-all hover:bg-slate-100 active:scale-95" @click="showCartSummary = true">
                         <svg class="h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
@@ -891,17 +945,42 @@ watch(() => branch.currentBranchId, loadServices);
                         </div>
 
                         <!-- Loyalty stamps -->
-                        <div v-if="customerLoyalty" class="mt-3 space-y-1.5 rounded-xl bg-slate-50 p-3">
-                            <div v-for="rule in customerLoyalty.rules" :key="rule.id" class="space-y-1">
+                        <div v-if="customerLoyalty && loyaltyPreview" class="mt-3 space-y-2.5 rounded-xl bg-slate-50 p-3">
+                            <!-- Stamps earned on this order -->
+                            <div v-if="loyaltyPreview.stampsToAdd > 0" class="flex items-center justify-between">
+                                <span class="flex items-center gap-1.5 text-xs font-semibold text-slate-600">🎫 Stamps this order</span>
+                                <span class="rounded-full bg-green-600 px-2 py-0.5 text-xs font-extrabold text-white">+{{ loyaltyPreview.stampsToAdd }}</span>
+                            </div>
+
+                            <div v-for="rule in loyaltyPreview.rules" :key="rule.id" class="space-y-1">
                                 <div class="flex items-center justify-between">
-                                    <span class="text-xs text-slate-500">{{ rule.reward_description }}</span>
-                                    <span class="text-xs font-semibold text-slate-700">{{ customerLoyalty.total_stamps % rule.every_n_stamps }}/{{ rule.every_n_stamps }}</span>
+                                    <span class="text-xs text-slate-500">{{ rule.description }}</span>
+                                    <span class="text-xs font-semibold" :class="rule.wrapped ? 'text-green-700' : 'text-slate-700'">
+                                        <template v-if="rule.wrapped">{{ rule.every }}/{{ rule.every }} 🎉</template>
+                                        <template v-else>
+                                            {{ rule.beforeInCycle }}<span v-if="rule.afterInCycle !== rule.beforeInCycle" class="text-blue-600"> → {{ rule.afterInCycle }}</span>/{{ rule.every }}
+                                        </template>
+                                    </span>
                                 </div>
-                                <div class="h-1.5 overflow-hidden rounded-full bg-slate-200">
-                                    <div class="h-full rounded-full transition-all duration-500" style="background: linear-gradient(90deg,#3b82f6,#6366f1)" :style="`width:${((customerLoyalty.total_stamps % rule.every_n_stamps) / rule.every_n_stamps) * 100}%`" />
+                                <!-- Two-tone bar: solid = already had, striped = added this order -->
+                                <div class="relative h-2 overflow-hidden rounded-full bg-slate-200">
+                                    <div
+                                        v-if="!rule.wrapped && rule.afterPct > rule.beforePct"
+                                        class="loyalty-bar-added absolute inset-y-0 left-0 rounded-full transition-all duration-500"
+                                        :style="`width:${rule.afterPct}%`"
+                                    />
+                                    <div
+                                        class="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
+                                        :class="rule.wrapped ? 'loyalty-bar-full' : ''"
+                                        :style="rule.wrapped ? 'width:100%' : `width:${rule.beforePct}%; background:linear-gradient(90deg,#3b82f6,#6366f1)`"
+                                    />
+                                </div>
+                                <div v-if="rule.earned > 0" class="animate-bounce-in flex items-center gap-1 text-[11px] font-bold text-green-700">
+                                    🎁 {{ rule.earned > 1 ? rule.earned + '× ' + rule.rewardLabel + 's' : rule.rewardLabel }} earned this order!
                                 </div>
                             </div>
-                            <div v-if="cart.loyaltyDiscount > 0" class="flex items-center justify-between pt-1">
+
+                            <div v-if="cart.loyaltyDiscount > 0" class="flex items-center justify-between border-t border-slate-200 pt-2">
                                 <span class="flex items-center gap-1 text-xs font-medium text-green-700">
                                     🎁 {{ cart.appliedLoyaltyReward?.count > 1 ? `${cart.appliedLoyaltyReward.count}× free loads` : 'Free load' }} applied
                                 </span>
@@ -1475,6 +1554,31 @@ watch(() => branch.currentBranchId, loadServices);
 .success-ring { position: absolute; inset: 0; border-radius: 50%; border: 2px solid #16a34a; animation: pulse-ring 1.5s ease-out infinite; }
 .success-icon { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: bold; color: #16a34a; background: #dcfce7; border-radius: 50%; }
 @keyframes pulse-ring { 0% { transform: scale(1); opacity: 0.8; } 100% { transform: scale(1.6); opacity: 0; } }
+
+/* Loyalty stamp meter */
+.animate-stamp-pop { animation: stamp-pop 340ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+@keyframes stamp-pop { 0% { transform: scale(0.5); opacity: 0; } 60% { transform: scale(1.18); } 100% { transform: scale(1); opacity: 1; } }
+
+/* Incoming (this-order) portion of a stamp bar — animated barber-pole stripes */
+.loyalty-bar-added {
+    background: repeating-linear-gradient(45deg, rgba(59,130,246,0.4) 0 6px, rgba(99,102,241,0.4) 6px 12px);
+    animation: loyalty-stripes 650ms linear infinite;
+}
+@keyframes loyalty-stripes { from { background-position: 0 0; } to { background-position: 24px 0; } }
+
+/* A just-completed stamp card + the "reward unlocked" chip both shimmer */
+.loyalty-bar-full {
+    background: linear-gradient(90deg, #10b981, #34d399, #10b981);
+    background-size: 200% 100%;
+    animation: loyalty-shine 1.2s ease-in-out infinite;
+}
+.loyalty-reward-chip {
+    background: linear-gradient(90deg, #f59e0b, #f97316, #f59e0b);
+    background-size: 200% 100%;
+    animation: loyalty-shine 1.4s linear infinite;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.45);
+}
+@keyframes loyalty-shine { 0% { background-position: 0% 0; } 100% { background-position: 200% 0; } }
 
 /* Transitions */
 .step-fade-enter-active { animation: step-slide-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both; }

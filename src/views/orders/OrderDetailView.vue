@@ -475,6 +475,47 @@ const addLoadsLoyaltyResult = computed(() => {
   return { count: redeemCount, discount }
 })
 
+// Live stamp preview for the add-loads drawer — how many stamps the rows being
+// added earn, plus each rule's cycle progress before → after (cycle-relative,
+// so it resets after each reward). Mirrors the POS loyaltyPreview.
+const addLoadsLoyaltyPreview = computed(() => {
+  const loyalty = addLoadsLoyalty.value
+  if (!loyalty) return null
+
+  const rows = addLoadsRows.value.filter((r) => r.service_id)
+  const stampsToAdd = Math.floor(
+    rows.reduce((sum, r) => {
+      const svc = services.value.find((s) => s.id === Number(r.service_id))
+      return svc?.is_loyalty_eligible ? sum + Number(r.quantity || 0) : sum
+    }, 0)
+  )
+  const current = loyalty.total_stamps
+  const prospective = current + stampsToAdd
+
+  const rules = (loyalty.rules || []).map((rule) => {
+    const every = rule.every_n_stamps
+    const beforeInCycle = current % every
+    const earned = Math.max(0, Math.floor(prospective / every) - Math.floor(current / every))
+    const rawAfter = prospective % every
+    const afterInCycle = earned > 0 && rawAfter === 0 ? every : rawAfter
+    return {
+      id: rule.id,
+      description: rule.reward_description,
+      rewardLabel: rule.reward_type === 'free_load' ? 'Free load' : rule.reward_description,
+      every,
+      beforeInCycle,
+      afterInCycle,
+      beforePct: Math.min(100, (beforeInCycle / every) * 100),
+      afterPct: Math.min(100, (afterInCycle / every) * 100),
+      earned,
+      wrapped: earned > 0,
+    }
+  })
+
+  const newRewards = rules.reduce((s, r) => s + r.earned, 0)
+  return { stampsToAdd, current, prospective, rules, newRewards }
+})
+
 async function openAddLoads() {
   if (!services.value.length) {
     try {
@@ -1314,22 +1355,41 @@ onMounted(load)
       </div>
 
       <!-- Loyalty preview -->
-      <div v-if="addLoadsLoyalty" class="shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 space-y-2">
-        <div v-for="rule in addLoadsLoyalty.rules" :key="rule.id" class="space-y-1">
+      <div v-if="addLoadsLoyaltyPreview" class="shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 space-y-2.5">
+        <!-- Stamps earned by the loads being added -->
+        <div v-if="addLoadsLoyaltyPreview.stampsToAdd > 0" class="flex items-center justify-between">
+          <span class="flex items-center gap-1.5 text-xs font-semibold text-slate-600">🎫 Stamps added</span>
+          <span class="rounded-full bg-green-600 px-2 py-0.5 text-xs font-extrabold text-white">+{{ addLoadsLoyaltyPreview.stampsToAdd }}</span>
+        </div>
+
+        <div v-for="rule in addLoadsLoyaltyPreview.rules" :key="rule.id" class="space-y-1">
           <div class="flex justify-between items-center">
-            <span class="text-xs text-slate-500">{{ rule.reward_description }}</span>
-            <span class="text-xs font-semibold text-slate-700">
-              {{ addLoadsLoyalty.total_stamps % rule.every_n_stamps }}/{{ rule.every_n_stamps }}
+            <span class="text-xs text-slate-500">{{ rule.description }}</span>
+            <span class="text-xs font-semibold" :class="rule.wrapped ? 'text-green-700' : 'text-slate-700'">
+              <template v-if="rule.wrapped">{{ rule.every }}/{{ rule.every }} 🎉</template>
+              <template v-else>
+                {{ rule.beforeInCycle }}<span v-if="rule.afterInCycle !== rule.beforeInCycle" class="text-blue-600"> → {{ rule.afterInCycle }}</span>/{{ rule.every }}
+              </template>
             </span>
           </div>
-          <div class="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+          <!-- Two-tone bar: solid = already had, striped = added by these loads -->
+          <div class="relative h-2 bg-slate-200 rounded-full overflow-hidden">
             <div
-              class="h-full rounded-full transition-all duration-500"
-              style="background: linear-gradient(90deg, #3b82f6, #6366f1);"
-              :style="`width: ${((addLoadsLoyalty.total_stamps % rule.every_n_stamps) / rule.every_n_stamps) * 100}%`"
+              v-if="!rule.wrapped && rule.afterPct > rule.beforePct"
+              class="loyalty-bar-added absolute inset-y-0 left-0 rounded-full transition-all duration-500"
+              :style="`width:${rule.afterPct}%`"
+            />
+            <div
+              class="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
+              :class="rule.wrapped ? 'loyalty-bar-full' : ''"
+              :style="rule.wrapped ? 'width:100%' : `width:${rule.beforePct}%; background:linear-gradient(90deg,#3b82f6,#6366f1)`"
             />
           </div>
+          <div v-if="rule.earned > 0" class="flex items-center gap-1 text-[11px] font-bold text-green-700">
+            🎁 {{ rule.earned > 1 ? rule.earned + '× ' + rule.rewardLabel + 's' : rule.rewardLabel }} earned!
+          </div>
         </div>
+
         <div
           v-if="addLoadsLoyaltyResult"
           class="flex items-center justify-between text-xs font-semibold text-green-700 bg-green-50 border border-green-200 rounded-lg px-2.5 py-2"
@@ -1403,6 +1463,19 @@ onMounted(load)
 <style scoped>
 .animate-spin { animation: spin 800ms linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Loyalty stamp meter — matches PosView */
+.loyalty-bar-added {
+  background: repeating-linear-gradient(45deg, rgba(59,130,246,0.4) 0 6px, rgba(99,102,241,0.4) 6px 12px);
+  animation: loyalty-stripes 650ms linear infinite;
+}
+@keyframes loyalty-stripes { from { background-position: 0 0; } to { background-position: 24px 0; } }
+.loyalty-bar-full {
+  background: linear-gradient(90deg, #10b981, #34d399, #10b981);
+  background-size: 200% 100%;
+  animation: loyalty-shine 1.2s ease-in-out infinite;
+}
+@keyframes loyalty-shine { 0% { background-position: 0% 0; } 100% { background-position: 200% 0; } }
 
 .al-qty-btn {
   width: 28px;
