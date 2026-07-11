@@ -9,6 +9,11 @@ export const useCartStore = defineStore('cart', () => {
   const pickupFee = ref(0)
   const loyaltyDiscount = ref(0)
   const appliedLoyaltyReward = ref(null)
+  // Loyalty snapshot (stamps + pending rewards) for the attached customer.
+  // Lives here, not in PosView: the cart survives navigating away, so the
+  // loyalty data backing its discount has to survive too — otherwise a
+  // remounted POS sees null loyalty and silently drops the applied reward.
+  const customerLoyalty = ref(null)
 
   // Per-line id so add-ons can reference a specific parent load (and so the
   // same add-on service can be attached to more than one load).
@@ -120,6 +125,8 @@ export const useCartStore = defineStore('cart', () => {
 
   function setCustomer(c) {
     customer.value = c
+    // The snapshot belongs to the previous customer; the POS refetches.
+    customerLoyalty.value = null
   }
 
   function clear() {
@@ -130,11 +137,12 @@ export const useCartStore = defineStore('cart', () => {
     pickupFee.value = 0
     loyaltyDiscount.value = 0
     appliedLoyaltyReward.value = null
+    customerLoyalty.value = null
   }
 
   return {
     items, customer, notes, deliveryFee, pickupFee,
-    loyaltyDiscount, appliedLoyaltyReward,
+    loyaltyDiscount, appliedLoyaltyReward, customerLoyalty,
     subtotal, total, eligibleParents,
     addItem, addAddon, removeItem, updateQuantity, loadCount, removeLastLoad,
     removeByUid, updateQuantityByUid, addonsFor, isAddonService,

@@ -639,6 +639,30 @@ async function saveEdit() {
   }
 }
 
+// Admin-only manual discount — a correction tool (e.g. a loyalty reward lost
+// to a deleted order). Separate from the auto-computed loyalty discount.
+const editingManualDiscount = ref(false)
+const manualDiscountInput   = ref(0)
+
+function openManualDiscountEdit() {
+  manualDiscountInput.value = Number(order.value.manual_discount_amount || 0)
+  editingManualDiscount.value = true
+}
+
+async function saveManualDiscount() {
+  savingEdit.value = true
+  try {
+    await updateOrder(order.value.id, { manual_discount_amount: Number(manualDiscountInput.value) || 0 })
+    editingManualDiscount.value = false
+    await load()
+    toast.add({ severity: 'success', summary: 'Discount updated', life: 2500 })
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to save discount', life: 4000 })
+  } finally {
+    savingEdit.value = false
+  }
+}
+
 function fmt(n) { return Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 function fmtDate(d) { return new Date(d).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) }
 
@@ -1074,7 +1098,46 @@ onMounted(load)
           <div class="px-5 py-4 space-y-2.5 text-sm border-b border-slate-100">
             <div class="flex justify-between text-slate-500"><span>Subtotal</span><span>₱{{ fmt(order.subtotal) }}</span></div>
             <div v-if="Number(order.extra_fees)" class="flex justify-between text-slate-500"><span>Extra fees</span><span>₱{{ fmt(order.extra_fees) }}</span></div>
-            <div v-if="Number(order.discount_amount)" class="flex justify-between text-slate-500"><span>Discount</span><span class="text-red-500">−₱{{ fmt(order.discount_amount) }}</span></div>
+            <div v-if="Number(order.discount_amount)" class="flex justify-between text-slate-500"><span>Loyalty discount</span><span class="text-red-500">−₱{{ fmt(order.discount_amount) }}</span></div>
+
+            <!-- Additional discount: admin correction tool -->
+            <div v-if="editingManualDiscount" class="flex justify-between items-center text-slate-500">
+              <span>Additional discount</span>
+              <span class="flex items-center gap-1.5">
+                <input
+                  v-model.number="manualDiscountInput"
+                  type="number" min="0" step="0.01"
+                  class="w-24 border border-slate-200 rounded-lg px-2 py-1 text-sm text-right focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                  @keyup.enter="saveManualDiscount"
+                />
+                <button
+                  class="flex h-6 w-6 items-center justify-center rounded-lg bg-green-50 text-xs text-green-600 hover:bg-green-100 transition-all active:scale-95 disabled:opacity-50"
+                  :disabled="savingEdit" title="Save discount"
+                  @click="saveManualDiscount"
+                >✓</button>
+                <button
+                  class="flex h-6 w-6 items-center justify-center rounded-lg bg-slate-50 text-xs text-slate-400 hover:bg-slate-100 transition-all active:scale-95"
+                  title="Cancel"
+                  @click="editingManualDiscount = false"
+                >✕</button>
+              </span>
+            </div>
+            <div v-else-if="Number(order.manual_discount_amount)" class="flex justify-between items-center text-slate-500">
+              <span class="flex items-center gap-1.5">
+                Additional discount
+                <button
+                  v-if="auth.isAdmin"
+                  class="flex h-5 w-5 items-center justify-center rounded-md bg-slate-50 text-[10px] text-slate-400 hover:bg-slate-100 transition-all active:scale-95"
+                  title="Edit additional discount"
+                  @click="openManualDiscountEdit"
+                >✎</button>
+              </span>
+              <span class="text-red-500">−₱{{ fmt(order.manual_discount_amount) }}</span>
+            </div>
+            <div v-else-if="auth.isAdmin" class="flex justify-end">
+              <button class="text-xs text-blue-500 hover:text-blue-700 transition-all" @click="openManualDiscountEdit">+ Add discount</button>
+            </div>
+
             <div class="flex justify-between font-bold text-base text-slate-900 pt-2 border-t border-slate-100">
               <span>Total</span><span>₱{{ fmt(order.total_amount) }}</span>
             </div>

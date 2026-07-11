@@ -130,6 +130,10 @@ const balanceDue = computed(() =>
         <span>Discount</span>
         <span class="rcp-mono">-₱{{ fmt(order.discount_amount) }}</span>
       </div>
+      <div v-if="Number(order.manual_discount_amount)" class="rcp-total-row">
+        <span>Additional Discount</span>
+        <span class="rcp-mono">-₱{{ fmt(order.manual_discount_amount) }}</span>
+      </div>
     </div>
 
     <div class="rcp-bold-divider" />

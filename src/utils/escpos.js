@@ -148,12 +148,14 @@ export function buildReceiptBytes(order, settings = {}) {
     // ── Totals ────────────────────────────────
     const subtotal = Number(order.subtotal || 0);
     const discount = Number(order.discount_amount || order.discount || 0);
+    const manualDiscount = Number(order.manual_discount_amount || 0);
     const pickupFee = Number(order.pickup_fee || 0);
     const delivFee = Number(order.delivery_fee || 0);
     const grandTotal = Number(order.total_amount || order.total_price || 0);
 
     push(twoCol('Subtotal:', peso(subtotal)));
     if (discount > 0) push(twoCol('Discount:', '-' + peso(discount)));
+    if (manualDiscount > 0) push(twoCol('Additional Disc:', '-' + peso(manualDiscount)));
     if (pickupFee > 0) push(twoCol('Pickup Fee:', peso(pickupFee)));
     if (delivFee > 0) push(twoCol('Delivery Fee:', peso(delivFee)));
 

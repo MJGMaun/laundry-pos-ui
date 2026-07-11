@@ -103,7 +103,13 @@ const lastRedeemedReward = ref(null);
 const receiptOrderId = ref(null);
 const printingSlips = ref(false);
 
-const customerLoyalty = ref(null);
+// Loyalty snapshot lives in the cart store so it survives navigation with the
+// rest of the cart — a local ref here reset to null on remount, which made the
+// watchEffect below silently drop the applied reward when returning to POS.
+const customerLoyalty = computed({
+    get: () => cart.customerLoyalty,
+    set: (v) => { cart.customerLoyalty = v; },
+});
 const selectedReward = ref(null);
 
 // ── Wizard step ─────────────────────────────────────────────────────────────
@@ -225,13 +231,26 @@ async function selectCustomer(c) {
     customerQuery.value = '';
     customerResults.value = [];
     selectedReward.value = null;
-    customerLoyalty.value = null;
     // Auto-advance to services step
     currentStep.value = 2;
+    await refreshCustomerLoyalty();
+}
+
+// Re-fetch the attached customer's stamps/rewards. The snapshot can go stale
+// while a cart sits open (e.g. an admin deletes one of the customer's orders,
+// which reverses stamps and revokes rewards) — refresh at the moments that
+// matter so the previewed reward matches what the customer actually deserves.
+async function refreshCustomerLoyalty() {
+    if (!cart.customer?.id || cart.customer._offline) return;
     try {
-        const res = await getCustomerLoyalty(c.id);
+        const res = await getCustomerLoyalty(cart.customer.id);
         customerLoyalty.value = res.data;
     } catch {}
+}
+
+function goToReview() {
+    currentStep.value = 3;
+    refreshCustomerLoyalty();
 }
 
 watchEffect(() => {
@@ -644,6 +663,10 @@ function chooseAddonParent(parent) {
 }
 
 onMounted(loadServices);
+
+// A cart restored from the store may carry a stale loyalty snapshot (orders
+// deleted while we were on another page) — freshen it on return.
+onMounted(refreshCustomerLoyalty);
 watch(() => branch.currentBranchId, loadServices);
 </script>
 
@@ -1131,7 +1154,7 @@ watch(() => branch.currentBranchId, loadServices);
                     :disabled="!cart.items.length"
                     style="background: linear-gradient(135deg,#2563eb,#4f46e5); box-shadow: 0 4px 14px rgba(37,99,235,0.3);"
                     :style="!cart.items.length ? 'box-shadow:none' : ''"
-                    @click="currentStep = 3"
+                    @click="goToReview"
                 >
                     <span v-if="cart.items.length">Review Order ({{ cart.items.length }} service{{ cart.items.length !== 1 ? 's' : '' }}) →</span>
                     <span v-else>Select at least one service</span>
