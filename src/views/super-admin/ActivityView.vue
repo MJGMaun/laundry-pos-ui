@@ -34,6 +34,17 @@ function toggle(id) {
   expanded.value = next
 }
 
+// Compact always-visible summary of the services availed, grouped by name:
+// "Wash ×3 · Dry ×1". Expanding the row still shows per-load line totals.
+function servicesSummary(o) {
+  const groups = {}
+  for (const l of o.loads || []) {
+    const name = l.service_name_snapshot || 'Unknown'
+    groups[name] = (groups[name] || 0) + Number(l.quantity || 0)
+  }
+  return Object.entries(groups).map(([name, q]) => `${name} ×${qty(q)}`).join(' · ')
+}
+
 async function load() {
   loading.value = true
   try {
@@ -96,7 +107,7 @@ onMounted(async () => {
         <input
           v-model="search"
           type="search"
-          placeholder="Search order # or customer…"
+          placeholder="Search order #, customer, or service…"
           class="w-full sm:w-64 border border-gray-300 rounded-lg pl-9 pr-4 py-1.5 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
         />
       </div>
@@ -132,6 +143,7 @@ onMounted(async () => {
                 <span v-if="o.user">· by {{ o.user.name }}</span>
                 <span>· {{ fmtWhen(o.created_at) }}</span>
               </div>
+              <div v-if="servicesSummary(o)" class="text-xs text-blue-600/80 mt-0.5 truncate">{{ servicesSummary(o) }}</div>
               <div v-if="o.deleted_at" class="text-xs text-red-500">
                 deleted {{ fmtWhen(o.deleted_at) }}<span v-if="o.deleted_by" class="font-semibold text-gray-500"> by {{ o.deleted_by.name }}</span>
               </div>
