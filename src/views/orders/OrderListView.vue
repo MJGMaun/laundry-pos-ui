@@ -1,14 +1,16 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import DatePicker from 'primevue/datepicker'
 import { getOrders } from '@/api/orders.js'
+import { rangeFromQuery } from '@/utils/dateRangeQuery.js'
 import { useAuthStore } from '@/stores/auth.js'
 import { useBranchStore } from '@/stores/branch.js'
 import { isOfflineError } from '@/offline/isOfflineError.js'
 import { db } from '@/offline/db.js'
 
 const router = useRouter()
+const route = useRoute()
 const auth = useAuthStore()
 const branch = useBranchStore()
 const orders = ref([])
@@ -16,8 +18,9 @@ const loading = ref(false)
 const page = ref(1)
 const total = ref(0)
 const perPage = ref(20)
-const filters = ref({ status: '', search: '', unpaid: false })
-const dateRange = ref(null)  // [Date, Date] when both picked
+// The Uncollected stat card links here with ?unpaid=1 and its period.
+const filters = ref({ status: '', search: '', unpaid: String(route.query.unpaid) === '1' })
+const dateRange = ref(rangeFromQuery(route.query))  // [Date, Date] when both picked
 
 function toYMD(d) {
     if (!d) return null

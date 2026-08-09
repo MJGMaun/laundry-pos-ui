@@ -1,10 +1,11 @@
 <script setup>
-import { ref, watch, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, watch, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import DatePicker from 'primevue/datepicker'
 import { getRevenue, getProfitLoss, getServiceReport, getTopCustomers, getSalesSummary } from '@/api/reports.js'
 import { useBranchStore } from '@/stores/branch.js'
 import { useAuthStore } from '@/stores/auth.js'
+import { rangeFromQuery } from '@/utils/dateRangeQuery.js'
 import { useToast } from 'primevue/usetoast'
 import { Bar } from 'vue-chartjs'
 import {
@@ -15,6 +16,7 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
 const toast = useToast()
 const router = useRouter()
+const route = useRoute()
 const branch = useBranchStore()
 const auth = useAuthStore()
 
@@ -30,8 +32,8 @@ function todayYMD() {
 	return toYMD(new Date())
 }
 
-// Default: today → today
-const dateRange = ref([new Date(), new Date()])
+// Default today → today, unless a Dashboard card handed over its period.
+const dateRange = ref(rangeFromQuery(route.query, [new Date(), new Date()]))
 
 const revenue = ref([])
 const pl = ref(null)
@@ -59,6 +61,19 @@ function buildParams() {
 	const to   = dateRange.value?.[1] ? toYMD(dateRange.value[1]) : from
 	return { period: 'daily', date_from: from, date_to: to }
 }
+
+// The factual cards drill into the page listing what they're made of, on the
+// same date range. Net Profit and Margin are derived, so they stay inert.
+const cardLinks = computed(() => {
+	const { date_from, date_to } = buildParams()
+	const range = { date_from, date_to }
+	return {
+		revenue:     { path: '/orders',   query: range },
+		loads:       { path: '/orders',   query: range },
+		uncollected: { path: '/orders',   query: { ...range, unpaid: 1 } },
+		expenses:    { path: '/expenses', query: range },
+	}
+})
 
 async function load() {
 	loading.value = true
@@ -148,22 +163,22 @@ onMounted(load)
 		<div v-else class="space-y-5">
 			<!-- P&L Summary -->
 			<div v-if="pl" class="grid grid-cols-2 lg:grid-cols-6 gap-3">
-				<div class="bg-white rounded-xl border border-gray-200 p-4">
+				<RouterLink :to="cardLinks.revenue" class="stat-link bg-white rounded-xl border border-gray-200 p-4">
 					<div class="text-xs text-gray-500 mb-1">Total Revenue</div>
 					<div class="text-xl font-bold text-green-700">₱{{ fmt(pl.total_revenue || pl.revenue) }}</div>
-				</div>
-				<div class="bg-white rounded-xl border border-gray-200 p-4">
+				</RouterLink>
+				<RouterLink :to="cardLinks.loads" class="stat-link bg-white rounded-xl border border-gray-200 p-4">
 					<div class="text-xs text-gray-500 mb-1">Loads</div>
 					<div class="text-xl font-bold text-gray-900">{{ Number(summary?.load_count || 0).toLocaleString() }}</div>
-				</div>
-				<div class="bg-white rounded-xl border border-gray-200 p-4">
+				</RouterLink>
+				<RouterLink :to="cardLinks.uncollected" class="stat-link bg-white rounded-xl border border-gray-200 p-4">
 					<div class="text-xs text-gray-500 mb-1">Uncollected</div>
 					<div class="text-xl font-bold text-amber-600">₱{{ fmt(pl.uncollected_revenue || 0) }}</div>
-				</div>
-				<div class="bg-white rounded-xl border border-gray-200 p-4">
+				</RouterLink>
+				<RouterLink :to="cardLinks.expenses" class="stat-link bg-white rounded-xl border border-gray-200 p-4">
 					<div class="text-xs text-gray-500 mb-1">Total Expenses</div>
 					<div class="text-xl font-bold text-red-600">₱{{ fmt(pl.expenses?.total || 0) }}</div>
-				</div>
+				</RouterLink>
 				<div class="bg-white rounded-xl border border-gray-200 p-4">
 					<div class="text-xs text-gray-500 mb-1">Net Profit</div>
 					<div class="text-xl font-bold"
@@ -246,6 +261,19 @@ onMounted(load)
 </template>
 
 <style>
+/* Summary cards link into the page listing what they're made of — still cards,
+   not text, with a hover hint that they're clickable. */
+.stat-link {
+	display: block;
+	color: inherit;
+	text-decoration: none;
+	transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.stat-link:hover {
+	border-color: #bfdbfe;
+	box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
+}
+
 .reports-datepicker .p-datepicker-input {
 	border: 1px solid #d1d5db;
 	border-radius: 8px;

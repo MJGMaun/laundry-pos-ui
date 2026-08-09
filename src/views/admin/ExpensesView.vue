@@ -1,12 +1,15 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import DatePicker from 'primevue/datepicker'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
 import { getExpenses, createExpense, updateExpense, deleteExpense, getExpenseCategories } from '@/api/expenses.js'
 import { useQueueStore } from '@/stores/queue.js'
 import { isOfflineError } from '@/offline/isOfflineError.js'
+import { rangeFromQuery } from '@/utils/dateRangeQuery.js'
 
+const route = useRoute()
 const toast = useToast()
 const confirm = useConfirm()
 const queue = useQueueStore()
@@ -29,7 +32,8 @@ function currentMonthRange() {
   const now = new Date()
   return [new Date(now.getFullYear(), now.getMonth(), 1), new Date(now.getFullYear(), now.getMonth() + 1, 0)]
 }
-const dateRange = ref(currentMonthRange())
+// A stat card can hand over the period it was showing; otherwise this month.
+const dateRange = ref(rangeFromQuery(route.query, currentMonthRange()))
 
 function toYMD(d) {
   if (!d) return null

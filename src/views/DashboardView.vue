@@ -51,6 +51,20 @@ const services     = ref([])
 const revenueChart = ref({ labels: [], datasets: [] })
 const serviceChart = ref({ labels: [], datasets: [] })
 
+// Each stat card drills into the page that explains it, carrying the period it
+// is currently showing so the destination opens on the same window.
+const cardLinks = computed(() => {
+  const { from, to } = periodRange(period.value)
+  const range = { date_from: from, date_to: to }
+  return {
+    revenue:     { path: '/reports',      query: range },
+    uncollected: { path: '/orders',       query: { ...range, unpaid: 1 } },
+    loads:       { path: '/orders',       query: range },
+    expenses:    { path: '/expenses',     query: range },
+    cash:        { path: '/cash-balance', query: range },
+  }
+})
+
 const lineOptions = {
   responsive: true,
   maintainAspectRatio: false,
@@ -222,50 +236,50 @@ onMounted(load)
 
       <!-- Stat cards -->
       <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <div class="stat-card animate-slide-up stagger-1">
+        <RouterLink :to="cardLinks.revenue" class="stat-card animate-slide-up stagger-1 stat-card-link">
           <div class="stat-icon" style="background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: #1d4ed8;">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
           </div>
           <div class="stat-label">{{ periodPossessive }} Revenue</div>
           <div class="stat-value">₱{{ fmt(animRevenue) }}</div>
           <div class="stat-bar" style="background: linear-gradient(90deg, #3b82f6, #6366f1);" />
-        </div>
+        </RouterLink>
 
-        <div class="stat-card animate-slide-up stagger-2">
+        <RouterLink :to="cardLinks.uncollected" class="stat-card animate-slide-up stagger-2 stat-card-link">
           <div class="stat-icon" style="background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e;">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
           </div>
           <div class="stat-label">Uncollected</div>
           <div class="stat-value text-amber-600">₱{{ fmt(animUncollected) }}</div>
           <div class="stat-bar" style="background: linear-gradient(90deg, #f59e0b, #fbbf24);" />
-        </div>
+        </RouterLink>
 
-        <div class="stat-card animate-slide-up stagger-3">
+        <RouterLink :to="cardLinks.loads" class="stat-card animate-slide-up stagger-3 stat-card-link">
           <div class="stat-icon" style="background: linear-gradient(135deg, #dcfce7, #bbf7d0); color: #166534;">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
           </div>
           <div class="stat-label">Loads {{ periodNoun }}</div>
           <div class="stat-value">{{ animLoads }}</div>
           <div class="stat-bar" style="background: linear-gradient(90deg, #16a34a, #4ade80);" />
-        </div>
+        </RouterLink>
 
-        <div class="stat-card animate-slide-up stagger-4">
+        <RouterLink :to="cardLinks.expenses" class="stat-card animate-slide-up stagger-4 stat-card-link">
           <div class="stat-icon" style="background: linear-gradient(135deg, #fee2e2, #fecaca); color: #991b1b;">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
           </div>
           <div class="stat-label">Expenses {{ periodNoun }}</div>
           <div class="stat-value text-red-600">₱{{ fmt(animExpenses) }}</div>
           <div class="stat-bar" style="background: linear-gradient(90deg, #ef4444, #f87171);" />
-        </div>
+        </RouterLink>
 
-        <div class="stat-card animate-slide-up stagger-5">
+        <RouterLink :to="cardLinks.cash" class="stat-card animate-slide-up stagger-5 stat-card-link">
           <div class="stat-icon" style="background: linear-gradient(135deg, #d1fae5, #a7f3d0); color: #065f46;">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
           </div>
           <div class="stat-label">Cash on Hand</div>
           <div class="stat-value text-emerald-700">₱{{ fmt(animCash) }}</div>
           <div class="stat-bar" style="background: linear-gradient(90deg, #10b981, #34d399);" />
-        </div>
+        </RouterLink>
       </div>
 
       <!-- Charts row -->
@@ -343,6 +357,16 @@ onMounted(load)
 .stat-card:hover {
   transform: translateY(-3px);
   box-shadow: var(--shadow-lifted);
+}
+/* Cards are links into the page that explains them — keep them looking like
+   cards, not text, and hint at the drill-through on hover. */
+.stat-card-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+.stat-card-link:hover {
+  border-color: #bfdbfe;
 }
 .stat-icon {
   width: 40px;
