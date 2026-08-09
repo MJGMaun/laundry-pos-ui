@@ -1191,6 +1191,10 @@ onMounted(load)
     :draggable="false"
   >
     <div class="space-y-3 pt-1">
+      <div class="flex items-center justify-between rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5">
+        <span class="text-sm font-medium text-slate-500">Outstanding Balance</span>
+        <span class="text-2xl font-extrabold text-slate-900">₱{{ fmt(outstandingBalance) }}</span>
+      </div>
       <div class="flex gap-1">
         <button
           v-for="m in ['cash','gcash']"
@@ -1202,14 +1206,10 @@ onMounted(load)
           @click="newPayment.method = m; newPayment.amount = String(outstandingBalance.toFixed(2)); newPayment.tendered = ''; newPayment.showCustom = false"
         >{{ m.toUpperCase() }}</button>
       </div>
-      <!-- Cash: the balance is fixed — the bills tapped below decide how much is
-           applied, and anything short of the balance is recorded as a downpayment. -->
-      <div v-if="newPayment.method === 'cash'" class="flex items-center justify-between rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5">
-        <span class="text-sm font-medium text-slate-500">Outstanding Balance</span>
-        <span class="text-2xl font-extrabold text-slate-900">₱{{ fmt(outstandingBalance) }}</span>
-      </div>
-      <!-- GCash amount stays editable: partial payments have no "bills" to count -->
-      <div v-else class="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5 space-y-2">
+      <!-- Cash needs no amount box: the balance above is fixed and the bills tapped
+           below decide how much is applied (short of the balance = downpayment).
+           GCash amount stays editable: partial payments have no "bills" to count. -->
+      <div v-if="newPayment.method === 'gcash'" class="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5 space-y-2">
         <div class="flex items-center justify-between">
           <span class="text-xs text-slate-500">Amount to pay</span>
           <button

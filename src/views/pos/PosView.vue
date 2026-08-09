@@ -1196,6 +1196,11 @@ watch(() => branch.currentBranchId, loadServices);
                             </div>
 
                             <div class="max-h-[70vh] space-y-3 overflow-y-auto px-6 py-4">
+                                <div class="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                                    <span class="text-sm font-medium text-slate-500">Order Total</span>
+                                    <span class="text-2xl font-extrabold text-slate-900">₱{{ fmt(cart.total) }}</span>
+                                </div>
+
                                 <!-- Customer summary in modal -->
                                 <div class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
                                     <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white" :style="cart.customer ? `background:hsl(${(cart.customer.name?.charCodeAt(0)*7)%360},65%,55%)` : 'background:#94a3b8'">
@@ -1247,10 +1252,11 @@ watch(() => branch.currentBranchId, loadServices);
                                             >₱{{ amt.toLocaleString() }}</button>
                                         </div>
                                     </div>
-                                    <!-- In a split, a cash row only covers part of the order, so "Order Total" would mislead -->
-                                    <div v-else class="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2.5">
-                                        <span class="text-sm font-medium text-slate-500">{{ payments.length > 1 ? 'Amount' : 'Order Total' }}</span>
-                                        <span class="text-2xl font-extrabold text-slate-900">₱{{ fmt(p.amount) }}</span>
+                                    <!-- Single cash payment already shows the Order Total up top; a row
+                                         amount only adds information in a split, where it's just a share -->
+                                    <div v-else-if="payments.length > 1" class="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+                                        <span class="text-sm font-medium text-slate-500">Amount</span>
+                                        <span class="text-xl font-extrabold text-slate-900">₱{{ fmt(p.amount) }}</span>
                                     </div>
 
                                     <template v-if="p.method === 'cash'">
