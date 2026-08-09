@@ -20,6 +20,9 @@ const editingId = ref(null)
 const saving = ref(false)
 const filterCat = ref('')
 const search = ref('')
+const page = ref(1)
+const lastPage = ref(1)
+const total = ref(0)
 
 // Default to the current month: [first day, last day]
 function currentMonthRange() {
@@ -45,18 +48,26 @@ async function load() {
   loading.value = true
   loadError.value = ''
   try {
-    const params = {}
+    const params = { page: page.value, per_page: 20 }
     if (dateRange.value?.[0]) params.date_from = toYMD(dateRange.value[0])
     if (dateRange.value?.[1]) params.date_to   = toYMD(dateRange.value[1])
     if (filterCat.value)      params.category_id = filterCat.value
     if (search.value.trim())  params.search = search.value.trim()
     const res = await getExpenses(params)
-    expenses.value = unwrap(res)
+    const paginator = res.data?.expenses
+    expenses.value = paginator?.data || unwrap(res)
+    total.value = paginator?.total ?? expenses.value.length
+    lastPage.value = paginator?.last_page ?? 1
   } catch (e) {
     loadError.value = e.response?.data?.message || e.message || 'Failed to load expenses'
   } finally {
     loading.value = false
   }
+}
+
+function reload() {
+  page.value = 1
+  load()
 }
 
 async function loadCategories() {
@@ -152,8 +163,9 @@ const monthlyTotal = () => expenses.value.reduce((s, e) => s + Number(e.amount),
 let searchTimer = null
 watch(search, () => {
   clearTimeout(searchTimer)
-  searchTimer = setTimeout(load, 350)
+  searchTimer = setTimeout(reload, 350)
 })
+watch(page, load)
 
 onMounted(() => { load(); loadCategories() })
 </script>
@@ -179,16 +191,16 @@ onMounted(() => { load(); loadCategories() })
           icon-display="input"
           placeholder="Date range…"
           class="reports-datepicker w-full sm:w-auto"
-          @update:model-value="(v) => { if (!v || (v[0] && v[1])) load() }"
+          @update:model-value="(v) => { if (!v || (v[0] && v[1])) reload() }"
         />
         <button
           v-if="dateRange"
           class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors leading-none"
           style="font-size: 16px; line-height: 1;"
-          @click.stop="dateRange = null; load()"
+          @click.stop="dateRange = null; reload()"
         >×</button>
       </div>
-      <select v-model="filterCat" class="w-full sm:w-auto border border-gray-300 rounded-lg px-3 py-1.5 text-sm" @change="load">
+      <select v-model="filterCat" class="w-full sm:w-auto border border-gray-300 rounded-lg px-3 py-1.5 text-sm" @change="reload">
         <option value="">All categories</option>
         <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
       </select>
@@ -205,7 +217,7 @@ onMounted(() => { load(); loadCategories() })
 
     <!-- Total -->
     <div v-if="expenses.length" class="bg-blue-50 rounded-xl px-5 py-3 mb-4 flex justify-between items-center">
-      <span class="text-sm text-blue-700">Total shown</span>
+      <span class="text-sm text-blue-700">Total this page{{ total > expenses.length ? ` (of ${total})` : '' }}</span>
       <span class="font-bold text-blue-900">₱{{ fmt(monthlyTotal()) }}</span>
     </div>
 
@@ -255,6 +267,21 @@ onMounted(() => { load(); loadCategories() })
           </tr>
         </tbody>
       </table>
+
+      <!-- Pagination -->
+      <div v-if="lastPage > 1" class="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
+        <button
+          class="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-all"
+          :disabled="page <= 1 || loading"
+          @click="page--"
+        >← Prev</button>
+        <span class="text-xs text-gray-400">Page {{ page }} of {{ lastPage }}</span>
+        <button
+          class="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-all"
+          :disabled="page >= lastPage || loading"
+          @click="page++"
+        >Next →</button>
+      </div>
     </div>
 
     <!-- Form modal -->
