@@ -1190,7 +1190,6 @@ watch(() => branch.currentBranchId, loadServices);
                                 <div class="flex items-center justify-between">
                                     <div>
                                         <h2 class="text-lg font-bold text-slate-900">Payment</h2>
-                                        <p class="mt-0.5 text-base text-slate-500">Total: <span class="text-2xl font-extrabold text-slate-900">₱{{ fmt(cart.total) }}</span></p>
                                     </div>
                                     <button class="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200" @click="showPayment = false">✕</button>
                                 </div>
