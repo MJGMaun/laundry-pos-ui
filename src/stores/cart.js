@@ -98,6 +98,20 @@ export const useCartStore = defineStore('cart', () => {
     return item
   }
 
+  // Total attached units of an add-on service across every parent load.
+  const addonCount = (serviceId) =>
+    items.value.filter((i) => i.is_addon && i.service_id === serviceId).reduce((sum, i) => sum + i.quantity, 0)
+
+  // Undo for an accidental tap on the service grid, which shows add-ons as one
+  // combined count: take a unit off the most recently attached line, dropping
+  // the line entirely when it reaches zero. Mirrors removeLastLoad.
+  function removeLastAddon(serviceId) {
+    const matches = items.value.filter((i) => i.is_addon && i.service_id === serviceId)
+    if (!matches.length) return
+    const last = matches[matches.length - 1]
+    updateQuantityByUid(last.uid, last.quantity - 1)
+  }
+
   // service_id-based ops target the non-add-on line (used by the service grid).
   function removeItem(serviceId) {
     const target = items.value.find((i) => !i.is_addon && i.service_id === serviceId)
@@ -145,7 +159,7 @@ export const useCartStore = defineStore('cart', () => {
     loyaltyDiscount, appliedLoyaltyReward, customerLoyalty,
     subtotal, total, eligibleParents,
     addItem, addAddon, removeItem, updateQuantity, loadCount, removeLastLoad,
-    removeByUid, updateQuantityByUid, addonsFor, isAddonService,
+    removeByUid, updateQuantityByUid, addonsFor, addonCount, removeLastAddon, isAddonService,
     setCustomer, applyLoyaltyReward, clearLoyaltyReward, clear,
   }
 })

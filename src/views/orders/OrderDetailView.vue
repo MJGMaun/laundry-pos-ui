@@ -346,6 +346,17 @@ function catalogAddonCount(svcId) {
   return addLoadsRows.value.filter((r) => r.is_addon && r.service_id === svcId).reduce((s, r) => s + r.quantity, 0)
 }
 
+// Undo for an accidental tap on the catalog card, which shows add-ons as one
+// combined count: take a unit off the most recently queued row, dropping the
+// row entirely at zero. The summary panel still edits a specific parent's row.
+function removeLastCatalogAddon(svcId) {
+  const matches = addLoadsRows.value.filter((r) => r.is_addon && r.service_id === svcId)
+  if (!matches.length) return
+  const last = matches[matches.length - 1]
+  if (last.quantity > 1) last.quantity -= 1
+  else removeAddRow(last)
+}
+
 // Valid parents = existing primary loads on the order + new primary rows in this
 // batch, with duplicate service names numbered (Wash #1, Wash #2).
 const addLoadsParents = computed(() => {
@@ -1394,11 +1405,17 @@ onMounted(load)
             <div class="text-sm font-semibold text-slate-800 pr-12 leading-tight">{{ svc.name }}</div>
             <!-- <div class="text-xs text-slate-400 mt-0.5">{{ svc.pricing_type === 'per_kilo' ? 'per kilo' : svc.pricing_type === 'per_piece' ? 'per piece' : 'flat rate' }}</div> -->
 
-            <!-- Add-on: tap to attach to a load -->
-            <div v-if="isAddon(svc)" class="mt-2.5 text-center text-xs font-bold rounded-lg py-1.5"
-                 :class="catalogAddonCount(svc.id) ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'">
-              {{ catalogAddonCount(svc.id) ? `${catalogAddonCount(svc.id)} attached · tap to add` : '+ Add-on' }}
-            </div>
+            <!-- Add-on: − takes back the last one attached, + attaches another -->
+            <template v-if="isAddon(svc)">
+              <div v-if="catalogAddonCount(svc.id)" class="mt-2.5 flex items-center gap-1.5">
+                <button class="al-qty-btn" @click.stop="removeLastCatalogAddon(svc.id)">−</button>
+                <span class="flex-1 text-center text-xs font-bold text-blue-700">{{ catalogAddonCount(svc.id) }} attached</span>
+                <button class="al-qty-btn al-qty-plus" @click.stop="onCatalogTap(svc)">+</button>
+              </div>
+              <div v-else class="mt-2.5 text-center text-xs font-bold rounded-lg py-1.5 bg-slate-100 text-slate-500">
+                + Add-on
+              </div>
+            </template>
 
             <!-- Flat-rate: each tap adds a separate load -->
             <div v-else-if="!isMeasured(svc)" class="mt-2.5 text-center text-xs font-bold rounded-lg py-1.5"

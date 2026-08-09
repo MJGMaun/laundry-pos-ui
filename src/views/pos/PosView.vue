@@ -619,8 +619,7 @@ const cartQty = (svc) => cart.items.find((i) => !i.is_addon && i.service_id === 
 
 const isAddon = (svc) => (svc.category?.load_rule ?? svc.load_rule) === 'none';
 const isMeasured = (svc) => svc.pricing_type === 'per_kilo' || svc.pricing_type === 'per_piece';
-const addonCount = (svc) =>
-    cart.items.filter((i) => i.is_addon && i.service_id === svc.id).reduce((s, i) => s + i.quantity, 0);
+const addonCount = (svc) => cart.addonCount(svc.id);
 
 // Label a load, numbering duplicates of the same service (Wash #1, Wash #2).
 function loadLabel(load) {
@@ -894,10 +893,20 @@ watch(() => branch.currentBranchId, loadServices);
 
                             <div v-if="svc.is_loyalty_eligible" class="absolute top-1.5 left-1.5 text-[10px] leading-none" title="Earns loyalty stamps">🎫</div>
 
-                            <!-- Add-on: tap to attach to a load; manage in the review step -->
+                            <!-- Add-on: − takes back the last one attached, + attaches another -->
                             <div v-if="isAddon(svc)" class="mt-1 w-full">
-                                <div v-if="addonCount(svc) > 0" class="rounded-xl px-2 py-1.5 text-center text-xs font-bold text-white" style="background: #2563eb">
-                                    {{ addonCount(svc) }} attached · tap to add
+                                <div v-if="addonCount(svc) > 0" class="flex items-center justify-between rounded-xl px-1 py-1" style="background: #2563eb">
+                                    <button
+                                        class="flex h-8 w-8 items-center justify-center rounded-lg text-base font-bold text-white transition-all active:scale-90"
+                                        style="background: rgba(255,255,255,0.18)"
+                                        @click.stop="cart.removeLastAddon(svc.id)"
+                                    >−</button>
+                                    <span class="text-xs font-bold text-white">{{ addonCount(svc) }} attached</span>
+                                    <button
+                                        class="flex h-8 w-8 items-center justify-center rounded-lg text-base font-bold text-white transition-all active:scale-90"
+                                        style="background: rgba(255,255,255,0.18)"
+                                        @click.stop="onServiceTap(svc)"
+                                    >+</button>
                                 </div>
                                 <div v-else class="rounded-xl bg-slate-100 px-2 py-1.5 text-center text-xs font-semibold text-slate-500">
                                     + Add-on
@@ -1049,7 +1058,18 @@ watch(() => branch.currentBranchId, loadServices);
                                         <div class="text-xs font-medium text-slate-600">+ {{ addon.service_name }}</div>
                                     </div>
                                     <div class="flex items-center gap-2">
-                                        <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">×{{ addon.quantity }}</span>
+                                        <!-- Trim one at a time here; ✕ drops the whole line -->
+                                        <div class="flex items-center gap-0.5 rounded-full bg-slate-100 px-0.5 py-0.5">
+                                            <button
+                                                class="flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold text-slate-500 transition-all hover:bg-white active:scale-90"
+                                                @click="cart.updateQuantityByUid(addon.uid, addon.quantity - 1)"
+                                            >−</button>
+                                            <span class="min-w-[16px] text-center text-xs font-semibold text-slate-600">{{ addon.quantity }}</span>
+                                            <button
+                                                class="flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold text-slate-500 transition-all hover:bg-white active:scale-90"
+                                                @click="cart.updateQuantityByUid(addon.uid, addon.quantity + 1)"
+                                            >+</button>
+                                        </div>
                                         <span class="w-16 text-right text-xs font-semibold text-slate-700">₱{{ fmt(addon.unit_price * addon.quantity) }}</span>
                                         <button class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-red-50 text-xs text-red-500 hover:bg-red-100" @click="cart.removeByUid(addon.uid)">✕</button>
                                     </div>
