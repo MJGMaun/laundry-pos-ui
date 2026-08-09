@@ -176,7 +176,9 @@ onUnmounted(stopThreadPoll)
           <!-- Autocomplete dropdown -->
           <div v-if="search.trim()" class="absolute z-10 mt-1 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
             <div v-if="searching" class="px-3 py-2.5 text-sm text-slate-400">Searching…</div>
-            <div v-else-if="!searchResults.length" class="px-3 py-2.5 text-sm text-slate-400">No users found</div>
+            <div v-else-if="!searchResults.length" class="px-3 py-2.5 text-sm text-slate-400">
+              No users found — type a full username exactly to reach someone outside your branch.
+            </div>
             <button
               v-for="u in searchResults"
               :key="u.id"
@@ -209,7 +211,10 @@ onUnmounted(stopThreadPoll)
           >{{ c.type === 'branch' ? '#' : c.title?.charAt(0).toUpperCase() }}</div>
           <div class="min-w-0 flex-1">
             <div class="flex items-center justify-between gap-2">
-              <span class="truncate text-sm font-semibold text-slate-900">{{ c.type === 'branch' ? 'Branch chat' : c.title }}</span>
+              <span class="truncate text-sm font-semibold text-slate-900">
+                {{ c.type === 'branch' ? 'Branch chat' : c.title }}
+                <span v-if="c.branch_name" class="ml-1 text-[11px] font-normal text-slate-400">· {{ c.branch_name }}</span>
+              </span>
               <span v-if="c.last_message" class="shrink-0 text-[11px] text-slate-400">{{ fmtTime(c.last_message.created_at) }}</span>
             </div>
             <div class="flex items-center justify-between gap-2">
