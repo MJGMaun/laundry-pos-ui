@@ -30,7 +30,7 @@ const TYPES = {
   withdrawal: { label: 'Withdrawal',      emoji: '💸', hint: 'Profit taken out for you or a partner. Does not affect margin.' },
   deposit:    { label: 'Money In',        emoji: '💰', hint: 'Cash put back into the business. Not counted as revenue.' },
   transfer:   { label: 'Transfer',        emoji: '🔁', hint: 'Moving money between your own accounts — nothing leaves the business.' },
-  opening:    { label: 'Opening Balance', emoji: '🏁', hint: 'The counted starting figure. Only activity from this date onward is added on top.' },
+  opening:    { label: 'Opening Balance', emoji: '🏁', hint: 'Count what is actually there right now and enter it. Everything recorded up to this moment is sealed into that figure, the other lines restart at zero, and only what comes after moves the balance.' },
 }
 
 const METHODS = {
@@ -70,6 +70,20 @@ function movementAmount(movement) {
 
 function fmtDate(d) {
   return new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function fmtDateTime(d) {
+  return new Date(d).toLocaleString('en-PH', {
+    month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true,
+  })
+}
+
+// Movements recorded before an account's opening balance are already baked
+// into the counted figure — they stay in the log but no longer move anything.
+function isSealed(movement) {
+  if (movement.type === 'opening') return false
+  const account = accounts.value.find((a) => a.method === movement.method)
+  return !!account?.cutover_at && new Date(movement.created_at) <= new Date(account.cutover_at)
 }
 
 async function load() {
@@ -185,7 +199,7 @@ onMounted(load)
         <span class="flex-1 min-w-[200px]">
           No opening balance set for
           {{ missingOpening.map((a) => METHODS[a.method].label).join(' and ') }} — these totals add up
-          every payment and expense ever recorded. Set what you actually counted to make them real.
+          every payment and expense ever recorded.
         </span>
         <button
           class="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 transition-all"
@@ -210,8 +224,8 @@ onMounted(load)
             <div class="text-3xl font-bold" :class="account.balance < 0 ? 'text-red-600' : 'text-gray-900'">
               {{ peso(account.balance) }}
             </div>
-            <div v-if="account.opening_date" class="text-xs text-gray-400 mt-1">
-              Since {{ fmtDate(account.opening_date) }}
+            <div v-if="account.cutover_at" class="text-xs text-gray-400 mt-1">
+              Counted {{ fmtDateTime(account.cutover_at) }}
             </div>
           </div>
 
@@ -284,14 +298,6 @@ onMounted(load)
         </div>
       </div>
 
-      <!-- Why this page is not the P&L -->
-      <div class="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 leading-relaxed">
-        Withdrawals are profit taken out, not a cost of doing business, so they are kept out of Expenses
-        and leave your revenue, net profit, and margin in Reports untouched. This page is money actually
-        on hand; Reports counts an order the day it is made, paid or not — so the two will not match, and
-        the gap is unpaid orders.
-      </div>
-
       <!-- Movement history -->
       <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div class="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
@@ -327,6 +333,11 @@ onMounted(load)
                 <span>{{ fmtDate(movement.occurred_on) }}</span>
                 <span v-if="movement.user">· by {{ movement.user.name }}</span>
                 <span v-if="movement.note" class="truncate">· {{ movement.note }}</span>
+                <span
+                  v-if="isSealed(movement)"
+                  class="font-semibold text-gray-500 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded"
+                  title="Recorded before the opening balance — already counted in it, so it no longer moves the balance"
+                >sealed</span>
               </div>
             </div>
             <div class="flex items-center gap-2 shrink-0">
@@ -404,11 +415,14 @@ onMounted(load)
               </div>
             </div>
 
-            <div>
-              <label class="block text-xs font-semibold text-gray-500 mb-1">
-                {{ form.type === 'opening' ? 'Counted as of' : 'Date' }}
-              </label>
+            <!-- An opening seals the account as of right now, so there is no date to pick -->
+            <div v-if="form.type !== 'opening'">
+              <label class="block text-xs font-semibold text-gray-500 mb-1">Date</label>
               <input v-model="form.occurred_on" type="date" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+            </div>
+            <div v-else class="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800 leading-relaxed">
+              Takes effect now. Payments in, expenses, and withdrawals for
+              {{ METHODS[form.method].label }} all restart at ₱0.00.
             </div>
 
             <input
