@@ -1236,7 +1236,9 @@ onMounted(load)
       </div>
       <template v-if="newPayment.method === 'cash'">
         <div class="flex items-center justify-between px-1">
-          <span class="text-xs font-medium text-slate-500">Cash given — tap a quick amount</span>
+          <span class="text-xs font-medium text-slate-500">
+            Cash given — tap bills to add up<template v-if="!newPayment.showCustom && Number(newPayment.tendered) > 0">: <span class="text-sm font-bold text-slate-800">₱{{ fmt(newPayment.tendered) }}</span></template>
+          </span>
           <button
             v-if="newPayment.tendered !== '' || newPayment.showCustom"
             class="text-xs font-semibold text-red-500 hover:text-red-600"
@@ -1252,28 +1254,11 @@ onMounted(load)
             @click="newPayment.tendered = newPayment.amount; newPayment.showCustom = false"
           >Exact</button>
           <button
-            v-for="d in [20, 50, 100, 200]"
+            v-for="d in [20, 50, 100, 200, 500, 1000]"
             :key="d"
-            class="py-1.5 rounded-lg text-xs font-semibold transition-all active:scale-95"
-            :class="!newPayment.showCustom && Number(newPayment.tendered) === d
-              ? 'bg-slate-800 text-white'
-              : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300 hover:text-blue-600'"
-            @click="newPayment.tendered = String(d); newPayment.showCustom = false"
-          >₱{{ d }}</button>
-          <button
-            class="py-1.5 rounded-lg text-xs font-semibold transition-all active:scale-95"
-            :class="!newPayment.showCustom && Number(newPayment.tendered) === 500
-              ? 'bg-slate-800 text-white'
-              : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300 hover:text-blue-600'"
-            @click="newPayment.tendered = '500'; newPayment.showCustom = false"
-          >₱500</button>
-          <button
-            class="py-1.5 rounded-lg text-xs font-semibold transition-all active:scale-95"
-            :class="!newPayment.showCustom && Number(newPayment.tendered) === 1000
-              ? 'bg-slate-800 text-white'
-              : 'bg-white text-slate-600 border border-slate-200 hover:border-blue-300 hover:text-blue-600'"
-            @click="newPayment.tendered = '1000'; newPayment.showCustom = false"
-          >₱1000</button>
+            class="py-1.5 rounded-lg text-xs font-semibold bg-white text-slate-600 border border-slate-200 hover:border-blue-300 hover:text-blue-600 transition-all active:scale-95"
+            @click="newPayment.tendered = String(Number(newPayment.tendered || 0) + d); newPayment.showCustom = false"
+          >+₱{{ d }}</button>
           <button
             class="col-span-2 py-1.5 rounded-lg text-xs font-semibold transition-all active:scale-95"
             :class="newPayment.showCustom

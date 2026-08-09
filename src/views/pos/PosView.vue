@@ -1255,7 +1255,9 @@ watch(() => branch.currentBranchId, loadServices);
 
                                     <template v-if="p.method === 'cash'">
                                         <div class="flex items-center justify-between px-1">
-                                            <span class="text-xs font-medium text-slate-500">Cash given — tap a quick amount</span>
+                                            <span class="text-xs font-medium text-slate-500">
+                                                Cash given — tap bills to add up<template v-if="!p.showCustom && Number(p.tendered) > 0">: <span class="text-sm font-bold text-slate-800">₱{{ fmt(p.tendered) }}</span></template>
+                                            </span>
                                             <button
                                                 v-if="p.tendered !== '' || p.showCustom"
                                                 class="text-xs font-semibold text-red-500 hover:text-red-600"
@@ -1271,12 +1273,11 @@ watch(() => branch.currentBranchId, loadServices);
                                             <button
                                                 v-for="b in quickAmounts()"
                                                 :key="b"
-                                                class="rounded-xl py-2.5 text-sm font-bold transition-all active:scale-95"
-                                                :class="Number(p.tendered) === b ? 'bg-slate-800 text-white shadow-sm' : 'border-2 border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'"
-                                                @click="p.tendered = String(b); p.showCustom = false"
-                                            >₱{{ b.toLocaleString() }}</button>
+                                                class="rounded-xl border-2 border-slate-200 bg-white py-2.5 text-sm font-bold text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50 active:scale-95"
+                                                @click="p.tendered = String(Number(p.tendered || 0) + b); p.showCustom = false"
+                                            >+₱{{ b.toLocaleString() }}</button>
                                             <button
-                                                class="rounded-xl py-2.5 text-sm font-bold transition-all active:scale-95"
+                                                class="col-span-2 rounded-xl py-2.5 text-sm font-bold transition-all active:scale-95"
                                                 :class="p.showCustom ? 'bg-slate-700 text-white shadow-sm' : 'border-2 border-slate-200 bg-white text-slate-500 hover:border-slate-300'"
                                                 @click="p.showCustom = !p.showCustom; if (p.showCustom) p.tendered = ''"
                                             >Custom</button>
