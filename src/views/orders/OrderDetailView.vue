@@ -246,6 +246,7 @@ async function recordPayment() {
     if (auth.isAdmin && p.payment_date) payData.payment_date = p.payment_date
     await createPayment(order.value.id, payData)
     showPaymentForm.value = false
+    statusError.value = ''
     await load()
     if (isPaid.value && order.value.status === 'claimed') {
       await updateOrderStatus(order.value.id, { status: 'completed' })
@@ -271,6 +272,7 @@ async function recordPayment() {
       order.value = updatedOrder
       cacheOrder(updatedOrder)
       showPaymentForm.value = false
+      statusError.value = ''
       toast.add({ severity: 'warn', summary: 'Saved offline', detail: 'Payment queued — will sync when connected', life: 5000 })
     } else {
       paymentFormError.value = e.response?.data?.message || 'Failed to record payment.'
