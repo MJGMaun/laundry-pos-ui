@@ -1235,6 +1235,14 @@ onMounted(load)
         </div>
       </div>
       <template v-if="newPayment.method === 'cash'">
+        <div class="flex items-center justify-between px-1">
+          <span class="text-xs font-medium text-slate-500">Cash given — tap a quick amount</span>
+          <button
+            v-if="newPayment.tendered !== '' || newPayment.showCustom"
+            class="text-xs font-semibold text-red-500 hover:text-red-600"
+            @click="newPayment.tendered = ''; newPayment.showCustom = false"
+          >✕ Clear</button>
+        </div>
         <div class="grid grid-cols-4 gap-1">
           <button
             class="col-span-4 py-1.5 rounded-lg text-xs font-semibold transition-all active:scale-95"

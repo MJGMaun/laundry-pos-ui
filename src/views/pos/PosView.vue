@@ -443,7 +443,7 @@ function rowFull(i) {
 }
 
 function quickAmounts() {
-    return [0, 20, 50, 100, 200, 500, 1000];
+    return [20, 50, 100, 200, 500, 1000];
 }
 
 async function printOrderSlips(order) {
@@ -1190,7 +1190,7 @@ watch(() => branch.currentBranchId, loadServices);
                                 <div class="flex items-center justify-between">
                                     <div>
                                         <h2 class="text-lg font-bold text-slate-900">Payment</h2>
-                                        <p class="mt-0.5 text-sm text-slate-400">Total: <span class="font-bold text-slate-800">₱{{ fmt(cart.total) }}</span></p>
+                                        <p class="mt-0.5 text-base text-slate-500">Total: <span class="text-2xl font-extrabold text-slate-900">₱{{ fmt(cart.total) }}</span></p>
                                     </div>
                                     <button class="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors hover:bg-slate-200" @click="showPayment = false">✕</button>
                                 </div>
@@ -1254,6 +1254,14 @@ watch(() => branch.currentBranchId, loadServices);
                                     </div>
 
                                     <template v-if="p.method === 'cash'">
+                                        <div class="flex items-center justify-between px-1">
+                                            <span class="text-xs font-medium text-slate-500">Cash given — tap a quick amount</span>
+                                            <button
+                                                v-if="p.tendered !== '' || p.showCustom"
+                                                class="text-xs font-semibold text-red-500 hover:text-red-600"
+                                                @click="p.tendered = ''; p.showCustom = false"
+                                            >✕ Clear</button>
+                                        </div>
                                         <div class="grid grid-cols-3 gap-2">
                                             <button
                                                 class="rounded-xl py-2.5 text-sm font-bold transition-all active:scale-95"
