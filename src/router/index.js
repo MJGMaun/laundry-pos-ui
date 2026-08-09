@@ -157,6 +157,12 @@ const router = createRouter({
           meta: { roles: ['super_admin'] },
         },
         {
+          path: 'accounts',
+          name: 'accounts',
+          component: () => import('@/views/super-admin/AccountsView.vue'),
+          meta: { roles: ['super_admin'] },
+        },
+        {
           path: 'cross-branch',
           name: 'cross-branch',
           component: () => import('@/views/super-admin/CrossBranchView.vue'),

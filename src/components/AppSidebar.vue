@@ -58,6 +58,7 @@ const navItems = computed(() => {
   }
   if (auth.isSuperAdmin) {
     items.push({ to: '/pickup-queue',      emoji: '🧾', label: 'Pickup Queue',    color: '#f59e0b' })
+    items.push({ to: '/accounts',          emoji: '🏦', label: 'Accounts',        color: '#34d399' })
     items.push({ to: '/branches',          emoji: '🏪', label: 'Branches',        color: '#c084fc' })
     items.push({ to: '/cross-branch',      emoji: '🌐', label: 'All Branches',    color: '#38bdf8' })
     items.push({ to: '/data-management',   emoji: '🗑️', label: 'Data Management', color: '#f87171' })
