@@ -1,8 +1,10 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import DatePicker from 'primevue/datepicker'
 import { getRevenue, getProfitLoss, getServiceReport, getTopCustomers, getSalesSummary } from '@/api/reports.js'
+import { useBranchStore } from '@/stores/branch.js'
+import { useAuthStore } from '@/stores/auth.js'
 import { useToast } from 'primevue/usetoast'
 import { Bar } from 'vue-chartjs'
 import {
@@ -13,6 +15,8 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
 const toast = useToast()
 const router = useRouter()
+const branch = useBranchStore()
+const auth = useAuthStore()
 
 const loading = ref(false)
 
@@ -101,13 +105,20 @@ function buildChart() {
 	}
 }
 
+// Every card here is branch-scoped server-side via the X-Branch-Id header, but
+// nothing refetched when the header's branch selector changed — the page kept
+// showing whichever branch was active when it was opened.
+watch(() => branch.currentBranchId, load)
+
 onMounted(load)
 </script>
 
 <template>
 	<div class="p-4 sm:p-6 max-w-6xl mx-auto">
-		<div class="mb-5">
+		<div class="flex items-center gap-3 mb-5">
 			<h1 class="text-xl font-bold text-gray-900">Reports</h1>
+			<span v-if="branch.currentBranch" class="text-sm text-gray-400">— {{ branch.currentBranch.name }}</span>
+			<span v-else-if="auth.isSuperAdmin" class="text-sm text-gray-400">— All branches</span>
 		</div>
 
 		<!-- Filters -->
