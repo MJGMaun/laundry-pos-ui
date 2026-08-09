@@ -52,9 +52,44 @@
 <script setup>
 const changelog = [
   {
+    version: '1.16.0',
+    date: 'August 9, 2026',
+    latest: true,
+    sections: [
+      {
+        title: 'New Features',
+        type: 'feature',
+        items: [
+          '**Accounts page** (admin) — running **Cash and GCash balances per branch**: opening balance, payments in, expenses, withdrawals and transfers, reconciled into what you actually hold right now. Cash is the drawer; GCash is that branch\'s own account',
+          '**Withdrawals** — taking profit out for yourself or a business partner is recorded here, **not as an expense**, so revenue, net profit, and margin in Reports stay completely untouched. A draw is a distribution of profit, not a cost of earning it. Money put back in (capital) and transfers between Cash and GCash work the same way, with a movement log showing who took what and when',
+          '**Opening balance = clean slate** — count what is actually there, enter it, and everything already recorded is sealed into that figure: payments in, expenses, and withdrawals all restart at ₱0.00, and only what comes after moves the balance. Set it again any time the numbers drift',
+          '**Accounts → By month** — the last 12 months on one screen: cash in, GCash in, expenses, withdrawn, and net, with no filtering at all. Tap any month to open it in Cash Balance for the itemized payments',
+          '**Clickable totals** — tapping any total on Dashboard or Reports opens the page behind it on the **same date range**: Revenue → Reports, Expenses → Expenses, Loads → Orders, Cash on Hand → Cash Balance, and Uncollected → Orders with the unpaid filter already on',
+          '**Auto downpayment from bills tendered** (Order Detail) — the cash payment is derived from the bills you tap, so a partial payment no longer has to be typed out',
+        ],
+      },
+      {
+        title: 'Improvements',
+        type: 'improvement',
+        items: [
+          'Payment modals are clearer across POS and Order Detail: bigger order total at the top, **labeled quick amounts that add up as you tap bills** instead of replacing each other, a clear button, balance placed above the method toggle, and the duplicate total removed from the header',
+          'Expenses list is **paginated** with a page-size control, instead of loading everything at once',
+        ],
+      },
+      {
+        title: 'Bug Fixes',
+        type: 'fix',
+        items: [
+          '**Reports ignored the branch selector** — the page loaded once and kept showing whichever branch was active when it was opened, so switching branches changed nothing. Most visible on Service Performance, where another branch\'s services stayed listed. Every card now refreshes on switch, and the active branch is named beside the heading',
+          '**Add-ons could be added but never taken back** — an accidental extra tap on detergent (or any add-on) was stuck. Add-on cards in POS and in Order Detail → Add Loads now have − / + controls, and the POS review list can trim one at a time instead of only deleting the whole line',
+          'Order Detail: a stale **outstanding balance** error no longer lingers after a payment is recorded',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.15.0',
     date: 'July 7, 2026',
-    latest: true,
     sections: [
       {
         title: 'New Features',
@@ -64,7 +99,6 @@ const changelog = [
           '**Backdate orders & payments** (admin) — orders that were missed on their real date can now be entered with a custom **order date** on the POS review step (checkout payments follow the same date), and Record Payment on Order Detail gets an optional date too. Backdated entries land on the right day in every report; future dates are blocked',
           '**Cash Balance date range** — pick any range instead of a single day, with **Today / Yesterday / 7 days / This month** presets. A range shows summed totals and net cash; single-day keeps the drawer view with starting float',
           '**Cash Balance** — a **Not Yet Paid** section lists every order made in the selected date range that still owes money — customer, order #, paid-so-far, and balance due, with the **total outstanding** in the header — so orders taken always reconcile with cash collected plus what\'s still owed',
-          '**Deleted Records page** (super admin) — an audit log of deleted payments, orders, expenses, customers, services, and machines across all branches, showing what was deleted, **when, and by whom**. View-only — nothing is removed from the database, and every deletion now records the user who did it',
           '**Live loyalty stamp preview** — the POS shows a 🎫 stamp counter beside the customer\'s name that ticks up as stamp-earning services are added, and the Review step (plus Add Loads on Order Detail) shows each card\'s progress **before → after** this order with a 🎁 celebration when a reward is unlocked',
         ],
       },
@@ -106,7 +140,7 @@ const changelog = [
         items: [
           'Expenses: added a **search box** — filter by description or category name as you type',
           'Expenses: the month filter is now a **date-range picker** (like Orders), defaulting to the current month',
-          'Orders: the **Unpaid filter** is now available to all roles (previously super admin only)',
+          'Orders: the **Unpaid filter** is now available to all roles',
           'POS: **GCash now supports partial payments** — the amount is editable (with a Full shortcut and quick ₱200/₱500/₱1000 chips), so you can take a GCash downpayment and leave the balance owing, matching Record Payment on Order Detail',
           'Orders list: partially-paid orders now show **₱paid / ₱total** (instead of just "Unpaid") so the outstanding balance is visible at a glance; fully-paid and unpaid orders keep the ✓ Paid / ⚠ Unpaid labels',
           'Orders search now also matches the **total amount** — type a number like "500" to find orders by their total, alongside order # and customer name',
@@ -207,46 +241,6 @@ const changelog = [
           'Machine Cycles: logging is by **meter reading** — type the current total showing on each machine and the app works out how many cycles were added since the last reading, shown as a live **+N** badge beside the input; a reading below the previous total is blocked since a meter can\'t go backwards',
           'Machine Cycles: a **per-machine overview** shows each machine\'s cycles **this month** and **all time** at a glance',
           'Machine Cycles: when adding a machine you can set its **starting meter count**, so totals reflect cycles the machine already ran before it was added; an existing machine\'s starting count can be edited later from **Manage machines**',
-        ],
-      },
-    ],
-  },
-  {
-    version: '1.10.2',
-    date: 'June 6, 2026',
-    latest: false,
-    sections: [
-      {
-        title: 'New Features',
-        type: 'feature',
-        items: [
-          '**Pickup & Delivery toggle** (super admin): each branch can now have pickup & delivery turned on or off from Branch Management — when disabled, the POS hides pickup/delivery fee inputs, the Schedule page is removed from the sidebar, and the delivery card is hidden on Order Detail',
-          '**POS Wizard**: redesigned POS flow into a guided 3-step wizard — Step 1: select customer, Step 2: choose services with inline quantity controls (tap to add, − and + to adjust, ✕ to remove), Step 3: review fees, notes, and totals before placing the order',
-        ],
-      },
-      {
-        title: 'Improvements',
-        type: 'improvement',
-        items: [
-          'Order Detail: **Add Loads** and **Record Payment** are now modals — less clutter, easier to use on small screens',
-          'Order Detail: layout reorganized — Loads on the left, a combined **Summary + Payments** card on the right; totals and payment history in one place',
-          'Order Detail: cashiers and staff can now **Add Loads** without a "Failed to load services" error — the services endpoint is now accessible to all roles',
-          'Order Detail: **Add Loads** redesigned as a service catalog — 2-column card grid with category tabs, tap to add, inline − qty + controls on selected cards, and a running summary of selections; replaces the old dropdown rows',
-          'POS: **customer selection is now required** — the walk-in shortcut is removed; staff must always search for or create a customer before proceeding',
-          'POS: typing a name with no matching results shows a **"Create \'[name]\'"** prompt — tapping it opens a modal with the name pre-filled; the "+ New Customer" button also opens the same modal',
-          'POS: **Fees & notes** section is now collapsed by default — tap to expand when needed',
-          'POS: tapping **New Order** after a successful checkout returns to Step 1 (customer selection)',
-          'Day Summary: now restricted to **admin** only',
-          'Settings: **Loyalty Program** section removed (points per peso, min redeem) — stamp-based loyalty rules still work as before',
-          'Customer Detail: loyalty tier badge removed',
-        ],
-      },
-      {
-        title: 'Fixes',
-        type: 'fix',
-        items: [
-          'POS: tracking slip now correctly shows **paid/unpaid status** — was always showing unpaid even on fully paid orders because the slip rendered before payments were recorded',
-          'Customers: **Total Spent now decreases when an order is deleted** — deleting an order now reverses the net paid amount from the customer\'s total',
         ],
       },
     ],
