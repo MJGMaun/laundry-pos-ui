@@ -1,5 +1,6 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import DatePicker from 'primevue/datepicker'
 import { useToast } from 'primevue/usetoast'
 import { useAuthStore } from '@/stores/auth.js'
@@ -9,8 +10,19 @@ import { getCashBalance, setCashBalance } from '@/api/cashBalance.js'
 const toast       = useToast()
 const branchStore = useBranchStore()
 const authStore   = useAuthStore()
+const route       = useRoute()
 
-const cashRange    = ref([new Date(), new Date()]) // [from, to] — same day = single-day drawer view
+// The Accounts page links a month row here with an explicit range; otherwise
+// this opens on today. Dates are parsed as local so the range doesn't slip a
+// day against UTC.
+function initialRange() {
+  const { date_from: from, date_to: to } = route.query
+  if (!from) return [new Date(), new Date()]
+  const start = new Date(`${from}T00:00:00`)
+  return [start, to ? new Date(`${to}T00:00:00`) : new Date(start)]
+}
+
+const cashRange    = ref(initialRange()) // [from, to] — same day = single-day drawer view
 const cashData     = ref(null)
 const cashLoading  = ref(false)
 const editingStart = ref(false)

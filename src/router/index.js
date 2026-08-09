@@ -101,6 +101,12 @@ const router = createRouter({
           meta: { roles: ['super_admin', 'admin'] },
         },
         {
+          path: 'accounts',
+          name: 'accounts',
+          component: () => import('@/views/admin/AccountsView.vue'),
+          meta: { roles: ['super_admin', 'admin'] },
+        },
+        {
           path: 'payments',
           name: 'payments',
           component: () => import('@/views/admin/PaymentsView.vue'),
@@ -154,12 +160,6 @@ const router = createRouter({
           path: 'branches',
           name: 'branches',
           component: () => import('@/views/super-admin/BranchesView.vue'),
-          meta: { roles: ['super_admin'] },
-        },
-        {
-          path: 'accounts',
-          name: 'accounts',
-          component: () => import('@/views/super-admin/AccountsView.vue'),
           meta: { roles: ['super_admin'] },
         },
         {

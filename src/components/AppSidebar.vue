@@ -48,6 +48,7 @@ const navItems = computed(() => {
     }
     items.push({ to: '/reports',       emoji: '📈', label: 'Reports',       color: '#fb923c' })
     items.push({ to: '/cash-balance',  emoji: '💰', label: 'Cash Balance',   color: '#34d399' })
+    items.push({ to: '/accounts',      emoji: '🏦', label: 'Accounts',       color: '#2dd4bf' })
     items.push({ to: '/payments',      emoji: '🧾', label: 'Payments',       color: '#2dd4bf' })
     items.push({ to: '/machine-cycles', emoji: '🔄', label: 'Machine Cycles', color: '#22d3ee' })
     items.push({ to: '/expenses',  emoji: '💸', label: 'Expenses',     color: '#f87171' })
@@ -58,7 +59,6 @@ const navItems = computed(() => {
   }
   if (auth.isSuperAdmin) {
     items.push({ to: '/pickup-queue',      emoji: '🧾', label: 'Pickup Queue',    color: '#f59e0b' })
-    items.push({ to: '/accounts',          emoji: '🏦', label: 'Accounts',        color: '#34d399' })
     items.push({ to: '/branches',          emoji: '🏪', label: 'Branches',        color: '#c084fc' })
     items.push({ to: '/cross-branch',      emoji: '🌐', label: 'All Branches',    color: '#38bdf8' })
     items.push({ to: '/data-management',   emoji: '🗑️', label: 'Data Management', color: '#f87171' })

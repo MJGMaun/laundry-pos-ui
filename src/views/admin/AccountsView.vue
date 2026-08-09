@@ -1,13 +1,22 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
 import { useBranchStore } from '@/stores/branch.js'
+import { useAuthStore } from '@/stores/auth.js'
 import { getAccounts, createAccountMovement, deleteAccountMovement } from '@/api/accounts.js'
 
 const toast       = useToast()
 const confirm     = useConfirm()
+const router      = useRouter()
 const branchStore = useBranchStore()
+const authStore   = useAuthStore()
+
+// Only super admins can sit on "All branches", which this page cannot render —
+// cash and GCash are held per branch. Everyone else is resolved to their own
+// branch server-side and never sees a selector, so they must not be blocked.
+const needsBranchPick = computed(() => authStore.isSuperAdmin && !branchStore.currentBranchId)
 
 const data     = ref(null)
 const loading  = ref(false)
@@ -78,6 +87,22 @@ function fmtDateTime(d) {
   })
 }
 
+// "2026-08" → "Aug 2026"
+function fmtMonth(key) {
+  const [year, month] = key.split('-').map(Number)
+  return new Date(year, month - 1, 1).toLocaleDateString('en-PH', { month: 'short', year: 'numeric' })
+}
+
+// Cash Balance itemizes the payments behind a month, so hand it that range.
+function openMonth(key) {
+  const [year, month] = key.split('-').map(Number)
+  const lastDay = new Date(year, month, 0).getDate()
+  router.push({
+    path: '/cash-balance',
+    query: { date_from: `${key}-01`, date_to: `${key}-${String(lastDay).padStart(2, '0')}` },
+  })
+}
+
 // Movements recorded before an account's opening balance are already baked
 // into the counted figure — they stay in the log but no longer move anything.
 function isSealed(movement) {
@@ -87,7 +112,7 @@ function isSealed(movement) {
 }
 
 async function load() {
-  if (!branchStore.currentBranchId) return
+  if (needsBranchPick.value) return
   loading.value = true
   try {
     const res = await getAccounts()
@@ -157,9 +182,9 @@ function remove(movement) {
   })
 }
 
-watch(() => branchStore.currentBranchId, (id) => {
+watch(() => branchStore.currentBranchId, () => {
   data.value = null
-  if (id) load()
+  load()
 })
 
 onMounted(load)
@@ -176,9 +201,9 @@ onMounted(load)
       </span>
     </div>
 
-    <!-- Cash and GCash are per-branch, so a branch has to be picked first -->
+    <!-- Cash and GCash are per-branch, so "All branches" has nothing to show -->
     <div
-      v-if="!branchStore.currentBranchId"
+      v-if="needsBranchPick"
       class="flex flex-col items-center justify-center py-20 text-center"
     >
       <div class="text-4xl mb-3">🏪</div>
@@ -295,6 +320,46 @@ onMounted(load)
             class="px-3 py-2 rounded-lg text-xs font-semibold text-gray-600 border border-gray-200 hover:border-blue-300 hover:text-blue-600 transition-all active:scale-95"
             @click="openForm('opening', 'cash')"
           >🏁 Opening balance</button>
+        </div>
+      </div>
+
+      <!-- By month — every month on screen at once, no filtering needed -->
+      <div v-if="data.months?.length" class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="text-base">📅</span>
+            <h3 class="font-semibold text-gray-900">By month</h3>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="text-xs text-gray-500 border-b border-gray-100">
+                <th class="text-left font-medium px-5 py-2.5">Month</th>
+                <th class="text-right font-medium px-3 py-2.5">Cash in</th>
+                <th class="text-right font-medium px-3 py-2.5">GCash in</th>
+                <th class="text-right font-medium px-3 py-2.5">Expenses</th>
+                <th class="text-right font-medium px-3 py-2.5">Withdrawn</th>
+                <th class="text-right font-medium px-5 py-2.5">Net</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+              <tr
+                v-for="row in data.months"
+                :key="row.month"
+                class="cursor-pointer transition-colors hover:bg-blue-50"
+                @click="openMonth(row.month)"
+              >
+                <td class="px-5 py-3 font-medium text-gray-800 whitespace-nowrap">{{ fmtMonth(row.month) }}</td>
+                <td class="px-3 py-3 text-right tabular-nums text-gray-700 whitespace-nowrap">₱{{ fmt(row.cash_in) }}</td>
+                <td class="px-3 py-3 text-right tabular-nums text-gray-700 whitespace-nowrap">₱{{ fmt(row.gcash_in) }}</td>
+                <td class="px-3 py-3 text-right tabular-nums whitespace-nowrap" :class="row.expenses > 0 ? 'text-red-600' : 'text-gray-300'">₱{{ fmt(row.expenses) }}</td>
+                <td class="px-3 py-3 text-right tabular-nums whitespace-nowrap" :class="row.withdrawals > 0 ? 'text-purple-700' : 'text-gray-300'">₱{{ fmt(row.withdrawals) }}</td>
+                <td class="px-5 py-3 text-right tabular-nums font-bold whitespace-nowrap" :class="row.net < 0 ? 'text-red-600' : 'text-gray-900'">{{ peso(row.net) }}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
