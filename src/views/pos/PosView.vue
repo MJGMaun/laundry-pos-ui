@@ -1248,9 +1248,10 @@ watch(() => branch.currentBranchId, loadServices);
                                             >₱{{ amt.toLocaleString() }}</button>
                                         </div>
                                     </div>
+                                    <!-- In a split, a cash row only covers part of the order, so "Order Total" would mislead -->
                                     <div v-else class="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2.5">
-                                        <span class="text-xs text-slate-500">Amount</span>
-                                        <span class="text-base font-bold text-slate-900">₱{{ fmt(p.amount) }}</span>
+                                        <span class="text-sm font-medium text-slate-500">{{ payments.length > 1 ? 'Amount' : 'Order Total' }}</span>
+                                        <span class="text-2xl font-extrabold text-slate-900">₱{{ fmt(p.amount) }}</span>
                                     </div>
 
                                     <template v-if="p.method === 'cash'">
