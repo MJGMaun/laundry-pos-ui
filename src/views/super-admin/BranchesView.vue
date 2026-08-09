@@ -25,6 +25,7 @@ const assigningUser = ref(false)
 
 const form = ref({ name: '', address: '', phone: '', email: '', tin: '', is_test: false })
 const togglingDaySummary = ref({})
+const togglingDaySummaryStaff = ref({})
 const togglingPickupDelivery = ref({})
 
 async function togglePickupDelivery(b) {
@@ -52,6 +53,21 @@ async function toggleDaySummary(b) {
     toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to update', life: 4000 })
   } finally {
     togglingDaySummary.value[b.id] = false
+  }
+}
+
+// Opts the branch's cashiers/staff into the Day Summary page (admins always have it).
+async function toggleDaySummaryStaff(b) {
+  const next = !b.day_summary_staff_enabled
+  togglingDaySummaryStaff.value[b.id] = true
+  try {
+    await updateSetting('day_summary_staff_enabled', { value: next ? 'true' : 'false' }, b.id)
+    b.day_summary_staff_enabled = next
+    toast.add({ severity: 'success', summary: 'Saved', detail: `Day Summary ${next ? 'now visible to' : 'hidden from'} cashier/staff at ${b.name}`, life: 2500 })
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to update', life: 4000 })
+  } finally {
+    togglingDaySummaryStaff.value[b.id] = false
   }
 }
 
@@ -199,6 +215,9 @@ onMounted(load)
             <th class="hidden md:table-cell text-left px-4 py-3 font-medium text-gray-600">Phone</th>
             <th class="text-center px-4 py-3 font-medium text-gray-600">Pickup &amp; Delivery</th>
             <th class="text-center px-4 py-3 font-medium text-gray-600">Day Summary</th>
+            <th class="text-center px-4 py-3 font-medium text-gray-600">
+              Day Summary<br /><span class="text-xs font-normal text-gray-400">for cashier/staff</span>
+            </th>
             <th class="text-center px-4 py-3 font-medium text-gray-600">Status</th>
             <th class="px-4 py-3" />
           </tr>
@@ -238,6 +257,23 @@ onMounted(load)
                 <span
                   class="inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform"
                   :class="b.day_summary_enabled ? 'translate-x-4.5' : 'translate-x-0.5'"
+                />
+              </button>
+            </td>
+            <td class="px-4 py-3 text-center">
+              <button
+                type="button"
+                class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-50 align-middle"
+                :class="b.day_summary_staff_enabled && b.day_summary_enabled ? 'bg-green-500' : 'bg-gray-300'"
+                :disabled="togglingDaySummaryStaff[b.id] || !b.day_summary_enabled"
+                :title="!b.day_summary_enabled
+                  ? 'Turn Day Summary on first'
+                  : (b.day_summary_staff_enabled ? 'Visible to cashier/staff' : 'Admins only')"
+                @click="toggleDaySummaryStaff(b)"
+              >
+                <span
+                  class="inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform"
+                  :class="b.day_summary_staff_enabled && b.day_summary_enabled ? 'translate-x-4.5' : 'translate-x-0.5'"
                 />
               </button>
             </td>

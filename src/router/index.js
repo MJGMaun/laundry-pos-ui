@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.js'
 import { useBranchStore } from '@/stores/branch.js'
+import { useSettingsStore } from '@/stores/settings.js'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -108,8 +109,10 @@ const router = createRouter({
         {
           path: 'day-summary',
           name: 'day-summary',
+          // cashier/staff reach this only when a super admin opts them in —
+          // enforced in the navigation guard below.
           component: () => import('@/views/DaySummaryView.vue'),
-          meta: { roles: ['super_admin', 'admin'] },
+          meta: { roles: ['super_admin', 'admin', 'cashier', 'staff'] },
         },
         {
           path: 'machine-cycles',
@@ -219,6 +222,17 @@ router.beforeEach(async (to) => {
 
   if (to.meta.roles && !to.meta.roles.includes(auth.role)) {
     return { name: 'pos' }
+  }
+
+  // Day Summary is admin-only unless a super admin opted the branch's
+  // cashiers/staff in. Settings load in AppLayout, which mounts after this
+  // guard, so a direct page load has to fetch them before deciding.
+  if (to.name === 'day-summary' && auth.isAuthenticated && !auth.isAdmin) {
+    const settings = useSettingsStore()
+    if (!settings.loaded) await settings.load()
+    if (!settings.daySummaryEnabled || !settings.daySummaryStaffEnabled) {
+      return { name: 'pos' }
+    }
   }
 })
 

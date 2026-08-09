@@ -26,5 +26,8 @@ export const useSettingsStore = defineStore('settings', () => {
   const daySummaryEnabled       = computed(() => map.value.day_summary_enabled !== 'false')
   const pickupDeliveryEnabled   = computed(() => map.value.pickup_delivery_enabled !== 'false')
 
-  return { map, loaded, load, get, daySummaryEnabled, pickupDeliveryEnabled }
+  // Opt-in: Day Summary stays admin-only until a super admin turns this on.
+  const daySummaryStaffEnabled  = computed(() => map.value.day_summary_staff_enabled === 'true')
+
+  return { map, loaded, load, get, daySummaryEnabled, daySummaryStaffEnabled, pickupDeliveryEnabled }
 })

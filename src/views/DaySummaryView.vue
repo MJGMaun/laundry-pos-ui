@@ -33,7 +33,11 @@ function fmtOrderDate(d) {
   return d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }) : ''
 }
 
-const enabled       = computed(() => settingsStore.daySummaryEnabled)
+// Admins always have it; cashier/staff only when a super admin opted them in.
+// Re-checked here so flipping the toggle off empties the page without a reload.
+const enabled       = computed(() =>
+  settingsStore.daySummaryEnabled && (authStore.isAdmin || settingsStore.daySummaryStaffEnabled)
+)
 const cashPayments  = computed(() => (data.value?.payments || []).filter((p) => p.method === 'cash'))
 const gcashPayments = computed(() => (data.value?.payments || []).filter((p) => p.method === 'gcash'))
 

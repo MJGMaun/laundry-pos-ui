@@ -37,6 +37,11 @@ const navItems = computed(() => {
     items.push({ to: '/orders',        emoji: '📋', label: 'Orders',       color: '#a78bfa' })
   }
   items.push({ to: '/messages',    emoji: '💬', label: 'Messages',     color: '#38bdf8', badge: chat.unreadCount })
+  // Day Summary is admin-only unless a super admin opted the branch's
+  // cashiers/staff in, in which case it sits with their own nav items.
+  if (!auth.isAdmin && settings.daySummaryEnabled && settings.daySummaryStaffEnabled) {
+    items.push({ to: '/day-summary', emoji: '🧾', label: 'Day Summary',  color: '#fbbf24' })
+  }
   if (auth.isAdmin) {
     if (settings.daySummaryEnabled) {
       items.push({ to: '/day-summary', emoji: '🧾', label: 'Day Summary',  color: '#fbbf24' })
