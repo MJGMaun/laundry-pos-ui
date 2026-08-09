@@ -234,14 +234,20 @@ const balanceAfterPayment = computed(() =>
 
 async function recordPayment() {
   if (savingPayment.value) return
-  if (!(Number(newPayment.value.amount) > 0)) { paymentFormError.value = 'Enter an amount.'; return }
-  if (Number(newPayment.value.amount) > outstandingBalance.value + 0.01) { paymentFormError.value = `Amount can't exceed the ₱${fmt(outstandingBalance.value)} balance.`; return }
+  const p = newPayment.value
+  // Cash amount is derived from the bills tendered: anything short of the
+  // balance is a downpayment, anything over comes back as change.
+  const amount = p.method === 'cash'
+    ? Math.min(Number(p.tendered || 0), outstandingBalance.value)
+    : Number(p.amount)
+  if (p.method === 'cash' && !(Number(p.tendered) > 0)) { paymentFormError.value = 'Tap the bills received, or use Custom.'; return }
+  if (!(amount > 0)) { paymentFormError.value = 'Enter an amount.'; return }
+  if (amount > outstandingBalance.value + 0.01) { paymentFormError.value = `Amount can't exceed the ₱${fmt(outstandingBalance.value)} balance.`; return }
   savingPayment.value = true
   paymentFormError.value = ''
   try {
-    const p = newPayment.value
-    const payData = { method: p.method, amount: Number(p.amount), type: 'payment' }
-    if (p.method === 'cash') payData.tendered = Number(p.tendered || p.amount)
+    const payData = { method: p.method, amount, type: 'payment' }
+    if (p.method === 'cash') payData.tendered = Number(p.tendered)
     else payData.reference_number = p.reference_number || ''
     if (auth.isAdmin && p.payment_date) payData.payment_date = p.payment_date
     await createPayment(order.value.id, payData)
@@ -254,13 +260,12 @@ async function recordPayment() {
     }
   } catch (e) {
     if (isOfflineError(e)) {
-      const p = newPayment.value
-      const payData = { method: p.method, amount: Number(p.amount), type: 'payment' }
-      if (p.method === 'cash') payData.tendered = Number(p.tendered || p.amount)
+      const payData = { method: p.method, amount, type: 'payment' }
+      if (p.method === 'cash') payData.tendered = Number(p.tendered)
       else payData.reference_number = p.reference_number || ''
       if (auth.isAdmin && p.payment_date) payData.payment_date = p.payment_date
       await queue.enqueueRequest('POST', `/orders/${order.value.id}/payments`, payData)
-      const covers = Number(p.amount) >= outstandingBalance.value - 0.01
+      const covers = amount >= outstandingBalance.value - 0.01
       if (covers && order.value.status === 'claimed') {
         await queue.enqueueRequest('PATCH', `/orders/${order.value.id}/status`, { status: 'completed' })
       }
@@ -1194,11 +1199,17 @@ onMounted(load)
           :class="newPayment.method === m
             ? 'bg-blue-600 text-white shadow-sm'
             : 'bg-white text-slate-500 border border-slate-200 hover:border-slate-300'"
-          @click="newPayment.method = m"
+          @click="newPayment.method = m; newPayment.amount = String(outstandingBalance.toFixed(2)); newPayment.tendered = ''; newPayment.showCustom = false"
         >{{ m.toUpperCase() }}</button>
       </div>
-      <!-- Amount to pay now (supports partial / downpayment) -->
-      <div class="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5 space-y-2">
+      <!-- Cash: the balance is fixed — the bills tapped below decide how much is
+           applied, and anything short of the balance is recorded as a downpayment. -->
+      <div v-if="newPayment.method === 'cash'" class="flex items-center justify-between rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5">
+        <span class="text-sm font-medium text-slate-500">Outstanding Balance</span>
+        <span class="text-2xl font-extrabold text-slate-900">₱{{ fmt(outstandingBalance) }}</span>
+      </div>
+      <!-- GCash amount stays editable: partial payments have no "bills" to count -->
+      <div v-else class="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5 space-y-2">
         <div class="flex items-center justify-between">
           <span class="text-xs text-slate-500">Amount to pay</span>
           <button
@@ -1284,6 +1295,13 @@ onMounted(load)
         >
           <span>Change</span>
           <span>₱{{ fmt(Number(newPayment.tendered) - Number(newPayment.amount)) }}</span>
+        </div>
+        <div
+          v-if="Number(newPayment.tendered) > 0 && Number(newPayment.tendered) < outstandingBalance - 0.009"
+          class="flex items-center justify-between text-xs font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5"
+        >
+          <span>Downpayment — remaining after this</span>
+          <span class="font-bold">₱{{ fmt(outstandingBalance - Number(newPayment.tendered)) }}</span>
         </div>
       </template>
       <div v-else class="flex items-center gap-2">
