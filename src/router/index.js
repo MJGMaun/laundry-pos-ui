@@ -171,6 +171,12 @@ const router = createRouter({
           component: () => import('@/views/super-admin/DeletedRecordsView.vue'),
           meta: { roles: ['super_admin'] },
         },
+        {
+          path: 'activity',
+          name: 'activity',
+          component: () => import('@/views/super-admin/ActivityView.vue'),
+          meta: { roles: ['super_admin'] },
+        },
       ],
     },
   ],

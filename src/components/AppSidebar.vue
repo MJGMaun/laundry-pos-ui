@@ -57,6 +57,7 @@ const navItems = computed(() => {
     items.push({ to: '/cross-branch',      emoji: '🌐', label: 'All Branches',    color: '#38bdf8' })
     items.push({ to: '/data-management',   emoji: '🗑️', label: 'Data Management', color: '#f87171' })
     items.push({ to: '/deleted-records',   emoji: '📜', label: 'Deleted Records', color: '#fb7185' })
+    items.push({ to: '/activity',          emoji: '🕒', label: 'Activity',        color: '#34d399' })
   }
   return items
 })
