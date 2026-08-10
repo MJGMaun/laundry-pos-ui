@@ -4,6 +4,7 @@ import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
 import { getBranches, createBranch, updateBranch, deleteBranch, getBranchUsers, assignUser, removeUser } from '@/api/branches.js'
 import { getAllUsers } from '@/api/users.js'
+import PageAccessMatrix from '@/components/PageAccessMatrix.vue'
 import { updateSetting } from '@/api/settings.js'
 
 const toast = useToast()
@@ -28,6 +29,11 @@ const togglingDaySummary = ref({})
 const togglingDaySummaryStaff = ref({})
 const togglingPickupDelivery = ref({})
 const togglingPhoneRequired = ref({})
+const accessBranch = ref(null)
+
+function openAccess(b) {
+  accessBranch.value = b
+}
 
 // Branches serving walk-ins who won't give a number can drop the requirement.
 // Existing customers keep their phones; only new entries stop demanding one.
@@ -321,6 +327,7 @@ onMounted(load)
             <td class="px-4 py-3">
               <div class="flex flex-wrap gap-1 justify-end">
                 <button class="text-xs text-blue-600 hover:text-blue-700 px-2 py-1" @click="viewUsers(b)">Users</button>
+                <button class="text-xs text-blue-600 hover:text-blue-700 px-2 py-1" @click="openAccess(b)">Access</button>
                 <button class="text-xs text-blue-600 hover:text-blue-700 px-2 py-1" @click="openForm(b)">Edit</button>
                 <button class="text-xs text-red-500 hover:text-red-700 px-2 py-1" @click="deactivate(b.id)">Deactivate</button>
               </div>
@@ -413,4 +420,21 @@ onMounted(load)
       </div>
     </Teleport>
   </div>
+
+    <!-- Page access matrix -->
+    <Teleport to="body">
+      <div v-if="accessBranch" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" @click.self="accessBranch = null">
+        <div class="bg-white rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-y-auto p-6 shadow-2xl">
+          <div class="flex items-start justify-between mb-1">
+            <h2 class="text-lg font-bold text-gray-900">Page Access — {{ accessBranch.name }}</h2>
+            <button class="text-gray-400 hover:text-gray-600 text-xl leading-none px-2" @click="accessBranch = null">&times;</button>
+          </div>
+          <PageAccessMatrix :branch-id="accessBranch.id" :branch-name="accessBranch.name" />
+          <div class="mt-5 flex justify-end">
+            <button class="px-4 py-2 rounded-xl text-sm font-semibold text-gray-700 border border-gray-300 hover:bg-gray-50" @click="accessBranch = null">Done</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
 </template>

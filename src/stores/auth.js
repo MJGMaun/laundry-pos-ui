@@ -53,6 +53,8 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
     localStorage.removeItem('branch_id')
+    // Cached page permissions belong to the user who just left.
+    localStorage.removeItem('page_access')
   }
 
   return { user, token, isAuthenticated, role, isSuperAdmin, isAdmin, isCashier, login, fetchUser, logout }

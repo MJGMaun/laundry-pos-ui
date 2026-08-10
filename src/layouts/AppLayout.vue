@@ -6,20 +6,27 @@ import AppHeader from '@/components/AppHeader.vue'
 import { useBranchStore } from '@/stores/branch.js'
 import { useSettingsStore } from '@/stores/settings.js'
 import { useChatStore } from '@/stores/chat.js'
+import { usePermissionsStore } from '@/stores/permissions.js'
 
 const sidebarOpen = ref(window.innerWidth >= 1024)
 const branch = useBranchStore()
 const settings = useSettingsStore()
 const chat = useChatStore()
+const perms = usePermissionsStore()
 const route = useRoute()
 
 onMounted(() => {
   settings.load()
+  perms.refresh(branch.currentBranchId)
   chat.startPolling()
 })
 onUnmounted(() => chat.stopPolling())
-watch(() => branch.currentBranchId, () => {
+// Page access is per branch, so switching branches must refetch it — the
+// router guard only runs on navigation, and the sidebar would otherwise keep
+// showing the previous branch's menu.
+watch(() => branch.currentBranchId, (id) => {
   settings.load()
+  perms.refresh(id)
   chat.refreshUnread()
 })
 </script>

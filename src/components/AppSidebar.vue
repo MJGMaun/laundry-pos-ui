@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth.js'
 import { useBranchStore } from '@/stores/branch.js'
 import { useSettingsStore } from '@/stores/settings.js'
 import { useChatStore } from '@/stores/chat.js'
+import { usePermissionsStore } from '@/stores/permissions.js'
 
 defineProps({ open: Boolean })
 const emit = defineEmits(['close'])
@@ -19,53 +20,62 @@ const auth     = useAuthStore()
 const branch   = useBranchStore()
 const settings = useSettingsStore()
 const chat     = useChatStore()
+const perms    = usePermissionsStore()
 
 // ── Nav items ─────────────────────────────────────────────────────────────────
+// Every page the app has, in menu order, each tagged with its registry key and
+// the roles that shipped with it. The matrix decides what actually appears;
+// `roles` is only the fallback for a cold offline start where it isn't known
+// yet. This has to be one declarative list rather than role-branched pushes —
+// the point of the matrix is that a branch can *grant* a page to a role that
+// never had it, which a list built out of `if (auth.isAdmin)` cannot express.
+const ALL_ITEMS = [
+  { to: '/dashboard',      page: 'dashboard',       emoji: '📊',  label: 'Dashboard',       color: '#fbbf24', roles: ['super_admin', 'admin'] },
+  { to: '/schedule',       page: 'schedule',        emoji: '🚗',  label: 'Schedule',        color: '#38bdf8', roles: ['super_admin', 'admin'], requires: () => settings.pickupDeliveryEnabled },
+  { to: '/pos',            page: 'pos',             emoji: '🛒',  label: 'POS',             color: '#60a5fa', roles: ['super_admin', 'admin', 'cashier', 'staff'] },
+  { to: '/orders',         page: 'orders',          emoji: '📋',  label: 'Orders',          color: '#a78bfa', roles: ['super_admin', 'admin', 'cashier', 'staff'] },
+  { to: '/customers',      page: 'customers',       emoji: '👥',  label: 'Customers',       color: '#34d399', roles: ['super_admin', 'admin', 'cashier', 'staff'] },
+  { to: '/messages',       page: 'messages',        emoji: '💬',  label: 'Messages',        color: '#38bdf8', roles: ['super_admin', 'admin', 'cashier', 'staff'], badge: () => chat.unreadCount },
+  { to: '/day-summary',    page: 'day-summary',     emoji: '🧾',  label: 'Day Summary',     color: '#fbbf24', roles: ['super_admin', 'admin'], requires: () => settings.daySummaryEnabled },
+  { to: '/reports',        page: 'reports',         emoji: '📈',  label: 'Reports',         color: '#fb923c', roles: ['super_admin', 'admin'] },
+  { to: '/cash-balance',   page: 'cash-balance',    emoji: '💰',  label: 'Cash Balance',    color: '#34d399', roles: ['super_admin', 'admin'] },
+  { to: '/accounts',       page: 'accounts',        emoji: '🏦',  label: 'Accounts',        color: '#2dd4bf', roles: ['super_admin', 'admin'] },
+  { to: '/payments',       page: 'payments',        emoji: '🧾',  label: 'Payments',        color: '#2dd4bf', roles: ['super_admin', 'admin'] },
+  { to: '/machine-cycles', page: 'machine-cycles',  emoji: '🔄',  label: 'Machine Cycles',  color: '#22d3ee', roles: ['super_admin', 'admin'] },
+  { to: '/expenses',       page: 'expenses',        emoji: '💸',  label: 'Expenses',        color: '#f87171', roles: ['super_admin', 'admin'] },
+  { to: '/services',       page: 'services',        emoji: '🧺',  label: 'Services',        color: '#4ade80', roles: ['super_admin', 'admin'] },
+  { to: '/loyalty',        page: 'loyalty',         emoji: '🎁',  label: 'Loyalty',         color: '#f472b6', roles: ['super_admin', 'admin'] },
+  { to: '/users',          page: 'users',           emoji: '👤',  label: 'Users',           color: '#818cf8', roles: ['super_admin', 'admin'] },
+  { to: '/settings',       page: 'settings',        emoji: '⚙️',  label: 'Settings',        color: '#94a3b8', roles: ['super_admin', 'admin'] },
+  { to: '/pickup-queue',   page: 'pickup-queue',    emoji: '🧾',  label: 'Pickup Queue',    color: '#f59e0b', roles: ['super_admin'] },
+  { to: '/branches',       page: 'branches',        emoji: '🏪',  label: 'Branches',        color: '#c084fc', roles: ['super_admin'] },
+  { to: '/cross-branch',   page: 'cross-branch',    emoji: '🌐',  label: 'All Branches',    color: '#38bdf8', roles: ['super_admin'] },
+  { to: '/data-management', page: 'data-management', emoji: '🗑️', label: 'Data Management', color: '#f87171', roles: ['super_admin'] },
+  { to: '/deleted-records', page: 'deleted-records', emoji: '📜', label: 'Deleted Records', color: '#fb7185', roles: ['super_admin'] },
+  { to: '/activity',       page: 'activity',        emoji: '🕒',  label: 'Activity',        color: '#34d399', roles: ['super_admin'] },
+]
+
 const navItems = computed(() => {
-  const items = []
-  if (auth.isAdmin) {
-    items.push({ to: '/dashboard', emoji: '📊', label: 'Dashboard', color: '#fbbf24' })
-    if (settings.pickupDeliveryEnabled) {
-      items.push({ to: '/schedule', emoji: '🚗', label: 'Schedule', color: '#38bdf8' })
-    }
-  }
-  if (auth.isCashier) {
-    items.push({ to: '/pos',           emoji: '🛒', label: 'POS',          color: '#60a5fa' })
-    items.push({ to: '/orders',        emoji: '📋', label: 'Orders',       color: '#a78bfa' })
-    items.push({ to: '/customers',     emoji: '👥', label: 'Customers',    color: '#34d399' })
-  } else {
-    items.push({ to: '/orders',        emoji: '📋', label: 'Orders',       color: '#a78bfa' })
-  }
-  items.push({ to: '/messages',    emoji: '💬', label: 'Messages',     color: '#38bdf8', badge: chat.unreadCount })
-  // Day Summary is admin-only unless a super admin opted the branch's
-  // cashiers/staff in, in which case it sits with their own nav items.
-  if (!auth.isAdmin && settings.daySummaryEnabled && settings.daySummaryStaffEnabled) {
-    items.push({ to: '/day-summary', emoji: '🧾', label: 'Day Summary',  color: '#fbbf24' })
-  }
-  if (auth.isAdmin) {
-    if (settings.daySummaryEnabled) {
-      items.push({ to: '/day-summary', emoji: '🧾', label: 'Day Summary',  color: '#fbbf24' })
-    }
-    items.push({ to: '/reports',       emoji: '📈', label: 'Reports',       color: '#fb923c' })
-    items.push({ to: '/cash-balance',  emoji: '💰', label: 'Cash Balance',   color: '#34d399' })
-    items.push({ to: '/accounts',      emoji: '🏦', label: 'Accounts',       color: '#2dd4bf' })
-    items.push({ to: '/payments',      emoji: '🧾', label: 'Payments',       color: '#2dd4bf' })
-    items.push({ to: '/machine-cycles', emoji: '🔄', label: 'Machine Cycles', color: '#22d3ee' })
-    items.push({ to: '/expenses',  emoji: '💸', label: 'Expenses',     color: '#f87171' })
-    items.push({ to: '/services',  emoji: '🧺', label: 'Services',     color: '#4ade80' })
-    items.push({ to: '/loyalty',   emoji: '🎁', label: 'Loyalty',      color: '#f472b6' })
-    items.push({ to: '/users',     emoji: '👤', label: 'Users',        color: '#818cf8' })
-    items.push({ to: '/settings',  emoji: '⚙️', label: 'Settings',     color: '#94a3b8' })
-  }
-  if (auth.isSuperAdmin) {
-    items.push({ to: '/pickup-queue',      emoji: '🧾', label: 'Pickup Queue',    color: '#f59e0b' })
-    items.push({ to: '/branches',          emoji: '🏪', label: 'Branches',        color: '#c084fc' })
-    items.push({ to: '/cross-branch',      emoji: '🌐', label: 'All Branches',    color: '#38bdf8' })
-    items.push({ to: '/data-management',   emoji: '🗑️', label: 'Data Management', color: '#f87171' })
-    items.push({ to: '/deleted-records',   emoji: '📜', label: 'Deleted Records', color: '#fb7185' })
-    items.push({ to: '/activity',          emoji: '🕒', label: 'Activity',        color: '#34d399' })
-  }
-  return items
+  // Day Summary's older cashier/staff opt-in still stands alongside the matrix.
+  const daySummaryLegacy = settings.daySummaryEnabled && settings.daySummaryStaffEnabled
+
+  return ALL_ITEMS
+    .filter((item) => {
+      if (item.requires && !item.requires()) return false
+
+      const granted = perms.canView(item.page)
+      if (granted !== null) {
+        if (granted) return true
+        // A grant the matrix hasn't heard of, kept so enabling the old toggle
+        // still works for branches that never touch the matrix.
+        return item.page === 'day-summary' && !auth.isAdmin && daySummaryLegacy
+      }
+
+      // Matrix unknown — fall back to the rules the app shipped with.
+      if (item.roles.includes(auth.role)) return true
+      return item.page === 'day-summary' && !auth.isAdmin && daySummaryLegacy
+    })
+    .map((item) => ({ ...item, badge: item.badge ? item.badge() : undefined }))
 })
 
 const roleLabel = computed(() => ({

@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.js'
 import { useBranchStore } from '@/stores/branch.js'
 import { useSettingsStore } from '@/stores/settings.js'
+import { usePermissionsStore } from '@/stores/permissions.js'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -40,12 +41,13 @@ const router = createRouter({
           path: 'pos',
           name: 'pos',
           component: () => import('@/views/pos/PosView.vue'),
-          meta: { roles: ['super_admin', 'admin', 'cashier', 'staff'], fullHeight: true },
+          meta: { page: 'pos', roles: ['super_admin', 'admin', 'cashier', 'staff'], fullHeight: true },
         },
         {
           path: 'orders',
           name: 'orders',
           component: () => import('@/views/orders/OrderListView.vue'),
+          meta: { page: 'orders' },
         },
         {
           path: 'orders/:id',
@@ -56,13 +58,13 @@ const router = createRouter({
           path: 'pickup-queue',
           name: 'pickup-queue',
           component: () => import('@/views/orders/PickupQueueView.vue'),
-          meta: { roles: ['super_admin'] },
+          meta: { page: 'pickup-queue', roles: ['super_admin'] },
         },
         {
           path: 'customers',
           name: 'customers',
           component: () => import('@/views/customers/CustomerListView.vue'),
-          meta: { roles: ['super_admin', 'admin', 'cashier', 'staff'] },
+          meta: { page: 'customers', roles: ['super_admin', 'admin', 'cashier', 'staff'] },
         },
         {
           path: 'customers/:id',
@@ -74,43 +76,43 @@ const router = createRouter({
           path: 'messages',
           name: 'messages',
           component: () => import('@/views/MessagesView.vue'),
-          meta: { roles: ['super_admin', 'admin', 'cashier', 'staff'], fullHeight: true },
+          meta: { page: 'messages', roles: ['super_admin', 'admin', 'cashier', 'staff'], fullHeight: true },
         },
         {
           path: 'schedule',
           name: 'schedule',
           component: () => import('@/views/ScheduleView.vue'),
-          meta: { roles: ['super_admin', 'admin'] },
+          meta: { page: 'schedule', roles: ['super_admin', 'admin'] },
         },
         {
           path: 'dashboard',
           name: 'dashboard',
           component: () => import('@/views/DashboardView.vue'),
-          meta: { roles: ['super_admin', 'admin'] },
+          meta: { page: 'dashboard', roles: ['super_admin', 'admin'] },
         },
         {
           path: 'reports',
           name: 'reports',
           component: () => import('@/views/admin/ReportsView.vue'),
-          meta: { roles: ['super_admin', 'admin'] },
+          meta: { page: 'reports', roles: ['super_admin', 'admin'] },
         },
         {
           path: 'cash-balance',
           name: 'cash-balance',
           component: () => import('@/views/admin/CashBalanceView.vue'),
-          meta: { roles: ['super_admin', 'admin'] },
+          meta: { page: 'cash-balance', roles: ['super_admin', 'admin'] },
         },
         {
           path: 'accounts',
           name: 'accounts',
           component: () => import('@/views/admin/AccountsView.vue'),
-          meta: { roles: ['super_admin', 'admin'] },
+          meta: { page: 'accounts', roles: ['super_admin', 'admin'] },
         },
         {
           path: 'payments',
           name: 'payments',
           component: () => import('@/views/admin/PaymentsView.vue'),
-          meta: { roles: ['super_admin', 'admin'] },
+          meta: { page: 'payments', roles: ['super_admin', 'admin'] },
         },
         {
           path: 'day-summary',
@@ -118,73 +120,73 @@ const router = createRouter({
           // cashier/staff reach this only when a super admin opts them in —
           // enforced in the navigation guard below.
           component: () => import('@/views/DaySummaryView.vue'),
-          meta: { roles: ['super_admin', 'admin', 'cashier', 'staff'] },
+          meta: { page: 'day-summary', roles: ['super_admin', 'admin', 'cashier', 'staff'] },
         },
         {
           path: 'machine-cycles',
           name: 'machine-cycles',
           component: () => import('@/views/admin/MachineCyclesView.vue'),
-          meta: { roles: ['super_admin', 'admin'] },
+          meta: { page: 'machine-cycles', roles: ['super_admin', 'admin'] },
         },
         {
           path: 'expenses',
           name: 'expenses',
           component: () => import('@/views/admin/ExpensesView.vue'),
-          meta: { roles: ['super_admin', 'admin'] },
+          meta: { page: 'expenses', roles: ['super_admin', 'admin'] },
         },
         {
           path: 'services',
           name: 'services',
           component: () => import('@/views/admin/ServicesView.vue'),
-          meta: { roles: ['super_admin', 'admin'] },
+          meta: { page: 'services', roles: ['super_admin', 'admin'] },
         },
         {
           path: 'loyalty',
           name: 'loyalty',
           component: () => import('@/views/admin/LoyaltyView.vue'),
-          meta: { roles: ['super_admin', 'admin'] },
+          meta: { page: 'loyalty', roles: ['super_admin', 'admin'] },
         },
         {
           path: 'settings',
           name: 'settings',
           component: () => import('@/views/admin/SettingsView.vue'),
-          meta: { roles: ['super_admin', 'admin'] },
+          meta: { page: 'settings', roles: ['super_admin', 'admin'] },
         },
         {
           path: 'users',
           name: 'users',
           component: () => import('@/views/admin/UsersView.vue'),
-          meta: { roles: ['super_admin', 'admin'] },
+          meta: { page: 'users', roles: ['super_admin', 'admin'] },
         },
         {
           path: 'branches',
           name: 'branches',
           component: () => import('@/views/super-admin/BranchesView.vue'),
-          meta: { roles: ['super_admin'] },
+          meta: { page: 'branches', roles: ['super_admin'] },
         },
         {
           path: 'cross-branch',
           name: 'cross-branch',
           component: () => import('@/views/super-admin/CrossBranchView.vue'),
-          meta: { roles: ['super_admin'] },
+          meta: { page: 'cross-branch', roles: ['super_admin'] },
         },
         {
           path: 'data-management',
           name: 'data-management',
           component: () => import('@/views/super-admin/DataManagementView.vue'),
-          meta: { roles: ['super_admin'] },
+          meta: { page: 'data-management', roles: ['super_admin'] },
         },
         {
           path: 'deleted-records',
           name: 'deleted-records',
           component: () => import('@/views/super-admin/DeletedRecordsView.vue'),
-          meta: { roles: ['super_admin'] },
+          meta: { page: 'deleted-records', roles: ['super_admin'] },
         },
         {
           path: 'activity',
           name: 'activity',
           component: () => import('@/views/super-admin/ActivityView.vue'),
-          meta: { roles: ['super_admin'] },
+          meta: { page: 'activity', roles: ['super_admin'] },
         },
       ],
     },
@@ -226,14 +228,34 @@ router.beforeEach(async (to) => {
     return { name: auth.isAdmin ? 'dashboard' : 'pos' }
   }
 
-  if (to.meta.roles && !to.meta.roles.includes(auth.role)) {
+  // Page access: the per-branch matrix decides when we know it, the shipped
+  // role rules when we don't (a cold offline start), so a failed fetch can
+  // never blank the whole app. null = not known yet.
+  let matrixAllows = null
+
+  if (to.meta.page && auth.isAuthenticated) {
+    const perms = usePermissionsStore()
+    const branch = useBranchStore()
+
+    if (!perms.loaded || perms.branchId !== branch.currentBranchId) {
+      await perms.refresh(branch.currentBranchId)
+    }
+
+    matrixAllows = perms.canView(to.meta.page)
+    if (matrixAllows === false) return { name: 'pos' }
+  }
+
+  // An explicit grant outranks the role rules — that is the whole point of the
+  // matrix — but a page the matrix has no opinion on still obeys them.
+  if (matrixAllows !== true && to.meta.roles && !to.meta.roles.includes(auth.role)) {
     return { name: 'pos' }
   }
 
   // Day Summary is admin-only unless a super admin opted the branch's
   // cashiers/staff in. Settings load in AppLayout, which mounts after this
   // guard, so a direct page load has to fetch them before deciding.
-  if (to.name === 'day-summary' && auth.isAuthenticated && !auth.isAdmin) {
+  // A matrix grant supersedes this older opt-in, so the two cannot disagree.
+  if (matrixAllows !== true && to.name === 'day-summary' && auth.isAuthenticated && !auth.isAdmin) {
     const settings = useSettingsStore()
     if (!settings.loaded) await settings.load()
     if (!settings.daySummaryEnabled || !settings.daySummaryStaffEnabled) {
