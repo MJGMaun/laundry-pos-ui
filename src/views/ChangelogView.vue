@@ -52,9 +52,34 @@
 <script setup>
 const changelog = [
   {
+    version: '1.17.0',
+    date: 'August 10, 2026',
+    latest: true,
+    sections: [
+      {
+        title: 'New Features',
+        type: 'feature',
+        items: [
+          '**Page access per branch** \u2014 from Branches \u2192 **Access**, choose exactly which pages each role can reach at that branch, and whether they can only **view** or also **edit** (add, change, delete). One branch can open Expenses to its cashiers while every other branch is untouched. This controls the app *and* the server, so a page turned off cannot be reached by typing its address either. Every branch starts on the same rules as before \u2014 nothing changes until you tick something',
+          '**Phone number can be optional** \u2014 a per-branch toggle in Branch Management for shops serving walk-ins who won\'t give a number. Existing customers keep their phones, a number that *is* entered is still checked, and duplicate customers are still blocked by name',
+        ],
+      },
+      {
+        title: 'Bug Fixes',
+        type: 'fix',
+        items: [
+          '**\"All branches\" showed \u20b10.00 everywhere** \u2014 with no branch selected, Cash Balance and the dashboard\'s Cash on Hand reported nothing at all, because the branch filter matched no records instead of matching every branch. Cash in, GCash in, expenses, the payment list and unpaid orders were all affected; the starting float now adds up each branch\'s float',
+          '**Day Summary was blank on reload** for cashiers and staff \u2014 opening the page fresh (or refreshing it) showed only today\'s date with Print greyed out, while arriving from another page worked. The page now loads its own data instead of depending on what had loaded before it',
+          '**Cash on Hand ignored the Dashboard date filter** \u2014 it always showed today no matter which period was picked. Weekly and monthly now report the net cash for that span, and the card says which it is showing',
+          'Dashboard: the **expense total** is now totalled by the server, so it stays correct past 500 expenses in the selected period',
+          'Expenses on \"All branches\" no longer include test branches, so the figure matches Reports',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.16.0',
     date: 'August 9, 2026',
-    latest: true,
     sections: [
       {
         title: 'New Features',
