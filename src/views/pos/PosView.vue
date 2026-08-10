@@ -358,7 +358,14 @@ function createWithQuery() {
 async function saveNewCustomer() {
     phoneError.value = '';
     nameError.value = '';
-    if (!validatePhone(newCustomer.value.phone)) {
+    // A blank phone is allowed when the branch has the requirement turned off;
+    // anything typed still has to be a real 11-digit number.
+    const phone = newCustomer.value.phone;
+    if (settings.customerPhoneRequired && !phone) {
+        phoneError.value = 'Phone is required.';
+        return;
+    }
+    if (phone && !validatePhone(phone)) {
         phoneError.value = 'Phone must be exactly 11 digits.';
         return;
     }
@@ -1408,7 +1415,7 @@ watch(() => branch.currentBranchId, loadServices);
                     <input
                         :value="displayPhone"
                         @input="onPhoneInput"
-                        placeholder="Phone number * (11 digits)"
+                        :placeholder="settings.customerPhoneRequired ? 'Phone number * (11 digits)' : 'Phone number (optional)'"
                         maxlength="13"
                         class="w-full rounded-xl border px-3 py-3 text-sm transition-all focus:border-blue-400 focus:outline-none"
                         :class="phoneError ? 'border-red-300' : 'border-slate-200'"
@@ -1429,7 +1436,7 @@ watch(() => branch.currentBranchId, loadServices);
                     <button
                         class="flex-1 rounded-xl py-3 text-sm font-bold text-white transition-all disabled:opacity-50"
                         style="background: linear-gradient(135deg, #2563eb, #4f46e5);"
-                        :disabled="savingCustomer || !newCustomer.name || !newCustomer.phone"
+                        :disabled="savingCustomer || !newCustomer.name || (settings.customerPhoneRequired && !newCustomer.phone)"
                         @click="saveNewCustomer"
                     >{{ savingCustomer ? 'Saving…' : 'Save & Select' }}</button>
                 </div>

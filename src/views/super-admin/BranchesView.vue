@@ -27,6 +27,23 @@ const form = ref({ name: '', address: '', phone: '', email: '', tin: '', is_test
 const togglingDaySummary = ref({})
 const togglingDaySummaryStaff = ref({})
 const togglingPickupDelivery = ref({})
+const togglingPhoneRequired = ref({})
+
+// Branches serving walk-ins who won't give a number can drop the requirement.
+// Existing customers keep their phones; only new entries stop demanding one.
+async function togglePhoneRequired(b) {
+  const next = !b.customer_phone_required
+  togglingPhoneRequired.value[b.id] = true
+  try {
+    await updateSetting('customer_phone_required', { value: next ? 'true' : 'false' }, b.id)
+    b.customer_phone_required = next
+    toast.add({ severity: 'success', summary: 'Saved', detail: `Phone ${next ? 'required' : 'optional'} for ${b.name}`, life: 2500 })
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to update', life: 4000 })
+  } finally {
+    togglingPhoneRequired.value[b.id] = false
+  }
+}
 
 async function togglePickupDelivery(b) {
   const next = !b.pickup_delivery_enabled
@@ -214,6 +231,9 @@ onMounted(load)
             <th class="hidden sm:table-cell text-left px-4 py-3 font-medium text-gray-600">Address</th>
             <th class="hidden md:table-cell text-left px-4 py-3 font-medium text-gray-600">Phone</th>
             <th class="text-center px-4 py-3 font-medium text-gray-600">Pickup &amp; Delivery</th>
+            <th class="text-center px-4 py-3 font-medium text-gray-600">
+              Customer Phone<br /><span class="text-xs font-normal text-gray-400">required</span>
+            </th>
             <th class="text-center px-4 py-3 font-medium text-gray-600">Day Summary</th>
             <th class="text-center px-4 py-3 font-medium text-gray-600">
               Day Summary<br /><span class="text-xs font-normal text-gray-400">for cashier/staff</span>
@@ -242,6 +262,21 @@ onMounted(load)
                 <span
                   class="inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform"
                   :class="b.pickup_delivery_enabled ? 'translate-x-4.5' : 'translate-x-0.5'"
+                />
+              </button>
+            </td>
+            <td class="px-4 py-3 text-center">
+              <button
+                type="button"
+                class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-50 align-middle"
+                :class="b.customer_phone_required ? 'bg-green-500' : 'bg-gray-300'"
+                :disabled="togglingPhoneRequired[b.id]"
+                :title="b.customer_phone_required ? 'Phone required on new customers' : 'Phone optional on new customers'"
+                @click="togglePhoneRequired(b)"
+              >
+                <span
+                  class="inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform"
+                  :class="b.customer_phone_required ? 'translate-x-4.5' : 'translate-x-0.5'"
                 />
               </button>
             </td>

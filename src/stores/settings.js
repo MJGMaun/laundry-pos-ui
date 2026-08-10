@@ -25,9 +25,13 @@ export const useSettingsStore = defineStore('settings', () => {
   // Default ON: only an explicit 'false' disables the feature.
   const daySummaryEnabled       = computed(() => map.value.day_summary_enabled !== 'false')
   const pickupDeliveryEnabled   = computed(() => map.value.pickup_delivery_enabled !== 'false')
+  const customerPhoneRequired   = computed(() => map.value.customer_phone_required !== 'false')
 
   // Opt-in: Day Summary stays admin-only until a super admin turns this on.
   const daySummaryStaffEnabled  = computed(() => map.value.day_summary_staff_enabled === 'true')
 
-  return { map, loaded, load, get, daySummaryEnabled, daySummaryStaffEnabled, pickupDeliveryEnabled }
+  return {
+    map, loaded, load, get,
+    daySummaryEnabled, daySummaryStaffEnabled, pickupDeliveryEnabled, customerPhoneRequired,
+  }
 })

@@ -7,11 +7,13 @@ import { isOfflineError } from '@/offline/isOfflineError.js'
 import { db } from '@/offline/db.js'
 import { useBranchStore } from '@/stores/branch.js'
 import { useAuthStore } from '@/stores/auth.js'
+import { useSettingsStore } from '@/stores/settings.js'
 
 const router = useRouter()
 const toast = useToast()
 const branch = useBranchStore()
 const auth = useAuthStore()
+const settings = useSettingsStore()
 
 // Cashiers/staff can search for a customer but not browse the whole list;
 // admins get the full paginated list.
@@ -166,7 +168,7 @@ onMounted(load)
             @click="router.push('/customers/' + c.id)"
           >
             <td class="px-4 py-3 font-medium text-gray-900">{{ c.name }}</td>
-            <td class="px-4 py-3 text-gray-700">{{ c.phone }}</td>
+            <td class="px-4 py-3" :class="c.phone ? 'text-gray-700' : 'text-gray-300'">{{ c.phone || '—' }}</td>
             <td class="hidden md:table-cell px-4 py-3 text-gray-500">{{ c.username || '—' }}</td>
             <td class="hidden sm:table-cell px-4 py-3 text-right text-gray-900">₱{{ fmt(c.total_spent) }}</td>
             <td class="hidden sm:table-cell px-4 py-3 text-right text-gray-600">{{ c.total_visits }}</td>
@@ -197,7 +199,7 @@ onMounted(load)
           <h2 class="text-lg font-bold text-gray-900 mb-4">New Customer</h2>
           <div class="space-y-3">
             <input v-model="form.name" @input="capitalizeFirst('name')" placeholder="Name *" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-            <input :value="displayPhone" @input="onPhoneInput" placeholder="Phone *" maxlength="13" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+            <input :value="displayPhone" @input="onPhoneInput" :placeholder="settings.customerPhoneRequired ? 'Phone *' : 'Phone (optional)'" maxlength="13" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             <input v-model="form.username" @input="usernameManual = true" placeholder="Username (optional)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             <input v-model="form.email" placeholder="Email (optional)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             <input v-model="form.address" @input="capitalizeFirst('address')" placeholder="Address (optional)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
@@ -207,7 +209,7 @@ onMounted(load)
             <button class="flex-1 border border-gray-300 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-gray-50" @click="showForm = false; usernameManual = false">Cancel</button>
             <button
               class="flex-1 bg-blue-600 text-white font-semibold py-2.5 rounded-xl text-sm disabled:opacity-60 hover:bg-blue-700"
-              :disabled="saving || !form.name || !form.phone"
+              :disabled="saving || !form.name || (settings.customerPhoneRequired && !form.phone)"
               @click="saveCustomer"
             >
               {{ saving ? 'Saving…' : 'Save' }}

@@ -847,8 +847,10 @@ onMounted(load)
                   >{{ order.customer.name?.charAt(0).toUpperCase() }}</div>
                   <span class="font-medium text-slate-700">{{ order.customer.name }}</span>
                 </button>
-                <span>·</span>
-                <span>{{ order.customer.phone }}</span>
+                <template v-if="order.customer.phone">
+                  <span>·</span>
+                  <span>{{ order.customer.phone }}</span>
+                </template>
               </div>
               <div v-if="order.user">Staff: <span class="font-medium text-slate-700">{{ order.user.name }}</span></div>
             </div>

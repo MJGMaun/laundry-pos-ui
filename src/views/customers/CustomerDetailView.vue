@@ -271,7 +271,7 @@ onMounted(load)
             <div>
               <h2 class="text-xl font-bold text-slate-900">{{ customer.name }}</h2>
               <div class="text-sm text-slate-500 mt-0.5 break-all sm:break-normal">
-                {{ customer.phone }}{{ customer.username ? ' · @' + customer.username : '' }}{{ customer.email ? ' · ' + customer.email : '' }}
+                {{ [customer.phone, customer.username && '@' + customer.username, customer.email].filter(Boolean).join(' · ') }}
               </div>
               <div v-if="customer.address" class="text-sm text-slate-400 mt-0.5">{{ customer.address }}</div>
               <div v-if="customer.notes" class="text-sm text-slate-400 mt-0.5 italic">{{ customer.notes }}</div>
