@@ -140,7 +140,8 @@ async function load() {
       getRevenue({ period: period.value }),
       getTopCustomers({ limit: 5, date_from: from, date_to: to }),
       getServiceReport(),
-      getExpenses({ date_from: from, date_to: to, per_page: 500 }),
+      // Only the aggregated totals are used, so one row is enough.
+      getExpenses({ date_from: from, date_to: to, per_page: 1 }),
       getCashBalance({ date_from: from, date_to: to }),
     ])
 
@@ -149,8 +150,10 @@ async function load() {
     rawUncollected.value = Number(sum?.uncollected_revenue || 0)
     rawLoads.value       = Number(sum?.load_count || 0)
 
-    const expList = expRes.data.expenses?.data || []
-    rawExpenses.value = expList.reduce((s, e) => s + Number(e.amount || 0), 0)
+    // monthly_totals is aggregated server-side over the whole filtered set;
+    // summing the returned page would silently undercount past its page size.
+    const monthlyTotals = expRes.data.monthly_totals || []
+    rawExpenses.value = monthlyTotals.reduce((s, m) => s + Number(m.total || 0), 0)
     // Daily is a real drawer count (starting float + cash in − cash expenses),
     // which the API only computes for a single day. A week or month has no
     // drawer, so it reports net cash for the span instead.
