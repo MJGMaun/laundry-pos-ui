@@ -242,7 +242,10 @@ router.beforeEach(async (to) => {
     }
 
     matrixAllows = perms.canView(to.meta.page)
-    if (matrixAllows === false) return { name: 'pos' }
+
+    // Day Summary is settled below: it has an older per-branch opt-in that the
+    // matrix knows nothing about, so a matrix "no" is not the final word.
+    if (matrixAllows === false && to.name !== 'day-summary') return { name: 'pos' }
   }
 
   // An explicit grant outranks the role rules — that is the whole point of the
@@ -251,14 +254,17 @@ router.beforeEach(async (to) => {
     return { name: 'pos' }
   }
 
-  // Day Summary is admin-only unless a super admin opted the branch's
-  // cashiers/staff in. Settings load in AppLayout, which mounts after this
-  // guard, so a direct page load has to fetch them before deciding.
-  // A matrix grant supersedes this older opt-in, so the two cannot disagree.
-  if (matrixAllows !== true && to.name === 'day-summary' && auth.isAuthenticated && !auth.isAdmin) {
+  // Either the matrix or the older opt-in may grant Day Summary. Settings are
+  // loaded here regardless of which one decides, because the view itself is
+  // computed from them and a direct page load mounts it before AppLayout runs.
+  if (to.name === 'day-summary' && auth.isAuthenticated) {
     const settings = useSettingsStore()
     if (!settings.loaded) await settings.load()
-    if (!settings.daySummaryEnabled || !settings.daySummaryStaffEnabled) {
+
+    const legacyAllows = settings.daySummaryEnabled
+      && (auth.isAdmin || settings.daySummaryStaffEnabled)
+
+    if (matrixAllows !== true && !legacyAllows) {
       return { name: 'pos' }
     }
   }

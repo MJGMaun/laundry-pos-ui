@@ -1,9 +1,10 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useToast } from 'primevue/usetoast'
 import { useAuthStore } from '@/stores/auth.js'
 import { useBranchStore } from '@/stores/branch.js'
 import { useSettingsStore } from '@/stores/settings.js'
+import { usePermissionsStore } from '@/stores/permissions.js'
 import { getCashBalance } from '@/api/cashBalance.js'
 import { getSettings } from '@/api/settings.js'
 import { usePrinter } from '@/composables/usePrinter.js'
@@ -13,6 +14,7 @@ const toast        = useToast()
 const branchStore  = useBranchStore()
 const authStore    = useAuthStore()
 const settingsStore = useSettingsStore()
+const permsStore   = usePermissionsStore()
 const printer      = usePrinter()
 
 const data     = ref(null)
@@ -36,7 +38,8 @@ function fmtOrderDate(d) {
 // Admins always have it; cashier/staff only when a super admin opted them in.
 // Re-checked here so flipping the toggle off empties the page without a reload.
 const enabled       = computed(() =>
-  settingsStore.daySummaryEnabled && (authStore.isAdmin || settingsStore.daySummaryStaffEnabled)
+  permsStore.canView('day-summary') === true ||
+  (settingsStore.daySummaryEnabled && (authStore.isAdmin || settingsStore.daySummaryStaffEnabled))
 )
 const cashPayments  = computed(() => (data.value?.payments || []).filter((p) => p.method === 'cash'))
 const gcashPayments = computed(() => (data.value?.payments || []).filter((p) => p.method === 'gcash'))
@@ -79,7 +82,19 @@ async function connectAndPrint() {
   }
 }
 
-onMounted(load)
+// Every sibling money page reloads when the branch changes; without this a
+// super admin who picks a branch from "All branches" would sit on a blank page
+// until a manual reload, since load() bailed before fetching anything.
+watch(() => branchStore.currentBranchId, () => load())
+
+onMounted(async () => {
+  // A hard reload mounts this view before AppLayout's onMounted has fetched
+  // settings, and `enabled` is computed from them — so without this, load()
+  // saw enabled=false, returned, and never ran again once they arrived: the
+  // page kept the date and a disabled Print button with no figures.
+  if (!settingsStore.loaded) await settingsStore.load()
+  load()
+})
 </script>
 
 <template>
