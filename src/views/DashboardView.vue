@@ -20,6 +20,10 @@ const period = ref('daily')
 const periodNoun = computed(() => ({ daily: 'Today', weekly: 'This Week', monthly: 'This Month' }[period.value] || 'Today'))
 const periodPossessive = computed(() => ({ daily: "Today's", weekly: "This Week's", monthly: "This Month's" }[period.value] || "Today's"))
 
+// Only a single day has a drawer to count; over a span the honest figure is
+// the net cash that moved, so the card says which one it is showing.
+const cashLabel = computed(() => (period.value === 'daily' ? 'Cash on Hand' : `Net Cash ${periodNoun.value}`))
+
 // Header subtitle: full date for daily, an explicit date range otherwise
 const dateRangeLabel = computed(() => {
   const { from, to } = periodRange(period.value)
@@ -129,7 +133,6 @@ function periodRange(p) {
 
 async function load() {
   loading.value = true
-  const today = ymd(new Date())  // local date — toISOString() returns UTC, which is yesterday in PH after midnight
   const { from, to } = periodRange(period.value)
   try {
     const [sumRes, revRes, custRes, svcRes, expRes, cashRes] = await Promise.all([
@@ -138,7 +141,7 @@ async function load() {
       getTopCustomers({ limit: 5, date_from: from, date_to: to }),
       getServiceReport(),
       getExpenses({ date_from: from, date_to: to, per_page: 500 }),
-      getCashBalance({ date: today }),
+      getCashBalance({ date_from: from, date_to: to }),
     ])
 
     const sum = sumRes.data.data || sumRes.data
@@ -148,7 +151,10 @@ async function load() {
 
     const expList = expRes.data.expenses?.data || []
     rawExpenses.value = expList.reduce((s, e) => s + Number(e.amount || 0), 0)
-    rawCash.value = Number(cashRes.data.total_in_drawer || 0)
+    // Daily is a real drawer count (starting float + cash in − cash expenses),
+    // which the API only computes for a single day. A week or month has no
+    // drawer, so it reports net cash for the span instead.
+    rawCash.value = Number(cashRes.data.total_in_drawer ?? cashRes.data.to_remit_cash ?? 0)
 
     revenueData.value  = revRes.data.data || revRes.data
     topCustomers.value = custRes.data.data || custRes.data
@@ -276,7 +282,7 @@ onMounted(load)
           <div class="stat-icon" style="background: linear-gradient(135deg, #d1fae5, #a7f3d0); color: #065f46;">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
           </div>
-          <div class="stat-label">Cash on Hand</div>
+          <div class="stat-label">{{ cashLabel }}</div>
           <div class="stat-value text-emerald-700">₱{{ fmt(animCash) }}</div>
           <div class="stat-bar" style="background: linear-gradient(90deg, #10b981, #34d399);" />
         </RouterLink>
