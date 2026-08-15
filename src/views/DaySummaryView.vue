@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
+import DatePicker from 'primevue/datepicker'
 import { useToast } from 'primevue/usetoast'
 import { useAuthStore } from '@/stores/auth.js'
 import { useBranchStore } from '@/stores/branch.js'
@@ -27,6 +28,12 @@ function localYMD(d) {
   return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`
 }
 const today = localYMD(new Date())
+// One day at a time, never a range — this page is a drawer count, and a
+// multi-day total is not something anyone remits. The picker holds a Date so it
+// can match Reports; every consumer wants the local YMD string, so derive it.
+const picked = ref(new Date())
+const maxDate = new Date()
+const date = computed(() => localYMD(picked.value))
 
 function fmt(n) {
   return Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -50,7 +57,7 @@ async function load() {
   loading.value = true
   data.value = null
   try {
-    const [cashRes, setRes] = await Promise.all([getCashBalance({ date: today }), getSettings()])
+    const [cashRes, setRes] = await Promise.all([getCashBalance({ date: date.value }), getSettings()])
     data.value = cashRes.data
     const flat = {}
     ;(setRes.data.settings || []).forEach((s) => { flat[s.key] = s.value })
@@ -73,7 +80,7 @@ async function connectAndPrint() {
         return
       }
     }
-    await printer.print(buildDaySummaryBytes({ ...data.value, date: today }, settings.value))
+    await printer.print(buildDaySummaryBytes({ ...data.value, date: date.value }, settings.value))
     toast.add({ severity: 'success', summary: 'Printed', detail: 'Summary sent to printer', life: 2500 })
   } catch (e) {
     toast.add({ severity: 'error', summary: 'Print error', detail: e.message || 'Failed to print', life: 4000 })
@@ -86,6 +93,7 @@ async function connectAndPrint() {
 // super admin who picks a branch from "All branches" would sit on a blank page
 // until a manual reload, since load() bailed before fetching anything.
 watch(() => branchStore.currentBranchId, () => load())
+watch(date, () => load())
 
 onMounted(async () => {
   // A hard reload mounts this view before AppLayout's onMounted has fetched
@@ -121,11 +129,25 @@ onMounted(async () => {
     </div>
 
     <template v-else>
-      <!-- Today + print -->
-      <div class="flex items-center justify-between gap-2 bg-white rounded-xl border border-gray-200 p-3 mb-4">
-        <div class="text-sm text-gray-600">
-          <span class="text-gray-400">Today</span>
-          <span class="font-semibold ml-1">{{ new Date(today + 'T00:00:00').toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) }}</span>
+      <!-- Date + print -->
+      <div class="flex flex-wrap items-center justify-between gap-2 bg-white rounded-xl border border-gray-200 p-3 mb-4">
+        <div class="flex items-center gap-1.5">
+          <DatePicker
+            v-model="picked"
+            :manual-input="false"
+            :max-date="maxDate"
+            date-format="M dd, yy"
+            show-icon
+            icon-display="input"
+            placeholder="Pick a day…"
+            class="day-datepicker"
+          />
+          <button
+            v-if="date !== today"
+            class="flex items-center justify-center w-6 h-6 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors text-sm leading-none"
+            title="Back to today"
+            @click.stop="picked = new Date()"
+          >×</button>
         </div>
         <button
           class="text-sm font-bold text-white px-4 py-2 rounded-xl disabled:opacity-50 shrink-0"
@@ -146,7 +168,7 @@ onMounted(async () => {
         <div class="text-center font-bold text-sm">{{ settings.shop_name || 'Laundry Shop' }}</div>
         <div class="text-center font-bold">DAILY CASH SUMMARY</div>
         <div class="text-center text-gray-500 text-xs mb-2">
-          {{ new Date(today + 'T00:00:00').toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) }}
+          {{ new Date(date + 'T00:00:00').toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) }}
         </div>
         <div class="border-t border-dashed border-gray-300 my-2" />
 
@@ -187,3 +209,20 @@ onMounted(async () => {
     </template>
   </div>
 </template>
+
+<style>
+/* Matches the Reports filter input so the two date pickers read as one control. */
+.day-datepicker .p-datepicker-input {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 14px;
+  color: #111827;
+  width: 165px;
+}
+.day-datepicker .p-datepicker-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+</style>
