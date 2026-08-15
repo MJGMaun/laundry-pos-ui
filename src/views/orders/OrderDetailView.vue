@@ -19,6 +19,7 @@ import { useSettingsStore } from '@/stores/settings.js'
 import { isOfflineError } from '@/offline/isOfflineError.js'
 import { db } from '@/offline/db.js'
 import ReceiptModal from '@/components/receipt/ReceiptModal.vue'
+import { priceRewards, redeemableRules, rewardLabel } from '@/utils/loyaltyDiscount.js'
 
 function cacheOrder(o) {
   db.orders.put(JSON.parse(JSON.stringify(toRaw(o)))).catch(() => {})
@@ -482,22 +483,14 @@ const addLoadsLoyaltyResult = computed(() => {
   )
 
   const prospective = loyalty.total_stamps + newStamps
-  const existingCount = loyalty.pending_rewards.filter((r) => r.rule?.reward_type === 'free_load').length
-  const newCount = loyalty.rules
-    .filter((r) => r.reward_type === 'free_load')
-    .reduce((sum, rule) => {
-      const prev = Math.floor(loyalty.total_stamps / rule.every_n_stamps)
-      const next = Math.floor(prospective / rule.every_n_stamps)
-      return sum + Math.max(0, next - prev)
-    }, 0)
+  const rules = redeemableRules(loyalty, prospective)
+  if (!rules.length) return null
 
-  const totalFreeLoads = existingCount + newCount
-  if (totalFreeLoads === 0) return null
-
-  // Preview of the server-side calc: free loads apply to the cheapest
-  // loyalty-eligible loads across the WHOLE order (existing loads + the ones
-  // being added), never more than there are eligible loads to cover. The
-  // backend recomputes this authoritatively on save (see reconcileFreeLoadDiscount).
+  // Preview of the server-side calc: rewards apply across the WHOLE order
+  // (existing loads + the ones being added) — free loads take the cheapest
+  // eligible loads, fixed discounts take their flat amount, and the total never
+  // exceeds the eligible-load value. The backend recomputes this
+  // authoritatively on save (see reconcileLoyaltyDiscount).
   const unitsOf = (list, priceOf) =>
     list.flatMap((l) => {
       const svc = services.value.find((s) => s.id === Number(l.service_id))
@@ -508,13 +501,12 @@ const addLoadsLoyaltyResult = computed(() => {
   const eligiblePrices = [
     ...unitsOf(order.value?.loads || [], (l, svc) => Number(l.unit_price_snapshot ?? svc.price)),
     ...unitsOf(rows, (l, svc) => Number(svc.price)),
-  ].sort((a, b) => a - b)
+  ]
 
-  const redeemCount = Math.min(totalFreeLoads, eligiblePrices.length)
-  if (redeemCount === 0) return null
+  const { count, discount } = priceRewards(rules, eligiblePrices)
+  if (count === 0) return null
 
-  const discount = eligiblePrices.slice(0, redeemCount).reduce((s, p) => s + p, 0)
-  return { count: redeemCount, discount }
+  return { count, discount }
 })
 
 // Live stamp preview for the add-loads drawer — how many stamps the rows being
@@ -543,7 +535,7 @@ const addLoadsLoyaltyPreview = computed(() => {
     return {
       id: rule.id,
       description: rule.reward_description,
-      rewardLabel: rule.reward_type === 'free_load' ? 'Free load' : rule.reward_description,
+      rewardLabel: rewardLabel(rule),
       every,
       beforeInCycle,
       afterInCycle,

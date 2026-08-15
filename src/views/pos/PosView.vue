@@ -22,6 +22,7 @@ import Dialog from 'primevue/dialog';
 import ReceiptModal from '@/components/receipt/ReceiptModal.vue';
 import { usePrinter } from '@/composables/usePrinter.js';
 import { buildTrackingSlipBytes } from '@/utils/escpos.js';
+import { priceRewards, redeemableRules, rewardLabel } from '@/utils/loyaltyDiscount.js';
 
 const cart = useCartStore();
 const auth = useAuthStore();
@@ -261,51 +262,30 @@ watchEffect(() => {
         return;
     }
 
-    const existingCount = loyalty.pending_rewards.filter(
-        (r) => r.rule?.reward_type === 'free_load'
-    ).length;
-
     const cartStamps = Math.floor(
         cart.items
             .filter((i) => i.is_loyalty_eligible)
             .reduce((s, i) => s + Number(i.quantity), 0)
     );
     const prospective = loyalty.total_stamps + cartStamps;
-    const newCount = loyalty.rules
-        .filter((r) => r.reward_type === 'free_load')
-        .reduce((sum, rule) => {
-            const prev = Math.floor(loyalty.total_stamps / rule.every_n_stamps);
-            const next = Math.floor(prospective / rule.every_n_stamps);
-            return sum + Math.max(0, next - prev);
-        }, 0);
 
-    const totalFreeLoads = existingCount + newCount;
-
-    if (totalFreeLoads === 0) {
-        cart.clearLoyaltyReward();
-        selectedReward.value = null;
-        return;
-    }
-
-    // Free loads apply only to loyalty-eligible services (the ones that earn
-    // stamps), and to the cheapest of those first — so the reward covers the
-    // smallest-value eligible loads. Never redeem more rewards than there are
-    // eligible loads to apply them to; leftover rewards stay pending.
+    // Rewards apply only against loyalty-eligible services (the ones that earn
+    // stamps): a free load covers the cheapest of them, a fixed discount takes
+    // its flat amount. Anything that doesn't fit stays pending.
     const eligiblePrices = cart.items
         .filter((i) => i.is_loyalty_eligible)
-        .flatMap((i) => Array(Math.floor(i.quantity)).fill(i.unit_price))
-        .sort((a, b) => a - b);
-    const redeemCount = Math.min(totalFreeLoads, eligiblePrices.length);
+        .flatMap((i) => Array(Math.floor(i.quantity)).fill(i.unit_price));
 
-    if (redeemCount === 0) {
+    const rules = redeemableRules(loyalty, prospective);
+    const { count, discount } = priceRewards(rules, eligiblePrices);
+
+    if (count === 0) {
         cart.clearLoyaltyReward();
         selectedReward.value = null;
         return;
     }
 
-    const discount = eligiblePrices.slice(0, redeemCount).reduce((s, p) => s + p, 0);
-
-    cart.applyLoyaltyReward({ count: redeemCount }, discount);
+    cart.applyLoyaltyReward({ count }, discount);
     selectedReward.value = cart.appliedLoyaltyReward;
 });
 
@@ -334,7 +314,7 @@ const loyaltyPreview = computed(() => {
         return {
             id: rule.id,
             description: rule.reward_description,
-            rewardLabel: rule.reward_type === 'free_load' ? 'Free load' : rule.reward_description,
+            rewardLabel: rewardLabel(rule),
             every,
             beforeInCycle,
             afterInCycle,

@@ -16,7 +16,22 @@ const editing   = ref(null)
 const form      = ref(defaultForm())
 
 function defaultForm() {
-  return { every_n_stamps: '', reward_type: 'free_load', reward_description: '', is_active: true, reset_stamps: false }
+  return { every_n_stamps: '', reward_type: 'free_load', reward_amount: '', reward_description: '', is_active: true, reset_stamps: false }
+}
+
+const REWARD_TYPES = [
+  { value: 'free_load',      label: '🧺 Free load',  chip: 'bg-green-100 text-green-700' },
+  { value: 'fixed_discount', label: '💸 Amount off', chip: 'bg-blue-100 text-blue-700' },
+  { value: 'free_item',      label: '🧴 Free item',  chip: 'bg-amber-100 text-amber-700' },
+]
+
+const typeChip = (type) => REWARD_TYPES.find((t) => t.value === type)?.chip || 'bg-slate-100 text-slate-600'
+
+function typeLabel(rule) {
+  if (rule.reward_type === 'fixed_discount') {
+    return `💸 ₱${Number(rule.reward_amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} off`
+  }
+  return REWARD_TYPES.find((t) => t.value === rule.reward_type)?.label || rule.reward_type
 }
 
 async function load() {
@@ -40,6 +55,7 @@ function openEdit(rule) {
   form.value = {
     every_n_stamps:    rule.every_n_stamps,
     reward_type:       rule.reward_type,
+    reward_amount:     rule.reward_amount ?? '',
     reward_description: rule.reward_description,
     is_active:         rule.is_active,
   }
@@ -48,6 +64,12 @@ function openEdit(rule) {
 
 async function save() {
   if (!form.value.every_n_stamps || !form.value.reward_description) return
+  // An amount-off rule with no amount would redeem for ₱0 and quietly burn the
+  // customer's reward, so block it here as well as server-side.
+  if (form.value.reward_type === 'fixed_discount' && !(Number(form.value.reward_amount) > 0)) {
+    toast.add({ severity: 'warn', summary: 'Amount required', detail: 'Enter the peso amount to take off.', life: 3000 })
+    return
+  }
   saving.value = true
   try {
     if (editing.value) {
@@ -147,11 +169,8 @@ onMounted(load)
         <div class="flex-1 min-w-0">
           <div class="font-semibold text-slate-800">{{ rule.reward_description }}</div>
           <div class="flex items-center gap-2 mt-1">
-            <span class="text-xs px-2 py-0.5 rounded-full font-medium"
-              :class="rule.reward_type === 'free_load'
-                ? 'bg-green-100 text-green-700'
-                : 'bg-amber-100 text-amber-700'">
-              {{ rule.reward_type === 'free_load' ? '🧺 Free load' : '🧴 Free item' }}
+            <span class="text-xs px-2 py-0.5 rounded-full font-medium" :class="typeChip(rule.reward_type)">
+              {{ typeLabel(rule) }}
             </span>
           </div>
         </div>
@@ -209,15 +228,40 @@ onMounted(load)
                   <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5 block">Reward type</label>
                   <div class="flex gap-2">
                     <button
-                      v-for="t in [{ value: 'free_load', label: '🧺 Free load' }, { value: 'free_item', label: '🧴 Free item' }]"
+                      v-for="t in REWARD_TYPES"
                       :key="t.value"
-                      class="flex-1 py-2 rounded-xl text-sm font-medium border transition-all"
+                      class="flex-1 py-2 rounded-xl text-xs font-medium border transition-all"
                       :class="form.reward_type === t.value
                         ? 'bg-blue-600 text-white border-blue-600'
                         : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'"
                       @click="form.reward_type = t.value"
                     >{{ t.label }}</button>
                   </div>
+                  <p v-if="form.reward_type === 'free_load'" class="text-xs text-slate-400 mt-1">
+                    Takes off the cheapest load that earns stamps — the value varies with what's in the order.
+                  </p>
+                  <p v-else-if="form.reward_type === 'fixed_discount'" class="text-xs text-slate-400 mt-1">
+                    Takes off the same peso amount every time.
+                  </p>
+                  <p v-else class="text-xs text-slate-400 mt-1">
+                    Handed over at the counter — no discount is applied to the order.
+                  </p>
+                </div>
+
+                <div v-if="form.reward_type === 'fixed_discount'">
+                  <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5 block">Amount off</label>
+                  <div class="relative">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">₱</span>
+                    <input
+                      v-model="form.reward_amount"
+                      type="number" min="0.01" step="0.01"
+                      placeholder="e.g. 100"
+                      class="w-full border border-slate-200 rounded-xl pl-7 pr-3 py-2.5 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+                    />
+                  </div>
+                  <p class="text-xs text-slate-400 mt-1">
+                    Capped at the order's stamp-earning loads, and never redeemed in part — an order too small keeps the reward pending.
+                  </p>
                 </div>
 
                 <div>
