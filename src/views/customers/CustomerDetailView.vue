@@ -6,6 +6,8 @@ import { useConfirm } from 'primevue/useconfirm'
 import { getCustomer, updateCustomer, deleteCustomer, getCustomerBalance, addCustomerDeposit, voidCustomerDeposit } from '@/api/customers.js'
 import { getOrders } from '@/api/orders.js'
 import { createPayment } from '@/api/payments.js'
+import GcashProof from '@/components/common/GcashProof.vue'
+import { hasGcashProof } from '@/utils/compressImage.js'
 import { getCustomerLoyalty, adjustStamps } from '@/api/loyalty.js'
 import { useAuthStore } from '@/stores/auth.js'
 
@@ -191,6 +193,7 @@ const showPayAll     = ref(false)
 const payAllMethod     = ref('cash')
 const payAllTendered   = ref('')
 const payAllRef        = ref('')
+const payAllReceipt    = ref(null)
 const payAllError      = ref('')
 const payAllShowCustom = ref(false)
 const payingAll      = ref(false)
@@ -206,6 +209,7 @@ function openPayAll() {
   payAllMethod.value     = 'cash'
   payAllTendered.value   = String(Math.ceil(unpaidTotal.value))
   payAllRef.value        = ''
+  payAllReceipt.value    = null
   payAllError.value      = ''
   payAllShowCustom.value = false
   showPayAll.value       = true
@@ -217,6 +221,10 @@ const payAllMethods     = computed(() => auth.isAdmin && balance.value > 0.009 ?
 const payAllCreditCover = computed(() => Math.min(balance.value, unpaidTotal.value))
 
 async function confirmPayAll() {
+  if (payAllMethod.value === 'gcash' && !hasGcashProof(payAllRef.value, payAllReceipt.value)) {
+    payAllError.value = 'Enter the last 4 digits of the GCash reference, or take a photo of the receipt.'
+    return
+  }
   payingAll.value      = true
   payAllError.value    = ''
   const useCredit      = payAllMethod.value === 'balance'
@@ -232,7 +240,11 @@ async function confirmPayAll() {
       if (amount <= 0.009) break
       const payData = { method: payAllMethod.value, amount, type: 'payment' }
       if (payAllMethod.value === 'cash') payData.tendered = amount
-      else if (payAllMethod.value === 'gcash') payData.reference_number = payAllRef.value || ''
+      else if (payAllMethod.value === 'gcash') {
+        // One GCash transfer covering several orders: same proof on each.
+        payData.reference_number = payAllRef.value.trim()
+        if (payAllReceipt.value) payData.receipt = payAllReceipt.value
+      }
       await createPayment(o.id, payData)
       // A claimed order that's now fully paid is auto-completed by the backend.
       credit -= amount
@@ -983,14 +995,11 @@ onMounted(load)
               </template>
 
               <!-- Digital ref -->
-              <div v-else-if="payAllMethod === 'gcash'" class="flex items-center gap-2">
-                <span class="text-xs text-slate-500 w-16 shrink-0">Ref #</span>
-                <input
-                  v-model="payAllRef"
-                  placeholder="Transaction reference (optional)"
-                  class="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
-                />
-              </div>
+              <GcashProof
+                v-else-if="payAllMethod === 'gcash'"
+                v-model:reference="payAllRef"
+                v-model:receipt="payAllReceipt"
+              />
 
               <!-- Progress -->
               <div v-if="payingAll" class="flex items-center gap-3 px-3 py-2.5 bg-blue-50 border border-blue-100 rounded-xl text-sm text-blue-700">

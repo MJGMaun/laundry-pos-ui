@@ -41,6 +41,7 @@ const ALL_ITEMS = [
   { to: '/cash-balance',   page: 'cash-balance',    emoji: '💰',  label: 'Cash Balance',    color: '#34d399', roles: ['super_admin', 'admin'] },
   { to: '/accounts',       page: 'accounts',        emoji: '🏦',  label: 'Accounts',        color: '#2dd4bf', roles: ['super_admin', 'admin'] },
   { to: '/payments',       page: 'payments',        emoji: '🧾',  label: 'Payments',        color: '#2dd4bf', roles: ['super_admin', 'admin'] },
+  { to: '/gcash-matching', page: 'gcash-matching',  emoji: '📱',  label: 'GCash Matching',  color: '#3b82f6', roles: ['super_admin'] },
   { to: '/machine-cycles', page: 'machine-cycles',  emoji: '🔄',  label: 'Machine Cycles',  color: '#22d3ee', roles: ['super_admin', 'admin'] },
   { to: '/expenses',       page: 'expenses',        emoji: '💸',  label: 'Expenses',        color: '#f87171', roles: ['super_admin', 'admin'] },
   { to: '/services',       page: 'services',        emoji: '🧺',  label: 'Services',        color: '#4ade80', roles: ['super_admin', 'admin'] },

@@ -10,6 +10,10 @@ import { addLoads } from '@/api/loads.js'
 import { getBranchServices } from '@/api/branches.js'
 import { useBranchStore } from '@/stores/branch.js'
 import { createPayment, deletePayment } from '@/api/payments.js'
+import GcashProof from '@/components/common/GcashProof.vue'
+import PaymentReceiptButton from '@/components/common/PaymentReceiptButton.vue'
+import ChangePaymentMethodDialog from '@/components/common/ChangePaymentMethodDialog.vue'
+import { hasGcashProof } from '@/utils/compressImage.js'
 import { usePrinter } from '@/composables/usePrinter.js'
 import { buildTrackingSlipBytes } from '@/utils/escpos.js'
 import { getCustomerLoyalty } from '@/api/loyalty.js'
@@ -217,13 +221,16 @@ function confirmDeletePayment(p) {
 }
 
 const showPaymentForm = ref(false)
+// Admin: correct a payment's method (cash ⇄ GCash)
+const showMethodDialog = ref(false)
+const methodTarget = ref(null)
 const savingPayment = ref(false)
 const paymentFormError = ref('')
 const newPayment = ref({ method: 'cash', amount: '', tendered: '', reference_number: '' })
 const todayStr = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD, local tz
 
 function openPaymentForm() {
-  newPayment.value = { method: 'cash', amount: String(outstandingBalance.value.toFixed(2)), tendered: '', reference_number: '', payment_date: '', showCustom: false, editingAmount: false }
+  newPayment.value = { method: 'cash', amount: String(outstandingBalance.value.toFixed(2)), tendered: '', reference_number: '', receipt: null, payment_date: '', showCustom: false, editingAmount: false }
   paymentFormError.value = ''
   showPaymentForm.value = true
 }
@@ -258,12 +265,13 @@ async function recordPayment() {
   if (!(amount > 0)) { paymentFormError.value = 'Enter an amount.'; return }
   if (amount > outstandingBalance.value + 0.01) { paymentFormError.value = `Amount can't exceed the ₱${fmt(outstandingBalance.value)} balance.`; return }
   if (p.method === 'balance' && amount > customerCredit.value + 0.001) { paymentFormError.value = `Customer only has ₱${fmt(customerCredit.value)} balance.`; return }
+  if (p.method === 'gcash' && !hasGcashProof(p.reference_number, p.receipt)) { paymentFormError.value = 'Enter the last 4 digits of the GCash reference, or take a photo of the receipt.'; return }
   savingPayment.value = true
   paymentFormError.value = ''
   try {
     const payData = { method: p.method, amount, type: 'payment' }
     if (p.method === 'cash') payData.tendered = Number(p.tendered)
-    else if (p.method === 'gcash') payData.reference_number = p.reference_number || ''
+    else if (p.method === 'gcash') { payData.reference_number = (p.reference_number || '').trim(); if (p.receipt) payData.receipt = p.receipt }
     if (auth.isAdmin && p.payment_date) payData.payment_date = p.payment_date
     await createPayment(order.value.id, payData)
     showPaymentForm.value = false
@@ -277,6 +285,9 @@ async function recordPayment() {
     if (isOfflineError(e) && p.method === 'balance') {
       // The balance has to be checked by the server, so it can't be queued.
       paymentFormError.value = 'You are offline. Customer balance can only be used when connected.'
+    } else if (isOfflineError(e) && p.method === 'gcash' && String(p.reference_number || '').trim().length < 4) {
+      // A photo can't be queued offline; the typed reference can.
+      paymentFormError.value = 'You are offline. Type the last 4 digits of the GCash reference instead of a photo.'
     } else if (isOfflineError(e)) {
       const payData = { method: p.method, amount, type: 'payment' }
       if (p.method === 'cash') payData.tendered = Number(p.tendered)
@@ -1182,14 +1193,24 @@ onMounted(load)
               >{{ p.method?.charAt(0).toUpperCase() }}</div>
               <div class="flex-1 min-w-0">
                 <div class="text-sm font-semibold text-slate-700 capitalize">{{ p.method === 'balance' ? 'Customer balance' : p.method }}</div>
-                <div class="text-xs text-slate-400 capitalize">
-                  {{ p.type }}<template v-if="p.reference_number"> · Ref: {{ p.reference_number }}</template>
+                <div class="text-xs text-slate-400 capitalize flex flex-wrap items-center gap-1">
+                  <span>{{ p.type }}<template v-if="p.reference_number"> · Ref: {{ p.reference_number }}</template></span>
+                  <PaymentReceiptButton v-if="p.has_receipt" :payment-id="p.id" />
+                </div>
+                <div v-if="p.method_changed_from" class="text-[11px] font-medium text-amber-600">
+                  Changed from {{ p.method_changed_from === 'gcash' ? 'GCash' : p.method_changed_from }}
                 </div>
                 <div v-if="p.created_at" class="text-xs text-slate-400">{{ fmtDate(p.created_at) }}</div>
               </div>
               <span :class="['text-sm font-bold', p.type === 'refund' ? 'text-red-600' : 'text-green-700']">
                 {{ p.type === 'refund' ? '−' : '+' }}₱{{ fmt(p.amount) }}
               </span>
+              <button
+                v-if="auth.isAdmin && ['cash', 'gcash'].includes(p.method) && typeof p.id === 'number'"
+                class="flex h-6 shrink-0 items-center justify-center rounded-lg bg-blue-50 px-1.5 text-[11px] font-semibold text-blue-600 hover:bg-blue-100 transition-all active:scale-95"
+                :title="p.method === 'gcash' ? 'Change to cash' : 'Change to GCash'"
+                @click="methodTarget = p; showMethodDialog = true"
+              >⇄ {{ p.method === 'gcash' ? 'Cash' : 'GCash' }}</button>
               <button
                 v-if="auth.isAdmin"
                 class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-red-50 text-xs text-red-500 hover:bg-red-100 transition-all active:scale-95"
@@ -1203,6 +1224,8 @@ onMounted(load)
       </div>
     </div>
   </div>
+
+  <ChangePaymentMethodDialog v-model:visible="showMethodDialog" :payment="methodTarget" @changed="load" />
 
   <!-- Record Payment modal -->
   <Dialog
@@ -1356,14 +1379,11 @@ onMounted(load)
           <span class="font-bold">₱{{ fmt(outstandingBalance - Number(newPayment.tendered)) }}</span>
         </div>
       </template>
-      <div v-else-if="newPayment.method === 'gcash'" class="flex items-center gap-2">
-        <span class="text-xs text-slate-500 w-16 shrink-0">Ref # <span class="text-slate-400">(opt)</span></span>
-        <input
-          v-model="newPayment.reference_number"
-          placeholder="Transaction reference (optional)"
-          class="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
-        />
-      </div>
+      <GcashProof
+        v-else-if="newPayment.method === 'gcash'"
+        v-model:reference="newPayment.reference_number"
+        v-model:receipt="newPayment.receipt"
+      />
       <!-- Admin-only: backdate a payment missed on its real date -->
       <div v-if="auth.isAdmin" class="flex items-center gap-2">
         <span class="text-xs text-slate-500 w-16 shrink-0">Date <span class="text-slate-400">(opt)</span></span>
