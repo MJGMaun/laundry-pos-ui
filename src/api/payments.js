@@ -34,3 +34,6 @@ export const setPaymentMatched = (id, matched) => api.patch(`/payments/${id}/mat
 export const getAccountChecks = (method = 'gcash') => api.get('/account-checks', { params: { method } })
 export const createAccountCheck = (data) => api.post('/account-checks', data)
 export const deleteAccountCheck = (id) => api.delete(`/account-checks/${id}`)
+
+// admin: add or correct the tip on an existing payment
+export const updatePaymentTip = (id, tip_amount) => api.patch(`/payments/${id}/tip`, { tip_amount })
