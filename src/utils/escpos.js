@@ -435,6 +435,8 @@ export function buildDaySummaryBytes(data, settings = {}) {
         for (const d of (data.deposits || []).filter((d) => d.method === method && !d.voided_at)) {
             push(twoCol(('Deposit ' + (d.customer_name || '')).slice(0, 20), peso(d.amount)));
         }
+        const tips = Number(data[method + '_tips'] || 0);
+        if (tips > 0) push(twoCol('Tips', peso(tips)));
         if (Number(expValue) > 0) push(twoCol(expLabel, '-' + peso(expValue)));
         push(bytes(CMD.BOLD_ON));
         push(twoCol(remitLabel, peso(remitValue)));

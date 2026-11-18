@@ -181,6 +181,7 @@ onMounted(load)
         <div class="bg-white rounded-xl border border-gray-200 p-4">
           <div class="text-xs text-gray-500 mb-1">Net</div>
           <div class="text-lg font-bold text-gray-900">₱{{ fmt(data.summary?.net) }}</div>
+          <div v-if="data.summary?.total_tips > 0" class="text-xs text-violet-600 mt-0.5">+₱{{ fmt(data.summary.total_tips) }} tips (not sales)</div>
         </div>
       </div>
 
@@ -224,6 +225,7 @@ onMounted(load)
                 class="text-sm font-semibold tabular-nums"
                 :class="p.type === 'refund' ? 'text-red-600' : 'text-gray-900'"
               >{{ p.type === 'refund' ? '−' : '' }}₱{{ fmt(p.amount) }}</span>
+              <span v-if="Number(p.tip_amount) > 0" class="text-xs font-semibold text-violet-600">+₱{{ fmt(p.tip_amount) }} tip</span>
               <button
                 class="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-xs text-red-500 hover:bg-red-100 transition-all active:scale-95"
                 title="Delete payment"

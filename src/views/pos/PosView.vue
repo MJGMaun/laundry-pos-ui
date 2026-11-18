@@ -22,6 +22,8 @@ import Dialog from 'primevue/dialog';
 import ReceiptModal from '@/components/receipt/ReceiptModal.vue';
 import { usePrinter } from '@/composables/usePrinter.js';
 import { buildTrackingSlipBytes } from '@/utils/escpos.js';
+import GcashProof from '@/components/common/GcashProof.vue';
+import { hasGcashProof } from '@/utils/compressImage.js';
 import { priceRewards, redeemableRules, rewardLabel } from '@/utils/loyaltyDiscount.js';
 
 const cart = useCartStore();
@@ -441,7 +443,7 @@ function selectMethod(p, i, m) {
 
 function openPayment() {
     const total = cart.total.toFixed(2);
-    payments.value = [{ method: 'cash', amount: total, tendered: '', reference_number: '', showCustom: false }];
+    payments.value = [{ method: 'cash', amount: total, tendered: '', reference_number: '', receipt: null, tip: '', showCustom: false }];
     paymentError.value = '';
     showPayment.value = true;
     refreshCustomerCredit();
@@ -453,6 +455,8 @@ function addPaymentRow() {
         amount: String(remainingAfterPayments.value.toFixed(2)),
         tendered: '',
         reference_number: '',
+        receipt: null,
+        tip: '',
         showCustom: false,
     });
 }
@@ -509,6 +513,10 @@ async function processPayment() {
     if (paymentTotal.value > cart.total + 0.01) { paymentError.value = 'Payment exceeds the order total.'; return; }
     const balanceUsed = payments.value.reduce((s, p) => (p.method === 'balance' ? s + Number(p.amount || 0) : s), 0);
     if (balanceUsed > customerCredit.value + 0.001) { paymentError.value = `Customer only has ₱${fmt(customerCredit.value)} balance.`; return; }
+    if (payments.value.some((p) => p.method === 'gcash' && Number(p.amount) > 0 && !hasGcashProof(p.reference_number, p.receipt))) {
+        paymentError.value = 'GCash needs the last 4 digits of the reference number, or a photo of the receipt.';
+        return;
+    }
     processingPayment.value = true;
     paymentError.value = '';
     const clientId = crypto.randomUUID
@@ -555,7 +563,11 @@ async function processPayment() {
                     const amount = Number(p.amount || 0);
                     if (amount <= 0) continue;
                     const payData = { method: p.method, amount, type: 'payment', ...paymentDate };
-                    if (p.method === 'gcash') payData.reference_number = p.reference_number || '';
+                    if (p.method === 'gcash') {
+                        payData.reference_number = (p.reference_number || '').trim();
+                        if (p.receipt) payData.receipt = p.receipt;
+                        if (Number(p.tip) > 0) payData.tip_amount = Number(p.tip);
+                    }
                     await createPayment(order.id, payData);
                     totalPaid += amount;
                 }
@@ -580,6 +592,9 @@ async function processPayment() {
     } catch (e) {
         if (isOfflineError(e) && payments.value.some((p) => p.method === 'balance' && Number(p.amount) > 0)) {
             paymentError.value = 'You are offline. Customer balance can only be used when connected — switch that payment to cash or GCash.';
+        } else if (isOfflineError(e) && payments.value.some((p) => p.method === 'gcash' && Number(p.amount) > 0 && String(p.reference_number || '').trim().length < 4)) {
+            // Photos can't be queued offline; the typed reference can.
+            paymentError.value = 'You are offline. Type the last 4 digits of the GCash reference instead of a photo.';
         } else if (isOfflineError(e)) {
             const isOfflineCustomer = !!cart.customer?._offline;
             const orderData = {
@@ -605,7 +620,7 @@ async function processPayment() {
                 } else {
                     const amount = Number(p.amount || 0);
                     if (amount <= 0) return [];
-                    return [{ method: p.method, amount, type: 'payment', reference_number: p.reference_number || '' }];
+                    return [{ method: p.method, amount, type: 'payment', reference_number: (p.reference_number || '').trim(), ...(p.method === 'gcash' && Number(p.tip) > 0 ? { tip_amount: Number(p.tip) } : {}) }];
                 }
             });
             const offlineId = 'offline_' + Date.now();
@@ -1380,11 +1395,14 @@ watch(() => branch.currentBranchId, loadServices);
                                         </Transition>
                                     </template>
 
-                                    <div v-else-if="p.method === 'gcash'" class="flex items-center gap-2">
-                                        <span class="w-16 shrink-0 text-xs text-slate-500">Ref # <span class="text-slate-400">(opt)</span></span>
-                                        <input v-model="p.reference_number" placeholder="Transaction reference (optional)"
-                                            class="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:outline-none" />
-                                    </div>
+                                    <GcashProof
+                                        v-else-if="p.method === 'gcash'"
+                                        v-model:reference="p.reference_number"
+                                        v-model:receipt="p.receipt"
+                                        v-model:tip="p.tip"
+                                        with-tip
+                                        :amount="p.amount"
+                                    />
                                 </div>
 
                                 <button v-if="remainingAfterPayments > 0.01"

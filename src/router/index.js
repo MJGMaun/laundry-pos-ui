@@ -183,6 +183,12 @@ const router = createRouter({
           meta: { page: 'deleted-records', roles: ['super_admin'] },
         },
         {
+          path: 'gcash-matching',
+          name: 'gcash-matching',
+          component: () => import('@/views/super-admin/GcashMatchingView.vue'),
+          meta: { page: 'gcash-matching', roles: ['super_admin'] },
+        },
+        {
           path: 'activity',
           name: 'activity',
           component: () => import('@/views/super-admin/ActivityView.vue'),
