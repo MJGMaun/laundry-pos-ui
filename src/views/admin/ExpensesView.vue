@@ -22,6 +22,20 @@ const showForm = ref(false)
 const editingId = ref(null)
 const saving = ref(false)
 const filterCat = ref('')
+const filterMethod = ref('') // '' | 'cash' | 'gcash'
+// date_desc (default) | date_asc | amount_desc | amount_asc — sorted server-side
+// so it covers every page, not just the 20 rows on screen.
+const sort = ref('date_desc')
+
+function toggleSort(col) {
+  sort.value = sort.value === `${col}_desc` ? `${col}_asc` : `${col}_desc`
+  reload()
+}
+function sortArrow(col) {
+  if (sort.value === `${col}_desc`) return '↓'
+  if (sort.value === `${col}_asc`) return '↑'
+  return ''
+}
 const search = ref('')
 const page = ref(1)
 const lastPage = ref(1)
@@ -56,6 +70,8 @@ async function load() {
     if (dateRange.value?.[0]) params.date_from = toYMD(dateRange.value[0])
     if (dateRange.value?.[1]) params.date_to   = toYMD(dateRange.value[1])
     if (filterCat.value)      params.category_id = filterCat.value
+    if (filterMethod.value)   params.payment_method = filterMethod.value
+    if (sort.value !== 'date_desc') params.sort = sort.value
     if (search.value.trim())  params.search = search.value.trim()
     const res = await getExpenses(params)
     const paginator = res.data?.expenses
@@ -208,6 +224,11 @@ onMounted(() => { load(); loadCategories() })
         <option value="">All categories</option>
         <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
       </select>
+      <select v-model="filterMethod" class="w-full sm:w-auto border border-gray-300 rounded-lg px-3 py-1.5 text-sm" @change="reload">
+        <option value="">All methods</option>
+        <option value="cash">💵 Cash</option>
+        <option value="gcash">📱 GCash</option>
+      </select>
       <div class="relative w-full sm:w-auto sm:flex-none sm:ml-auto">
         <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
         <input
@@ -235,11 +256,19 @@ onMounted(() => { load(); loadCategories() })
       <table v-else class="w-full text-sm">
         <thead class="bg-gray-50 border-b border-gray-200">
           <tr>
-            <th class="text-left px-3 sm:px-4 py-3 font-medium text-gray-600">Date</th>
+            <th class="text-left px-3 sm:px-4 py-3 font-medium text-gray-600">
+              <button class="inline-flex items-center gap-1 hover:text-gray-900" :class="sort.startsWith('date') ? 'text-gray-900' : ''" title="Sort by date" @click="toggleSort('date')">
+                Date <span class="text-xs text-blue-600 w-2">{{ sortArrow('date') }}</span>
+              </button>
+            </th>
             <th class="text-left px-3 sm:px-4 py-3 font-medium text-gray-600">Category</th>
             <th class="hidden sm:table-cell text-left px-4 py-3 font-medium text-gray-600">Description</th>
             <th class="hidden sm:table-cell text-left px-4 py-3 font-medium text-gray-600">Method</th>
-            <th class="text-right px-3 sm:px-4 py-3 font-medium text-gray-600">Amount</th>
+            <th class="text-right px-3 sm:px-4 py-3 font-medium text-gray-600">
+              <button class="inline-flex items-center gap-1 hover:text-gray-900" :class="sort.startsWith('amount') ? 'text-gray-900' : ''" title="Sort by amount" @click="toggleSort('amount')">
+                <span class="text-xs text-blue-600 w-2">{{ sortArrow('amount') }}</span> Amount
+              </button>
+            </th>
             <th class="px-3 sm:px-4 py-3" />
           </tr>
         </thead>
