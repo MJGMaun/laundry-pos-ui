@@ -9,7 +9,7 @@ import Dialog from 'primevue/dialog'
 import { addLoads } from '@/api/loads.js'
 import { getBranchServices } from '@/api/branches.js'
 import { useBranchStore } from '@/stores/branch.js'
-import { createPayment, deletePayment } from '@/api/payments.js'
+import { createPayment, deletePayment, updatePaymentTip } from '@/api/payments.js'
 import GcashProof from '@/components/common/GcashProof.vue'
 import PaymentReceiptButton from '@/components/common/PaymentReceiptButton.vue'
 import ChangePaymentMethodDialog from '@/components/common/ChangePaymentMethodDialog.vue'
@@ -224,6 +224,37 @@ const showPaymentForm = ref(false)
 // Admin: correct a payment's method (cash ⇄ GCash)
 const showMethodDialog = ref(false)
 const methodTarget = ref(null)
+
+// Admin: add or fix a tip on a saved payment (customer sent extra, not entered)
+const showTipDialog = ref(false)
+const tipTarget     = ref(null)
+const tipInput      = ref('')
+const savingTip     = ref(false)
+const tipError      = ref('')
+
+function openTipDialog(p) {
+  tipTarget.value = p
+  tipInput.value  = Number(p.tip_amount) > 0 ? String(Number(p.tip_amount)) : ''
+  tipError.value  = ''
+  showTipDialog.value = true
+}
+
+async function saveTip() {
+  const tip = Number(tipInput.value || 0)
+  if (tip < 0) { tipError.value = 'Tip cannot be negative.'; return }
+  savingTip.value = true
+  tipError.value = ''
+  try {
+    await updatePaymentTip(tipTarget.value.id, tip)
+    showTipDialog.value = false
+    toast.add({ severity: 'success', summary: tip > 0 ? 'Tip saved' : 'Tip removed', detail: tip > 0 ? `₱${fmt(tip)} tip recorded on this payment.` : undefined, life: 3000 })
+    await load()
+  } catch (e) {
+    tipError.value = e.response?.data?.message || 'Failed to save the tip.'
+  } finally {
+    savingTip.value = false
+  }
+}
 const savingPayment = ref(false)
 const paymentFormError = ref('')
 const newPayment = ref({ method: 'cash', amount: '', tendered: '', reference_number: '' })
@@ -1214,6 +1245,12 @@ onMounted(load)
                 {{ p.type === 'refund' ? '−' : '+' }}₱{{ fmt(p.amount) }}
               </span>
               <button
+                v-if="auth.isAdmin && ['cash', 'gcash'].includes(p.method) && p.type === 'payment' && typeof p.id === 'number'"
+                class="flex h-6 shrink-0 items-center justify-center rounded-lg bg-violet-50 px-1.5 text-[11px] font-semibold text-violet-700 hover:bg-violet-100 transition-all active:scale-95"
+                :title="Number(p.tip_amount) > 0 ? 'Edit tip' : 'Add a tip the customer sent'"
+                @click="openTipDialog(p)"
+              >🙏 Tip</button>
+              <button
                 v-if="auth.isAdmin && ['cash', 'gcash'].includes(p.method) && typeof p.id === 'number'"
                 class="flex h-6 shrink-0 items-center justify-center rounded-lg bg-blue-50 px-1.5 text-[11px] font-semibold text-blue-600 hover:bg-blue-100 transition-all active:scale-95"
                 :title="p.method === 'gcash' ? 'Change to cash' : 'Change to GCash'"
@@ -1234,6 +1271,41 @@ onMounted(load)
   </div>
 
   <ChangePaymentMethodDialog v-model:visible="showMethodDialog" :payment="methodTarget" @changed="load" />
+
+  <!-- Add / edit tip on a saved payment (admin) -->
+  <Dialog v-model:visible="showTipDialog" modal header="Tip on this payment" :style="{ width: '360px', maxWidth: '95vw' }" :draggable="false">
+    <div v-if="tipTarget" class="space-y-3 pt-1">
+      <p class="text-xs text-slate-500">
+        Use this when the customer sent more than needed — e.g. ₱100 due, ₱148 received → tip ₱48.
+        The tip goes into the {{ tipTarget.method === 'gcash' ? 'GCash' : 'cash' }} total but not into sales.
+      </p>
+      <div class="relative">
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-base font-bold text-slate-400">₱</span>
+        <input
+          v-model="tipInput"
+          type="number" min="0" step="0.01" inputmode="decimal"
+          placeholder="0.00"
+          autofocus
+          class="w-full border border-violet-200 rounded-xl pl-7 pr-3 py-2 text-base font-bold text-right focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+          @keyup.enter="saveTip"
+        />
+      </div>
+      <div class="flex justify-between text-xs text-violet-700 px-1">
+        <span>Total received</span>
+        <span class="font-bold">₱{{ fmt(Number(tipTarget.amount) + Number(tipInput || 0)) }}</span>
+      </div>
+      <div v-if="tipError" class="text-xs text-red-500 font-medium px-1">{{ tipError }}</div>
+      <div class="flex gap-2 pt-1">
+        <button class="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50" @click="showTipDialog = false">Cancel</button>
+        <button
+          class="flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50"
+          style="background: linear-gradient(135deg, #7c3aed, #8b5cf6);"
+          :disabled="savingTip"
+          @click="saveTip"
+        >{{ savingTip ? 'Saving…' : 'Save tip' }}</button>
+      </div>
+    </div>
+  </Dialog>
 
   <!-- Record Payment modal -->
   <Dialog

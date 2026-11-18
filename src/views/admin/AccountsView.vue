@@ -38,6 +38,7 @@ const form = ref(blankForm())
 const TYPES = {
   withdrawal: { label: 'Withdrawal',      emoji: '💸', hint: 'Profit taken out for you or a partner. Does not affect margin.' },
   deposit:    { label: 'Money In',        emoji: '💰', hint: 'Cash put back into the business. Not counted as revenue.' },
+  tip_payout: { label: 'Tips Payout',     emoji: '🙏', hint: 'Tips handed to staff. Takes the money out of this account; sales are not affected.' },
   transfer:   { label: 'Transfer',        emoji: '🔁', hint: 'Moving money between your own accounts — nothing leaves the business.' },
   opening:    { label: 'Opening Balance', emoji: '🏁', hint: 'Count what is actually there right now and enter it. Everything recorded up to this moment is sealed into that figure, the other lines restart at zero, and only what comes after moves the balance.' },
 }
@@ -72,7 +73,7 @@ function flow(n, direction = 'in') {
 // Only withdrawals and deposits carry a direction on their own; an opening
 // figure and a transfer are stated plainly, since the from → to says it.
 function movementAmount(movement) {
-  if (movement.type === 'withdrawal') return flow(movement.amount, 'out')
+  if (movement.type === 'withdrawal' || movement.type === 'tip_payout') return flow(movement.amount, 'out')
   if (movement.type === 'deposit') return flow(movement.amount)
   return peso(movement.amount)
 }
@@ -286,6 +287,10 @@ onMounted(load)
                 {{ flow(account.withdrawals, 'out') }}
               </span>
             </div>
+            <div v-if="account.tip_payouts > 0" class="flex items-center justify-between px-5 py-2.5">
+              <span class="text-gray-500">Tips paid out</span>
+              <span class="font-medium tabular-nums text-red-600">{{ flow(account.tip_payouts, 'out') }}</span>
+            </div>
             <div v-if="account.deposits > 0" class="flex items-center justify-between px-5 py-2.5">
               <span class="text-gray-500">Money in</span>
               <span class="font-medium tabular-nums text-green-700">{{ flow(account.deposits) }}</span>
@@ -298,6 +303,17 @@ onMounted(load)
             </div>
           </div>
 
+          <div
+            v-if="account.tips_held > 0"
+            class="flex items-center justify-between gap-2 px-5 py-2.5 border-t border-violet-100 bg-violet-50 text-sm"
+          >
+            <span class="text-violet-800">🙏 Tips not yet paid out <span class="font-bold tabular-nums">{{ peso(account.tips_held) }}</span></span>
+            <button
+              class="shrink-0 px-2.5 py-1 rounded-lg text-xs font-semibold text-violet-700 bg-white border border-violet-200 hover:border-violet-400 transition-all active:scale-95"
+              @click="openForm('tip_payout', account.method); form.amount = String(account.tips_held)"
+            >Pay out</button>
+          </div>
+
           <div class="px-5 py-3 bg-gray-50 border-t border-gray-100 flex gap-2">
             <button
               class="flex-1 px-3 py-2 rounded-lg text-xs font-semibold text-red-600 bg-white border border-gray-200 hover:border-red-300 transition-all active:scale-95"
@@ -307,6 +323,10 @@ onMounted(load)
               class="flex-1 px-3 py-2 rounded-lg text-xs font-semibold text-gray-600 bg-white border border-gray-200 hover:border-blue-300 hover:text-blue-600 transition-all active:scale-95"
               @click="openForm('deposit', account.method)"
             >💰 Money in</button>
+            <button
+              class="flex-1 px-3 py-2 rounded-lg text-xs font-semibold text-violet-700 bg-white border border-gray-200 hover:border-violet-300 transition-all active:scale-95"
+              @click="openForm('tip_payout', account.method)"
+            >🙏 Tips payout</button>
           </div>
         </div>
       </div>
@@ -348,7 +368,7 @@ onMounted(load)
                 <th class="text-right font-medium px-3 py-2.5">Cash in</th>
                 <th class="text-right font-medium px-3 py-2.5">GCash in</th>
                 <th class="text-right font-medium px-3 py-2.5">Expenses</th>
-                <th class="text-right font-medium px-3 py-2.5">Withdrawn</th>
+                <th class="text-right font-medium px-3 py-2.5" title="Withdrawals and tips paid out">Withdrawn</th>
                 <th class="text-right font-medium px-5 py-2.5">Net</th>
               </tr>
             </thead>
@@ -499,11 +519,11 @@ onMounted(load)
             </div>
 
             <input
-              v-if="form.type === 'withdrawal' || form.type === 'deposit'"
+              v-if="form.type === 'withdrawal' || form.type === 'deposit' || form.type === 'tip_payout'"
               v-model="form.recipient"
               type="text"
               maxlength="100"
-              :placeholder="form.type === 'withdrawal' ? 'Who took it? e.g. partner name (optional)' : 'Who put it in? (optional)'"
+              :placeholder="form.type === 'withdrawal' ? 'Who took it? e.g. partner name (optional)' : form.type === 'tip_payout' ? 'Paid to whom? e.g. staff names (optional)' : 'Who put it in? (optional)'"
               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
             />
 
