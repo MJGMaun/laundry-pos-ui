@@ -8,7 +8,7 @@ import { useQueueStore } from '@/stores/queue.js';
 import { useToast } from 'primevue/usetoast';
 import { getServices } from '@/api/services.js';
 import { getBranchServices } from '@/api/branches.js';
-import { getCustomers } from '@/api/customers.js';
+import { getCustomers, getCustomer } from '@/api/customers.js';
 import { createOrder } from '@/api/orders.js';
 import { createPayment } from '@/api/payments.js';
 import {
@@ -405,11 +405,46 @@ const remainingAfterPayments = computed(() =>
     Math.max(0, cart.total - paymentTotal.value)
 );
 
+// Customer's prepaid balance (deposits). Admin-only; refreshed every time the
+// payment modal opens, since the cart's customer snapshot can be stale.
+const customerCredit = ref(0);
+const canUseCredit = computed(() => auth.isAdmin && !!cart.customer && !cart.customer._offline && customerCredit.value > 0.009);
+
+async function refreshCustomerCredit() {
+    customerCredit.value = 0;
+    if (!auth.isAdmin || !cart.customer || cart.customer._offline) return;
+    customerCredit.value = Number(cart.customer.balance || 0);
+    try {
+        const res = await getCustomer(cart.customer.id);
+        customerCredit.value = Number((res.data.data || res.data)?.balance || 0);
+    } catch { /* offline: keep the snapshot */ }
+}
+
+// Balance still available to a row: the credit minus other balance rows.
+function creditLeft(i) {
+    const used = payments.value.reduce((s, p, idx) => (idx !== i && p.method === 'balance' ? s + Number(p.amount || 0) : s), 0);
+    return Math.max(0, customerCredit.value - used);
+}
+function balanceMax(i) {
+    return Math.min(creditLeft(i), rowFull(i));
+}
+function methodsFor(i) {
+    const usedElsewhere = payments.value.some((p, idx) => idx !== i && p.method === 'balance');
+    return canUseCredit.value && !usedElsewhere ? ['cash', 'gcash', 'balance'] : ['cash', 'gcash'];
+}
+function selectMethod(p, i, m) {
+    p.method = m;
+    p.amount = String((m === 'balance' ? balanceMax(i) : rowFull(i)).toFixed(2));
+    p.tendered = '';
+    p.showCustom = false;
+}
+
 function openPayment() {
     const total = cart.total.toFixed(2);
     payments.value = [{ method: 'cash', amount: total, tendered: '', reference_number: '', showCustom: false }];
     paymentError.value = '';
     showPayment.value = true;
+    refreshCustomerCredit();
 }
 
 function addPaymentRow() {
@@ -472,6 +507,8 @@ async function printOrderSlips(order) {
 async function processPayment() {
     if (!cart.items.length) { paymentError.value = 'Cart is empty.'; return; }
     if (paymentTotal.value > cart.total + 0.01) { paymentError.value = 'Payment exceeds the order total.'; return; }
+    const balanceUsed = payments.value.reduce((s, p) => (p.method === 'balance' ? s + Number(p.amount || 0) : s), 0);
+    if (balanceUsed > customerCredit.value + 0.001) { paymentError.value = `Customer only has ₱${fmt(customerCredit.value)} balance.`; return; }
     processingPayment.value = true;
     paymentError.value = '';
     const clientId = crypto.randomUUID
@@ -502,27 +539,35 @@ async function processPayment() {
 
         // Backdated order → backdate its checkout payments to the same date.
         const paymentDate = auth.isAdmin && orderDate.value ? { payment_date: orderDate.value } : {};
-        for (const p of payments.value) {
-            if (p.method === 'cash') {
-                const tendered = Number(p.tendered || 0);
-                if (tendered <= 0) continue;
-                const amount = Math.min(tendered, Number(p.amount || tendered));
-                await createPayment(order.id, { method: 'cash', amount, tendered, type: 'payment', ...paymentDate });
-            } else {
-                const amount = Number(p.amount || 0);
-                if (amount <= 0) continue;
-                await createPayment(order.id, { method: p.method, amount, type: 'payment', reference_number: p.reference_number || '', ...paymentDate });
+        // The order already exists at this point, so a failed payment must not
+        // bounce back to the cart (retrying would create a duplicate order).
+        // Keep what went through and say which part still needs collecting.
+        let totalPaid = 0;
+        try {
+            for (const p of payments.value) {
+                if (p.method === 'cash') {
+                    const tendered = Number(p.tendered || 0);
+                    if (tendered <= 0) continue;
+                    const amount = Math.min(tendered, Number(p.amount || tendered));
+                    await createPayment(order.id, { method: 'cash', amount, tendered, type: 'payment', ...paymentDate });
+                    totalPaid += amount;
+                } else {
+                    const amount = Number(p.amount || 0);
+                    if (amount <= 0) continue;
+                    const payData = { method: p.method, amount, type: 'payment', ...paymentDate };
+                    if (p.method === 'gcash') payData.reference_number = p.reference_number || '';
+                    await createPayment(order.id, payData);
+                    totalPaid += amount;
+                }
             }
+        } catch (payErr) {
+            toast.add({
+                severity: 'warn',
+                summary: 'Order created, payment not recorded',
+                detail: (payErr.response?.data?.message || 'A payment failed.') + ` Collect the rest from order ${order.order_number}.`,
+                life: 8000,
+            });
         }
-
-        const totalPaid = payments.value.reduce((sum, p) => {
-            if (p.method === 'cash') {
-                const t = Number(p.tendered || 0);
-                return t > 0 ? sum + Math.min(t, Number(p.amount || t)) : sum;
-            }
-            const a = Number(p.amount || 0);
-            return a > 0 ? sum + a : sum;
-        }, 0);
         lastOrder.value = { ...order, paid_amount: totalPaid };
         lastRedeemedReward.value = cart.appliedLoyaltyReward;
         cart.clear();
@@ -533,7 +578,9 @@ async function processPayment() {
         showPayment.value = false;
         showSuccess.value = true;
     } catch (e) {
-        if (isOfflineError(e)) {
+        if (isOfflineError(e) && payments.value.some((p) => p.method === 'balance' && Number(p.amount) > 0)) {
+            paymentError.value = 'You are offline. Customer balance can only be used when connected — switch that payment to cash or GCash.';
+        } else if (isOfflineError(e)) {
             const isOfflineCustomer = !!cart.customer?._offline;
             const orderData = {
                 client_id: clientId,
@@ -1224,18 +1271,39 @@ watch(() => branch.currentBranchId, loadServices);
                                     <div class="flex items-center gap-2">
                                         <div class="flex flex-1 gap-1">
                                             <button
-                                                v-for="m in ['cash', 'gcash']"
+                                                v-for="m in methodsFor(i)"
                                                 :key="m"
                                                 class="flex-1 rounded-lg py-1.5 text-xs font-semibold transition-all"
-                                                :class="p.method === m ? 'bg-blue-600 text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-500 hover:border-slate-300'"
-                                                @click="p.method = m; p.amount = String(rowFull(i).toFixed(2)); p.tendered = ''; p.showCustom = false"
-                                            >{{ m.toUpperCase() }}</button>
+                                                :class="p.method === m ? (m === 'balance' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-blue-600 text-white shadow-sm') : 'border border-slate-200 bg-white text-slate-500 hover:border-slate-300'"
+                                                @click="selectMethod(p, i, m)"
+                                            >{{ m === 'balance' ? `BALANCE ₱${fmt(customerCredit)}` : m.toUpperCase() }}</button>
                                         </div>
                                         <button v-if="payments.length > 1" class="flex h-7 w-7 items-center justify-center rounded-full bg-red-100 text-xs text-red-500 transition-colors hover:bg-red-200" @click="payments.splice(i, 1)">✕</button>
                                     </div>
 
+                                    <!-- Pay from the customer's prepaid balance (admin only) -->
+                                    <div v-if="p.method === 'balance'" class="space-y-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-xs text-emerald-700">Use from balance (available ₱{{ fmt(creditLeft(i)) }})</span>
+                                            <button
+                                                v-if="Number(p.amount) !== Number(balanceMax(i).toFixed(2))"
+                                                class="text-xs font-semibold text-emerald-700 hover:text-emerald-800"
+                                                @click="p.amount = String(balanceMax(i).toFixed(2))"
+                                            >Max ₱{{ fmt(balanceMax(i)) }}</button>
+                                        </div>
+                                        <div class="relative">
+                                            <span class="absolute top-1/2 left-3 -translate-y-1/2 text-base font-bold text-slate-400">₱</span>
+                                            <input v-model="p.amount" type="number" min="0" step="0.01" inputmode="decimal"
+                                                class="w-full rounded-lg border border-emerald-200 bg-white py-2 pr-3 pl-7 text-right text-base font-bold text-slate-900 transition-all focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 focus:outline-none" />
+                                        </div>
+                                        <div class="flex justify-between text-xs text-emerald-700">
+                                            <span>Balance left after this</span>
+                                            <span class="font-bold">₱{{ fmt(Math.max(0, creditLeft(i) - Number(p.amount || 0))) }}</span>
+                                        </div>
+                                    </div>
+
                                     <!-- GCash amount is editable (supports partial / downpayment); cash amount is fixed and driven by the tendered buttons below -->
-                                    <div v-if="p.method === 'gcash'" class="space-y-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+                                    <div v-else-if="p.method === 'gcash'" class="space-y-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5">
                                         <div class="flex items-center justify-between">
                                             <span class="text-xs text-slate-500">Amount</span>
                                             <button
@@ -1312,7 +1380,7 @@ watch(() => branch.currentBranchId, loadServices);
                                         </Transition>
                                     </template>
 
-                                    <div v-else class="flex items-center gap-2">
+                                    <div v-else-if="p.method === 'gcash'" class="flex items-center gap-2">
                                         <span class="w-16 shrink-0 text-xs text-slate-500">Ref # <span class="text-slate-400">(opt)</span></span>
                                         <input v-model="p.reference_number" placeholder="Transaction reference (optional)"
                                             class="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:outline-none" />

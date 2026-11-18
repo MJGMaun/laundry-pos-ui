@@ -431,6 +431,10 @@ export function buildDaySummaryBytes(data, settings = {}) {
                 push(line('  ' + (p.order_number || '') + '  ' + orderDate(p.order_created_at || p.created_at)));
             }
         }
+        // Customer deposits (prepaid balance) are money in, but not sales.
+        for (const d of (data.deposits || []).filter((d) => d.method === method && !d.voided_at)) {
+            push(twoCol(('Deposit ' + (d.customer_name || '')).slice(0, 20), peso(d.amount)));
+        }
         if (Number(expValue) > 0) push(twoCol(expLabel, '-' + peso(expValue)));
         push(bytes(CMD.BOLD_ON));
         push(twoCol(remitLabel, peso(remitValue)));

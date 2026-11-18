@@ -71,7 +71,7 @@ function reload() { page.value = 1; load() }
 
 function confirmDelete(p) {
   confirm.require({
-    message: `Delete this ₱${fmt(p.amount)} ${p.method === 'gcash' ? 'GCash' : 'cash'} ${p.type} on ${p.order_number}? Reports, cash balance, and the customer's total spent will be updated.`,
+    message: `Delete this ₱${fmt(p.amount)} ${p.method === 'gcash' ? 'GCash' : p.method === 'balance' ? 'customer balance' : 'cash'} ${p.type} on ${p.order_number}? Reports, cash balance, and the customer's total spent will be updated.`,
     header: 'Delete payment',
     icon: 'pi pi-exclamation-triangle',
     rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
@@ -152,7 +152,7 @@ onMounted(load)
         </div>
         <div class="flex items-center gap-1.5">
           <button
-            v-for="m in [{ v: '', l: 'All' }, { v: 'cash', l: '💵 Cash' }, { v: 'gcash', l: '📱 GCash' }]"
+            v-for="m in [{ v: '', l: 'All' }, { v: 'cash', l: '💵 Cash' }, { v: 'gcash', l: '📱 GCash' }, { v: 'balance', l: '💰 Balance' }]"
             :key="m.v"
             class="px-2.5 py-1 rounded-lg text-xs font-semibold transition-all active:scale-95"
             :class="method === m.v
@@ -218,8 +218,8 @@ onMounted(load)
             <div class="flex items-center gap-2 shrink-0">
               <span
                 class="text-[10px] font-bold px-1.5 py-0.5 rounded text-white"
-                :style="p.method === 'gcash' ? 'background:#005eaa' : 'background:#16a34a'"
-              >{{ p.method === 'gcash' ? 'GCash' : p.method?.toUpperCase() }}</span>
+                :style="p.method === 'gcash' ? 'background:#005eaa' : p.method === 'balance' ? 'background:#0d9488' : 'background:#16a34a'"
+              >{{ p.method === 'gcash' ? 'GCash' : p.method === 'balance' ? 'Balance' : p.method?.toUpperCase() }}</span>
               <span
                 class="text-sm font-semibold tabular-nums"
                 :class="p.type === 'refund' ? 'text-red-600' : 'text-gray-900'"

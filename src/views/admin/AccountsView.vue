@@ -266,6 +266,10 @@ onMounted(load)
                 :class="account.payments_in < 0 ? 'text-red-600' : 'text-green-700'"
               >{{ flow(account.payments_in) }}</span>
             </div>
+            <div v-if="account.customer_deposits" class="flex items-center justify-between px-5 py-2.5">
+              <span class="text-gray-500">Customer deposits</span>
+              <span class="font-medium tabular-nums text-green-700">{{ flow(account.customer_deposits) }}</span>
+            </div>
             <div class="flex items-center justify-between px-5 py-2.5">
               <span class="text-gray-500">Expenses</span>
               <span class="font-medium tabular-nums" :class="account.expenses > 0 ? 'text-red-600' : 'text-gray-400'">

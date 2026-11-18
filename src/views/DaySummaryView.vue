@@ -50,6 +50,7 @@ const enabled       = computed(() =>
 )
 const cashPayments  = computed(() => (data.value?.payments || []).filter((p) => p.method === 'cash'))
 const gcashPayments = computed(() => (data.value?.payments || []).filter((p) => p.method === 'gcash'))
+const depositsFor   = (method) => (data.value?.deposits || []).filter((d) => d.method === method && !d.voided_at)
 
 async function load() {
   if (!enabled.value) return
@@ -177,13 +178,16 @@ onMounted(async () => {
 
         <!-- Cash -->
         <div class="font-bold">CASH</div>
-        <div v-if="!cashPayments.length" class="text-gray-400 pl-2">(none)</div>
+        <div v-if="!cashPayments.length && !depositsFor('cash').length" class="text-gray-400 pl-2">(none)</div>
         <div v-for="p in cashPayments" :key="p.id" class="mb-1">
           <div class="flex justify-between">
             <span>{{ p.customer_name || 'Walk-in' }}</span>
             <span :class="p.type === 'refund' ? 'text-red-600' : ''">{{ p.type === 'refund' ? '−' : '' }}₱{{ fmt(p.amount) }}</span>
           </div>
           <div class="text-xs text-gray-400 pl-2">{{ p.order_number }} · {{ fmtOrderDate(p.order_created_at || p.created_at) }}</div>
+        </div>
+        <div v-for="d in depositsFor('cash')" :key="'d' + d.id" class="flex justify-between">
+          <span>Deposit · {{ d.customer_name }}</span><span>₱{{ fmt(d.amount) }}</span>
         </div>
         <div v-if="data.cash_expenses > 0" class="flex justify-between text-red-600"><span>Cash Expenses</span><span>−₱{{ fmt(data.cash_expenses) }}</span></div>
         <div class="flex justify-between font-bold mt-1"><span>CASH TO REMIT</span><span>₱{{ fmt(data.to_remit_cash) }}</span></div>
@@ -192,13 +196,16 @@ onMounted(async () => {
 
         <!-- GCash -->
         <div class="font-bold">GCASH</div>
-        <div v-if="!gcashPayments.length" class="text-gray-400 pl-2">(none)</div>
+        <div v-if="!gcashPayments.length && !depositsFor('gcash').length" class="text-gray-400 pl-2">(none)</div>
         <div v-for="p in gcashPayments" :key="p.id" class="mb-1">
           <div class="flex justify-between">
             <span>{{ p.customer_name || 'Walk-in' }}</span>
             <span :class="p.type === 'refund' ? 'text-red-600' : ''">{{ p.type === 'refund' ? '−' : '' }}₱{{ fmt(p.amount) }}</span>
           </div>
           <div class="text-xs text-gray-400 pl-2">{{ p.order_number }} · {{ fmtOrderDate(p.order_created_at || p.created_at) }}</div>
+        </div>
+        <div v-for="d in depositsFor('gcash')" :key="'d' + d.id" class="flex justify-between">
+          <span>Deposit · {{ d.customer_name }}</span><span>₱{{ fmt(d.amount) }}</span>
         </div>
         <div v-if="data.gcash_expenses > 0" class="flex justify-between text-red-600"><span>GCash Expenses</span><span>−₱{{ fmt(data.gcash_expenses) }}</span></div>
         <div class="flex justify-between font-bold mt-1"><span>GCASH TO REMIT</span><span>₱{{ fmt(data.to_remit_gcash) }}</span></div>
