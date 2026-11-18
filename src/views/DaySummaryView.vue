@@ -189,6 +189,7 @@ onMounted(async () => {
         <div v-for="d in depositsFor('cash')" :key="'d' + d.id" class="flex justify-between">
           <span>Deposit · {{ d.customer_name }}</span><span>₱{{ fmt(d.amount) }}</span>
         </div>
+        <div v-if="data.cash_tips > 0" class="flex justify-between text-violet-700"><span>Tips</span><span>₱{{ fmt(data.cash_tips) }}</span></div>
         <div v-if="data.cash_expenses > 0" class="flex justify-between text-red-600"><span>Cash Expenses</span><span>−₱{{ fmt(data.cash_expenses) }}</span></div>
         <div class="flex justify-between font-bold mt-1"><span>CASH TO REMIT</span><span>₱{{ fmt(data.to_remit_cash) }}</span></div>
 
@@ -207,6 +208,7 @@ onMounted(async () => {
         <div v-for="d in depositsFor('gcash')" :key="'d' + d.id" class="flex justify-between">
           <span>Deposit · {{ d.customer_name }}</span><span>₱{{ fmt(d.amount) }}</span>
         </div>
+        <div v-if="data.gcash_tips > 0" class="flex justify-between text-violet-700"><span>Tips</span><span>₱{{ fmt(data.gcash_tips) }}</span></div>
         <div v-if="data.gcash_expenses > 0" class="flex justify-between text-red-600"><span>GCash Expenses</span><span>−₱{{ fmt(data.gcash_expenses) }}</span></div>
         <div class="flex justify-between font-bold mt-1"><span>GCASH TO REMIT</span><span>₱{{ fmt(data.to_remit_gcash) }}</span></div>
 

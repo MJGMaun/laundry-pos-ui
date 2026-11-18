@@ -7,7 +7,8 @@ import DatePicker from 'primevue/datepicker'
 import { useToast } from 'primevue/usetoast'
 import { useRouter } from 'vue-router'
 import { useBranchStore } from '@/stores/branch.js'
-import { getGcashMatching, setPaymentMatched } from '@/api/payments.js'
+import { useConfirm } from 'primevue/useconfirm'
+import { getGcashMatching, setPaymentMatched, getAccountChecks, createAccountCheck, deleteAccountCheck } from '@/api/payments.js'
 import PaymentReceiptButton from '@/components/common/PaymentReceiptButton.vue'
 import ChangePaymentMethodDialog from '@/components/common/ChangePaymentMethodDialog.vue'
 
@@ -23,6 +24,80 @@ const busyId  = ref(null)
 
 const showMethodDialog = ref(false)
 const methodTarget     = ref(null)
+const confirm          = useConfirm()
+
+// ── End-of-day GCash check ──
+const checks       = ref(null)  // { expected, has_opening, checked_today, checks[] }
+const countedInput = ref('')
+const checkNote    = ref('')
+const savingCheck  = ref(false)
+const showHistory  = ref(false)
+
+const lastCheck   = computed(() => checks.value?.checks?.[0] || null)
+const previewDiff = computed(() =>
+  countedInput.value === '' ? null : Math.round((Number(countedInput.value) - Number(checks.value?.expected || 0)) * 100) / 100
+)
+
+async function loadChecks() {
+  checks.value = null
+  if (allBranches.value) return
+  try {
+    checks.value = (await getAccountChecks('gcash')).data
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to load GCash checks', life: 3000 })
+  }
+}
+
+async function saveCheck() {
+  if (countedInput.value === '' || Number(countedInput.value) < 0) return
+  savingCheck.value = true
+  try {
+    checks.value = (await createAccountCheck({ method: 'gcash', counted_amount: Number(countedInput.value), note: checkNote.value || undefined })).data
+    const d = Number(lastCheck.value?.difference || 0)
+    toast.add({
+      severity: Math.abs(d) < 0.01 ? 'success' : 'warn',
+      summary: Math.abs(d) < 0.01 ? 'GCash matches 🎉' : 'GCash does not match',
+      detail: Math.abs(d) < 0.01 ? 'The GCash app balance equals the expected balance.' : `${d > 0 ? 'Over' : 'Short'} by ₱${fmt(Math.abs(d))}. Check the unmatched payments below.`,
+      life: 6000,
+    })
+    countedInput.value = ''
+    checkNote.value = ''
+    window.dispatchEvent(new Event('gcash-check-saved'))
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to save the check', life: 4000 })
+  } finally {
+    savingCheck.value = false
+  }
+}
+
+function removeCheck(c) {
+  confirm.require({
+    message: `Remove the ₱${fmt(c.counted_amount)} check from ${fmtWhen(c.created_at)}?`,
+    header: 'Remove check',
+    icon: 'pi pi-exclamation-triangle',
+    rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
+    acceptProps: { label: 'Remove', severity: 'danger' },
+    accept: async () => {
+      try {
+        checks.value = (await deleteAccountCheck(c.id)).data
+        window.dispatchEvent(new Event('gcash-check-saved'))
+      } catch (e) {
+        toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to remove', life: 4000 })
+      }
+    },
+  })
+}
+
+function diffClass(d) {
+  d = Number(d)
+  if (Math.abs(d) < 0.01) return 'text-green-700'
+  return d < 0 ? 'text-red-600' : 'text-amber-600'
+}
+function diffLabel(d) {
+  d = Number(d)
+  if (Math.abs(d) < 0.01) return 'Matches'
+  return `${d < 0 ? 'Short' : 'Over'} ₱${fmt(Math.abs(d))}`
+}
 
 const presets = [
   { label: 'Today',      range: () => [new Date(), new Date()] },
@@ -88,8 +163,8 @@ function openChangeMethod(p) {
 
 watch(range, load, { deep: true })
 watch(status, load)
-watch(() => branchStore.currentBranchId, load)
-onMounted(load)
+watch(() => branchStore.currentBranchId, () => { load(); loadChecks() })
+onMounted(() => { load(); loadChecks() })
 </script>
 
 <template>
@@ -101,6 +176,86 @@ onMounted(load)
     <p class="text-sm text-gray-500 mb-4">
       Open the GCash app's transaction history and tick each payment you find there. Whatever stays unticked is what doesn't match.
     </p>
+
+    <!-- End-of-day GCash check -->
+    <div v-if="!allBranches && checks" class="mb-4 rounded-xl border p-4" :class="checks.checked_today ? 'bg-white border-gray-200' : 'bg-blue-50 border-blue-200'">
+      <div class="flex flex-wrap items-start justify-between gap-2 mb-3">
+        <div>
+          <h3 class="font-semibold text-gray-900">📱 End-of-day GCash check</h3>
+          <p class="text-xs text-gray-500">Open the GCash app, type the balance it shows, and save. Do this once a day, after the last customer.</p>
+        </div>
+        <span v-if="checks.checked_today && lastCheck" class="rounded-lg px-2 py-1 text-xs font-bold" :class="Math.abs(Number(lastCheck.difference)) < 0.01 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'">
+          Today: {{ diffLabel(lastCheck.difference) }}
+        </span>
+        <span v-else class="rounded-lg bg-blue-100 px-2 py-1 text-xs font-bold text-blue-700">Not checked today</span>
+      </div>
+
+      <div v-if="!checks.has_opening" class="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        No GCash opening balance is set for this branch, so the expected figure counts every GCash payment ever recorded.
+        Set one once on <button class="font-semibold underline" @click="router.push('/accounts')">Accounts</button> (enter what the GCash app shows right now), and from then on these checks are meaningful.
+      </div>
+
+      <div class="grid gap-3 sm:grid-cols-3 sm:items-end">
+        <div>
+          <div class="text-xs text-gray-500">Expected (from Accounts)</div>
+          <div class="text-xl font-bold tabular-nums text-gray-900">₱{{ fmt(checks.expected) }}</div>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500">Balance in the GCash app</label>
+          <div class="relative mt-1">
+            <span class="absolute top-1/2 left-2.5 -translate-y-1/2 text-sm text-gray-400">₱</span>
+            <input
+              v-model="countedInput"
+              type="number" min="0" step="0.01" inputmode="decimal"
+              placeholder="0.00"
+              class="w-full rounded-xl border border-gray-200 bg-white py-2 pr-3 pl-7 text-right text-sm font-semibold focus:border-blue-400 focus:ring-2 focus:ring-blue-100 focus:outline-none"
+              @keyup.enter="saveCheck"
+            />
+          </div>
+        </div>
+        <div>
+          <div class="text-xs text-gray-500">Difference</div>
+          <div class="text-xl font-bold tabular-nums" :class="previewDiff === null ? 'text-gray-300' : diffClass(previewDiff)">
+            {{ previewDiff === null ? '—' : diffLabel(previewDiff) }}
+          </div>
+        </div>
+      </div>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <input
+          v-model="checkNote"
+          maxlength="500"
+          placeholder="Note (optional) — e.g. owner transferred ₱500 out"
+          class="min-w-0 flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm focus:border-blue-400 focus:outline-none"
+        />
+        <button
+          class="rounded-xl px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+          style="background: linear-gradient(135deg, #2563eb, #4f46e5);"
+          :disabled="savingCheck || countedInput === ''"
+          @click="saveCheck"
+        >{{ savingCheck ? 'Saving…' : 'Save check' }}</button>
+      </div>
+      <p class="mt-2 text-[11px] text-gray-400">
+        Money moved in or out of GCash outside of orders (owner transfers, GCash expenses, cash-ins) must be recorded on Accounts or Expenses, otherwise it shows up here as a difference.
+      </p>
+
+      <div v-if="checks.checks?.length" class="mt-3 border-t border-gray-100 pt-2">
+        <button class="text-xs font-semibold text-blue-600 hover:underline" @click="showHistory = !showHistory">
+          {{ showHistory ? 'Hide' : 'Show' }} past checks ({{ checks.checks.length }})
+        </button>
+        <div v-if="showHistory" class="mt-2 divide-y divide-gray-100">
+          <div v-for="c in checks.checks" :key="c.id" class="flex items-center gap-3 py-2 text-sm">
+            <div class="min-w-0 flex-1">
+              <div class="font-medium text-gray-800">{{ fmtWhen(c.created_at) }}</div>
+              <div class="text-xs text-gray-500 truncate">
+                App ₱{{ fmt(c.counted_amount) }} · expected ₱{{ fmt(c.expected_amount) }}<template v-if="c.user"> · {{ c.user.name }}</template><template v-if="c.note"> · {{ c.note }}</template>
+              </div>
+            </div>
+            <span class="shrink-0 text-xs font-bold" :class="diffClass(c.difference)">{{ diffLabel(c.difference) }}</span>
+            <button class="shrink-0 text-xs text-red-500 hover:text-red-700" @click="removeCheck(c)">✕</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Filters -->
     <div class="flex flex-wrap items-center gap-3 bg-white rounded-xl border border-gray-200 p-3 mb-4">
@@ -143,7 +298,7 @@ onMounted(load)
       <div class="bg-white rounded-xl border border-gray-200 p-4">
         <div class="text-xs font-semibold text-gray-500">GCash in POS</div>
         <div class="text-xl font-bold text-gray-900 tabular-nums">₱{{ fmt(summary.total) }}</div>
-        <div class="text-xs text-gray-400">{{ summary.count }} payment{{ summary.count !== 1 ? 's' : '' }}</div>
+        <div class="text-xs text-gray-400">{{ summary.count }} payment{{ summary.count !== 1 ? 's' : '' }}<template v-if="summary.tips > 0"> · incl. ₱{{ fmt(summary.tips) }} tips</template></div>
       </div>
       <div class="bg-green-50 rounded-xl border border-green-200 p-4">
         <div class="text-xs font-semibold text-green-700">Matched</div>
@@ -204,8 +359,9 @@ onMounted(load)
 
           <div class="shrink-0 text-right">
             <div class="font-bold tabular-nums" :class="p.type === 'refund' ? 'text-red-600' : 'text-gray-900'">
-              {{ p.type === 'refund' ? '−' : '' }}₱{{ fmt(p.amount) }}
+              {{ p.type === 'refund' ? '−' : '' }}₱{{ fmt(Number(p.amount) + (p.type === 'refund' ? 0 : Number(p.tip_amount || 0))) }}
             </div>
+            <div v-if="Number(p.tip_amount) > 0" class="text-[11px] text-violet-600">incl. ₱{{ fmt(p.tip_amount) }} tip</div>
             <button
               v-if="!p.matched_at"
               class="mt-0.5 text-[11px] font-semibold text-blue-600 hover:underline"
@@ -235,7 +391,7 @@ onMounted(load)
       </div>
     </div>
 
-    <ChangePaymentMethodDialog v-model:visible="showMethodDialog" :payment="methodTarget" @changed="load" />
+    <ChangePaymentMethodDialog v-model:visible="showMethodDialog" :payment="methodTarget" @changed="() => { load(); loadChecks() }" />
   </div>
 </template>
 

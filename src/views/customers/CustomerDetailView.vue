@@ -194,6 +194,7 @@ const payAllMethod     = ref('cash')
 const payAllTendered   = ref('')
 const payAllRef        = ref('')
 const payAllReceipt    = ref(null)
+const payAllTip        = ref('')
 const payAllError      = ref('')
 const payAllShowCustom = ref(false)
 const payingAll      = ref(false)
@@ -210,6 +211,7 @@ function openPayAll() {
   payAllTendered.value   = String(Math.ceil(unpaidTotal.value))
   payAllRef.value        = ''
   payAllReceipt.value    = null
+  payAllTip.value        = ''
   payAllError.value      = ''
   payAllShowCustom.value = false
   showPayAll.value       = true
@@ -244,6 +246,8 @@ async function confirmPayAll() {
         // One GCash transfer covering several orders: same proof on each.
         payData.reference_number = payAllRef.value.trim()
         if (payAllReceipt.value) payData.receipt = payAllReceipt.value
+        // The tip came with the one transfer: record it once, on the first order.
+        if (collected === 0 && Number(payAllTip.value) > 0) payData.tip_amount = Number(payAllTip.value)
       }
       await createPayment(o.id, payData)
       // A claimed order that's now fully paid is auto-completed by the backend.
@@ -999,6 +1003,9 @@ onMounted(load)
                 v-else-if="payAllMethod === 'gcash'"
                 v-model:reference="payAllRef"
                 v-model:receipt="payAllReceipt"
+                v-model:tip="payAllTip"
+                with-tip
+                :amount="unpaidTotal"
               />
 
               <!-- Progress -->

@@ -1,11 +1,12 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.js'
 import { useBranchStore } from '@/stores/branch.js'
 import { useSettingsStore } from '@/stores/settings.js'
 import { useChatStore } from '@/stores/chat.js'
 import { usePermissionsStore } from '@/stores/permissions.js'
+import { getAccountChecks } from '@/api/payments.js'
 
 defineProps({ open: Boolean })
 const emit = defineEmits(['close'])
@@ -21,6 +22,37 @@ const branch   = useBranchStore()
 const settings = useSettingsStore()
 const chat     = useChatStore()
 const perms    = usePermissionsStore()
+
+// ── End-of-day GCash check reminder (super admin) ──────────────────────────────
+// From 5 PM, if today's GCash check hasn't been saved for the selected branch,
+// GCash Matching gets a "!" badge until it is.
+const REMINDER_HOUR = 17
+const gcashCheckDue = ref(false)
+let reminderTimer = null
+
+async function refreshGcashReminder() {
+  if (!auth.isSuperAdmin || !branch.currentBranchId || new Date().getHours() < REMINDER_HOUR) {
+    gcashCheckDue.value = false
+    return
+  }
+  try {
+    const res = await getAccountChecks('gcash')
+    gcashCheckDue.value = !res.data.checked_today
+  } catch {
+    gcashCheckDue.value = false
+  }
+}
+
+onMounted(() => {
+  refreshGcashReminder()
+  reminderTimer = setInterval(refreshGcashReminder, 10 * 60 * 1000)
+  window.addEventListener('gcash-check-saved', refreshGcashReminder)
+})
+onBeforeUnmount(() => {
+  clearInterval(reminderTimer)
+  window.removeEventListener('gcash-check-saved', refreshGcashReminder)
+})
+watch(() => branch.currentBranchId, refreshGcashReminder)
 
 // ── Nav items ─────────────────────────────────────────────────────────────────
 // Every page the app has, in menu order, each tagged with its registry key and
@@ -41,7 +73,7 @@ const ALL_ITEMS = [
   { to: '/cash-balance',   page: 'cash-balance',    emoji: '💰',  label: 'Cash Balance',    color: '#34d399', roles: ['super_admin', 'admin'] },
   { to: '/accounts',       page: 'accounts',        emoji: '🏦',  label: 'Accounts',        color: '#2dd4bf', roles: ['super_admin', 'admin'] },
   { to: '/payments',       page: 'payments',        emoji: '🧾',  label: 'Payments',        color: '#2dd4bf', roles: ['super_admin', 'admin'] },
-  { to: '/gcash-matching', page: 'gcash-matching',  emoji: '📱',  label: 'GCash Matching',  color: '#3b82f6', roles: ['super_admin'] },
+  { to: '/gcash-matching', page: 'gcash-matching',  emoji: '📱',  label: 'GCash Matching',  color: '#3b82f6', roles: ['super_admin'], badge: () => (gcashCheckDue.value ? 1 : 0), badgeLabel: '!', badgeTitle: "Today's GCash check isn't done yet" },
   { to: '/machine-cycles', page: 'machine-cycles',  emoji: '🔄',  label: 'Machine Cycles',  color: '#22d3ee', roles: ['super_admin', 'admin'] },
   { to: '/expenses',       page: 'expenses',        emoji: '💸',  label: 'Expenses',        color: '#f87171', roles: ['super_admin', 'admin'] },
   { to: '/services',       page: 'services',        emoji: '🧺',  label: 'Services',        color: '#4ade80', roles: ['super_admin', 'admin'] },
@@ -179,7 +211,8 @@ function isActive(path) {
             v-if="open && item.badge > 0"
             class="ml-auto flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
             style="background: #ef4444;"
-          >{{ item.badge > 99 ? '99+' : item.badge }}</span>
+            :title="item.badgeTitle"
+          >{{ item.badgeLabel || (item.badge > 99 ? '99+' : item.badge) }}</span>
 
           <!-- Unread badge (collapsed dot) -->
           <div

@@ -226,6 +226,10 @@ onMounted(load)
               <div class="text-sm text-gray-600">Customer deposits <span class="text-xs text-gray-400">(prepaid balance, not sales)</span></div>
               <span class="font-semibold text-green-700">+₱{{ fmt(cashData.cash_deposits) }}</span>
             </div>
+            <div v-if="cashData.cash_tips" class="flex items-center justify-between px-5 py-3">
+              <div class="text-sm text-gray-600">Tips <span class="text-xs text-gray-400">(extra paid, not sales)</span></div>
+              <span class="font-semibold text-violet-700">+₱{{ fmt(cashData.cash_tips) }}</span>
+            </div>
             <div class="flex items-center justify-between px-5 py-3">
               <div class="text-sm text-gray-600">Expenses</div>
               <span class="font-semibold text-red-600">−₱{{ fmt(cashData.expenses) }}</span>
@@ -257,6 +261,10 @@ onMounted(load)
               <div class="text-sm text-gray-600">Customer deposits <span class="text-xs text-gray-400">(prepaid balance, not sales)</span></div>
               <span class="font-semibold text-green-700">+₱{{ fmt(cashData.gcash_deposits) }}</span>
             </div>
+            <div v-if="cashData.gcash_tips" class="flex items-center justify-between px-5 py-3">
+              <div class="text-sm text-gray-600">Tips <span class="text-xs text-gray-400">(extra sent on GCash, not sales)</span></div>
+              <span class="font-semibold text-violet-700">+₱{{ fmt(cashData.gcash_tips) }}</span>
+            </div>
             <div v-if="cashData.gcash_expenses > 0" class="flex items-center justify-between px-5 py-3">
               <div class="text-sm text-gray-600">GCash Expenses</div>
               <span class="font-semibold text-red-600">−₱{{ fmt(cashData.gcash_expenses) }}</span>
@@ -283,7 +291,7 @@ onMounted(load)
           <div class="bg-blue-50 border border-blue-200 rounded-xl p-5">
             <div class="text-xs font-semibold text-blue-700 mb-1">📱 To Remit (GCash)</div>
             <div class="text-2xl font-bold text-blue-900">{{ cashData.to_remit_gcash < 0 ? '-' : '' }}₱{{ fmt(Math.abs(cashData.to_remit_gcash)) }}</div>
-            <div class="text-xs text-blue-500 mt-1">GCash payments{{ cashData.gcash_deposits ? ' and deposits' : '' }} minus GCash expenses</div>
+            <div class="text-xs text-blue-500 mt-1">GCash payments{{ cashData.gcash_deposits ? ', deposits' : '' }}{{ cashData.gcash_tips ? ', tips' : '' }} minus GCash expenses</div>
           </div>
         </div>
 

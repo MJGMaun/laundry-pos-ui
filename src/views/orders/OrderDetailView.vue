@@ -230,7 +230,7 @@ const newPayment = ref({ method: 'cash', amount: '', tendered: '', reference_num
 const todayStr = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD, local tz
 
 function openPaymentForm() {
-  newPayment.value = { method: 'cash', amount: String(outstandingBalance.value.toFixed(2)), tendered: '', reference_number: '', receipt: null, payment_date: '', showCustom: false, editingAmount: false }
+  newPayment.value = { method: 'cash', amount: String(outstandingBalance.value.toFixed(2)), tendered: '', reference_number: '', receipt: null, tip: '', payment_date: '', showCustom: false, editingAmount: false }
   paymentFormError.value = ''
   showPaymentForm.value = true
 }
@@ -271,7 +271,11 @@ async function recordPayment() {
   try {
     const payData = { method: p.method, amount, type: 'payment' }
     if (p.method === 'cash') payData.tendered = Number(p.tendered)
-    else if (p.method === 'gcash') { payData.reference_number = (p.reference_number || '').trim(); if (p.receipt) payData.receipt = p.receipt }
+    else if (p.method === 'gcash') {
+      payData.reference_number = (p.reference_number || '').trim()
+      if (p.receipt) payData.receipt = p.receipt
+      if (Number(p.tip) > 0) payData.tip_amount = Number(p.tip)
+    }
     if (auth.isAdmin && p.payment_date) payData.payment_date = p.payment_date
     await createPayment(order.value.id, payData)
     showPaymentForm.value = false
@@ -291,7 +295,10 @@ async function recordPayment() {
     } else if (isOfflineError(e)) {
       const payData = { method: p.method, amount, type: 'payment' }
       if (p.method === 'cash') payData.tendered = Number(p.tendered)
-      else payData.reference_number = p.reference_number || ''
+      else {
+        payData.reference_number = (p.reference_number || '').trim()
+        if (Number(p.tip) > 0) payData.tip_amount = Number(p.tip)
+      }
       if (auth.isAdmin && p.payment_date) payData.payment_date = p.payment_date
       await queue.enqueueRequest('POST', `/orders/${order.value.id}/payments`, payData)
       const covers = amount >= outstandingBalance.value - 0.01
@@ -1195,6 +1202,7 @@ onMounted(load)
                 <div class="text-sm font-semibold text-slate-700 capitalize">{{ p.method === 'balance' ? 'Customer balance' : p.method }}</div>
                 <div class="text-xs text-slate-400 capitalize flex flex-wrap items-center gap-1">
                   <span>{{ p.type }}<template v-if="p.reference_number"> · Ref: {{ p.reference_number }}</template></span>
+                  <span v-if="Number(p.tip_amount) > 0" class="normal-case rounded bg-violet-50 px-1.5 text-[11px] font-semibold text-violet-700">+₱{{ fmt(p.tip_amount) }} tip</span>
                   <PaymentReceiptButton v-if="p.has_receipt" :payment-id="p.id" />
                 </div>
                 <div v-if="p.method_changed_from" class="text-[11px] font-medium text-amber-600">
@@ -1383,6 +1391,9 @@ onMounted(load)
         v-else-if="newPayment.method === 'gcash'"
         v-model:reference="newPayment.reference_number"
         v-model:receipt="newPayment.receipt"
+        v-model:tip="newPayment.tip"
+        with-tip
+        :amount="newPayment.amount"
       />
       <!-- Admin-only: backdate a payment missed on its real date -->
       <div v-if="auth.isAdmin" class="flex items-center gap-2">

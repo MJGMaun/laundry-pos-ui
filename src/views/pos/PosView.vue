@@ -443,7 +443,7 @@ function selectMethod(p, i, m) {
 
 function openPayment() {
     const total = cart.total.toFixed(2);
-    payments.value = [{ method: 'cash', amount: total, tendered: '', reference_number: '', receipt: null, showCustom: false }];
+    payments.value = [{ method: 'cash', amount: total, tendered: '', reference_number: '', receipt: null, tip: '', showCustom: false }];
     paymentError.value = '';
     showPayment.value = true;
     refreshCustomerCredit();
@@ -456,6 +456,7 @@ function addPaymentRow() {
         tendered: '',
         reference_number: '',
         receipt: null,
+        tip: '',
         showCustom: false,
     });
 }
@@ -565,6 +566,7 @@ async function processPayment() {
                     if (p.method === 'gcash') {
                         payData.reference_number = (p.reference_number || '').trim();
                         if (p.receipt) payData.receipt = p.receipt;
+                        if (Number(p.tip) > 0) payData.tip_amount = Number(p.tip);
                     }
                     await createPayment(order.id, payData);
                     totalPaid += amount;
@@ -618,7 +620,7 @@ async function processPayment() {
                 } else {
                     const amount = Number(p.amount || 0);
                     if (amount <= 0) return [];
-                    return [{ method: p.method, amount, type: 'payment', reference_number: (p.reference_number || '').trim() }];
+                    return [{ method: p.method, amount, type: 'payment', reference_number: (p.reference_number || '').trim(), ...(p.method === 'gcash' && Number(p.tip) > 0 ? { tip_amount: Number(p.tip) } : {}) }];
                 }
             });
             const offlineId = 'offline_' + Date.now();
@@ -1397,6 +1399,9 @@ watch(() => branch.currentBranchId, loadServices);
                                         v-else-if="p.method === 'gcash'"
                                         v-model:reference="p.reference_number"
                                         v-model:receipt="p.receipt"
+                                        v-model:tip="p.tip"
+                                        with-tip
+                                        :amount="p.amount"
                                     />
                                 </div>
 

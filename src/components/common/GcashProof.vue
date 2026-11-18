@@ -6,7 +6,15 @@ import { compressImage } from '@/utils/compressImage.js'
 
 const reference = defineModel('reference', { default: '' })
 const receipt   = defineModel('receipt', { default: null })
-defineProps({ allowPhoto: { type: Boolean, default: true } })
+// Tip: extra the customer sent beyond the amount applied to the order.
+const tip       = defineModel('tip', { default: '' })
+const props = defineProps({
+  allowPhoto: { type: Boolean, default: true },
+  withTip:    { type: Boolean, default: false },
+  amount:     { type: [Number, String], default: 0 },
+})
+const showTip = ref(Number(tip.value) > 0)
+const fmt = (n) => Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 const fileInput = ref(null)
 const preview   = ref('')
@@ -54,5 +62,33 @@ async function onPick(e) {
       <button type="button" class="px-2 text-xs font-semibold text-red-500 hover:text-red-600" @click="receipt = null">✕ Remove</button>
     </div>
     <div v-else class="px-1 text-[11px] text-slate-400">Type the last 4 digits of the GCash reference, or take a photo of the receipt.</div>
+
+    <template v-if="withTip">
+      <button
+        v-if="!showTip"
+        type="button"
+        class="px-1 text-xs font-semibold text-blue-600 hover:text-blue-700"
+        @click="showTip = true"
+      >+ Customer sent extra (tip)</button>
+      <div v-else class="space-y-1.5 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2">
+        <div class="flex items-center gap-2">
+          <span class="w-16 shrink-0 text-xs text-violet-700">Tip</span>
+          <div class="relative flex-1">
+            <span class="absolute top-1/2 left-2.5 -translate-y-1/2 text-sm text-violet-400">₱</span>
+            <input
+              v-model="tip"
+              type="number" min="0" step="0.01" inputmode="decimal"
+              placeholder="0.00"
+              class="w-full rounded-lg border border-violet-200 bg-white py-1.5 pr-3 pl-7 text-right text-sm font-semibold focus:border-violet-400 focus:ring-2 focus:ring-violet-100 focus:outline-none"
+            />
+          </div>
+          <button type="button" class="px-1 text-xs font-semibold text-red-500" @click="tip = ''; showTip = false">✕</button>
+        </div>
+        <div class="flex justify-between text-xs text-violet-700">
+          <span>Total received in GCash</span>
+          <span class="font-bold">₱{{ fmt(Number(props.amount || 0) + Number(tip || 0)) }}</span>
+        </div>
+      </div>
+    </template>
   </div>
 </template>

@@ -29,3 +29,8 @@ export const getPaymentReceipt = (id) => api.get(`/payments/${id}/receipt`, { re
 // super-admin: GCash reconciliation
 export const getGcashMatching = (params) => api.get('/gcash-matching', { params })
 export const setPaymentMatched = (id, matched) => api.patch(`/payments/${id}/matched`, { matched })
+
+// super-admin: end-of-day account check (GCash app balance vs expected)
+export const getAccountChecks = (method = 'gcash') => api.get('/account-checks', { params: { method } })
+export const createAccountCheck = (data) => api.post('/account-checks', data)
+export const deleteAccountCheck = (id) => api.delete(`/account-checks/${id}`)
