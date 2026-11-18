@@ -156,6 +156,7 @@ onMounted(load)
             <th class="text-left px-4 py-3 font-medium text-gray-600">Name</th>
             <th class="text-left px-4 py-3 font-medium text-gray-600">Phone</th>
             <th class="hidden md:table-cell text-left px-4 py-3 font-medium text-gray-600">Username</th>
+            <th v-if="auth.isAdmin" class="text-right px-4 py-3 font-medium text-gray-600">Balance</th>
             <th class="hidden sm:table-cell text-right px-4 py-3 font-medium text-gray-600">Total Spent</th>
             <th class="hidden sm:table-cell text-right px-4 py-3 font-medium text-gray-600">Visits</th>
           </tr>
@@ -170,6 +171,13 @@ onMounted(load)
             <td class="px-4 py-3 font-medium text-gray-900">{{ c.name }}</td>
             <td class="px-4 py-3" :class="c.phone ? 'text-gray-700' : 'text-gray-300'">{{ c.phone || '—' }}</td>
             <td class="hidden md:table-cell px-4 py-3 text-gray-500">{{ c.username || '—' }}</td>
+            <td v-if="auth.isAdmin" class="px-4 py-3 text-right whitespace-nowrap">
+              <span
+                v-if="Number(c.balance) > 0.009"
+                class="inline-block text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg"
+              >₱{{ fmt(c.balance) }}</span>
+              <span v-else class="text-gray-300">—</span>
+            </td>
             <td class="hidden sm:table-cell px-4 py-3 text-right text-gray-900">₱{{ fmt(c.total_spent) }}</td>
             <td class="hidden sm:table-cell px-4 py-3 text-right text-gray-600">{{ c.total_visits }}</td>
           </tr>

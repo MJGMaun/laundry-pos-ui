@@ -228,6 +228,19 @@ function openPaymentForm() {
   showPaymentForm.value = true
 }
 
+// Customer's prepaid balance (deposits). Only admins may spend it.
+const customerCredit = computed(() => Number(order.value?.customer?.balance || 0))
+const canUseCredit   = computed(() => auth.isAdmin && !!order.value?.customer && customerCredit.value > 0.009)
+const paymentMethods = computed(() => canUseCredit.value ? ['cash', 'gcash', 'balance'] : ['cash', 'gcash'])
+
+function selectPaymentMethod(m) {
+  const p = newPayment.value
+  p.method = m
+  p.amount = String((m === 'balance' ? Math.min(customerCredit.value, outstandingBalance.value) : outstandingBalance.value).toFixed(2))
+  p.tendered = ''
+  p.showCustom = false
+}
+
 // Balance still owed after the amount currently entered (for the downpayment hint).
 const balanceAfterPayment = computed(() =>
   Math.max(0, outstandingBalance.value - Number(newPayment.value.amount || 0))
@@ -244,12 +257,13 @@ async function recordPayment() {
   if (p.method === 'cash' && !(Number(p.tendered) > 0)) { paymentFormError.value = 'Tap the bills received, or use Custom.'; return }
   if (!(amount > 0)) { paymentFormError.value = 'Enter an amount.'; return }
   if (amount > outstandingBalance.value + 0.01) { paymentFormError.value = `Amount can't exceed the ₱${fmt(outstandingBalance.value)} balance.`; return }
+  if (p.method === 'balance' && amount > customerCredit.value + 0.001) { paymentFormError.value = `Customer only has ₱${fmt(customerCredit.value)} balance.`; return }
   savingPayment.value = true
   paymentFormError.value = ''
   try {
     const payData = { method: p.method, amount, type: 'payment' }
     if (p.method === 'cash') payData.tendered = Number(p.tendered)
-    else payData.reference_number = p.reference_number || ''
+    else if (p.method === 'gcash') payData.reference_number = p.reference_number || ''
     if (auth.isAdmin && p.payment_date) payData.payment_date = p.payment_date
     await createPayment(order.value.id, payData)
     showPaymentForm.value = false
@@ -260,7 +274,10 @@ async function recordPayment() {
       await load()
     }
   } catch (e) {
-    if (isOfflineError(e)) {
+    if (isOfflineError(e) && p.method === 'balance') {
+      // The balance has to be checked by the server, so it can't be queued.
+      paymentFormError.value = 'You are offline. Customer balance can only be used when connected.'
+    } else if (isOfflineError(e)) {
       const payData = { method: p.method, amount, type: 'payment' }
       if (p.method === 'cash') payData.tendered = Number(p.tendered)
       else payData.reference_number = p.reference_number || ''
@@ -1164,7 +1181,7 @@ onMounted(load)
                 :style="p.type === 'refund' ? 'background:#fee2e2;color:#dc2626;' : 'background:#dbeafe;color:#1d4ed8;'"
               >{{ p.method?.charAt(0).toUpperCase() }}</div>
               <div class="flex-1 min-w-0">
-                <div class="text-sm font-semibold text-slate-700 capitalize">{{ p.method }}</div>
+                <div class="text-sm font-semibold text-slate-700 capitalize">{{ p.method === 'balance' ? 'Customer balance' : p.method }}</div>
                 <div class="text-xs text-slate-400 capitalize">
                   {{ p.type }}<template v-if="p.reference_number"> · Ref: {{ p.reference_number }}</template>
                 </div>
@@ -1202,14 +1219,44 @@ onMounted(load)
       </div>
       <div class="flex gap-1">
         <button
-          v-for="m in ['cash','gcash']"
+          v-for="m in paymentMethods"
           :key="m"
           class="flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all"
           :class="newPayment.method === m
-            ? 'bg-blue-600 text-white shadow-sm'
+            ? (m === 'balance' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-blue-600 text-white shadow-sm')
             : 'bg-white text-slate-500 border border-slate-200 hover:border-slate-300'"
-          @click="newPayment.method = m; newPayment.amount = String(outstandingBalance.toFixed(2)); newPayment.tendered = ''; newPayment.showCustom = false"
-        >{{ m.toUpperCase() }}</button>
+          @click="selectPaymentMethod(m)"
+        >{{ m === 'balance' ? `BALANCE ₱${fmt(customerCredit)}` : m.toUpperCase() }}</button>
+      </div>
+      <!-- Pay from the customer's prepaid balance (admin only) -->
+      <div v-if="newPayment.method === 'balance'" class="rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2.5 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-emerald-700">Use from balance (available ₱{{ fmt(customerCredit) }})</span>
+          <button
+            v-if="Number(newPayment.amount) !== Number(Math.min(customerCredit, outstandingBalance).toFixed(2))"
+            class="text-xs font-semibold text-emerald-700 hover:text-emerald-800"
+            @click="newPayment.amount = String(Math.min(customerCredit, outstandingBalance).toFixed(2))"
+          >Max ₱{{ fmt(Math.min(customerCredit, outstandingBalance)) }}</button>
+        </div>
+        <div class="relative">
+          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-base font-bold text-slate-400">₱</span>
+          <input
+            v-model="newPayment.amount"
+            type="number" min="0" step="0.01" inputmode="decimal"
+            class="w-full border border-emerald-200 rounded-lg pl-7 pr-3 py-2 text-base font-bold text-right text-slate-900 bg-white focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all"
+          />
+        </div>
+        <div class="flex justify-between text-xs text-emerald-700">
+          <span>Balance left after this</span>
+          <span class="font-bold">₱{{ fmt(Math.max(0, customerCredit - Number(newPayment.amount || 0))) }}</span>
+        </div>
+        <div
+          v-if="balanceAfterPayment > 0.009"
+          class="flex items-center justify-between text-xs font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5"
+        >
+          <span>Still owed on order (pay the rest with cash/GCash)</span>
+          <span class="font-bold">₱{{ fmt(balanceAfterPayment) }}</span>
+        </div>
       </div>
       <!-- Cash needs no amount box: the balance above is fixed and the bills tapped
            below decide how much is applied (short of the balance = downpayment).
@@ -1309,7 +1356,7 @@ onMounted(load)
           <span class="font-bold">₱{{ fmt(outstandingBalance - Number(newPayment.tendered)) }}</span>
         </div>
       </template>
-      <div v-else class="flex items-center gap-2">
+      <div v-else-if="newPayment.method === 'gcash'" class="flex items-center gap-2">
         <span class="text-xs text-slate-500 w-16 shrink-0">Ref # <span class="text-slate-400">(opt)</span></span>
         <input
           v-model="newPayment.reference_number"

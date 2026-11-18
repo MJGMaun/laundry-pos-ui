@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
-import { getCustomer, updateCustomer, deleteCustomer } from '@/api/customers.js'
+import { getCustomer, updateCustomer, deleteCustomer, getCustomerBalance, addCustomerDeposit, voidCustomerDeposit } from '@/api/customers.js'
 import { getOrders } from '@/api/orders.js'
 import { createPayment } from '@/api/payments.js'
 import { getCustomerLoyalty, adjustStamps } from '@/api/loyalty.js'
@@ -84,6 +84,92 @@ async function confirmAdjust() {
   }
 }
 
+// ── Prepaid balance / deposits (admin / super-admin only) ──
+const balance          = ref(0)
+const balanceTx        = ref([])
+const showBalanceTx    = ref(false)
+const showDeposit      = ref(false)
+const depositAmount    = ref('')
+const depositMethod    = ref('cash')
+const depositNote      = ref('')
+const depositDate      = ref('')
+const depositError     = ref('')
+const depositing       = ref(false)
+
+const todayStr = () => new Date().toLocaleDateString('en-CA')
+
+function applyBalance(data) {
+  balance.value   = Number(data?.balance || 0)
+  balanceTx.value = data?.transactions || []
+}
+
+async function loadBalance() {
+  if (!auth.isAdmin) return
+  try {
+    applyBalance((await getCustomerBalance(route.params.id)).data)
+  } catch { /* leave as-is */ }
+}
+
+function openDeposit() {
+  depositAmount.value = ''
+  depositMethod.value = 'cash'
+  depositNote.value   = ''
+  depositDate.value   = ''
+  depositError.value  = ''
+  showDeposit.value   = true
+}
+
+async function confirmDeposit() {
+  depositError.value = ''
+  const amount = Number(depositAmount.value || 0)
+  if (!(amount > 0)) { depositError.value = 'Enter the amount received.'; return }
+  depositing.value = true
+  try {
+    const res = await addCustomerDeposit(customer.value.id, {
+      amount,
+      method: depositMethod.value,
+      note:   depositNote.value || undefined,
+      date:   depositDate.value && depositDate.value !== todayStr() ? depositDate.value : undefined,
+    })
+    applyBalance(res.data)
+    showDeposit.value = false
+    toast.add({ severity: 'success', summary: 'Deposit added', detail: `Balance is now ₱${fmt(balance.value)}`, life: 3000 })
+  } catch (e) {
+    depositError.value = e.response?.data?.message || 'Failed to add deposit.'
+  } finally {
+    depositing.value = false
+  }
+}
+
+function confirmVoid(t) {
+  confirm.require({
+    message: `Void this ₱${fmt(t.amount)} ${t.method} deposit? It will be removed from the customer's balance and from Cash Balance / Accounts.`,
+    header: 'Void Deposit',
+    icon: 'pi pi-exclamation-triangle',
+    rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
+    acceptProps: { label: 'Void', severity: 'danger' },
+    accept: async () => {
+      try {
+        applyBalance((await voidCustomerDeposit(customer.value.id, t.id)).data)
+        toast.add({ severity: 'success', summary: 'Deposit voided', detail: `Balance is now ₱${fmt(balance.value)}`, life: 3000 })
+      } catch (e) {
+        toast.add({ severity: 'error', summary: 'Error', detail: e.response?.data?.message || 'Failed to void deposit', life: 4000 })
+      }
+    },
+  })
+}
+
+const txLabel = {
+  deposit:  'Deposit',
+  payment:  'Used on order',
+  refund:   'Refund to balance',
+  reversal: 'Reversal',
+}
+
+function fmtDateTime(d) {
+  return new Date(d).toLocaleString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+}
+
 // Actual outstanding balance per order (accounts for partial payments)
 function orderBalance(o) {
   return Math.max(0, Number(o.total_amount || 0) - Number(o.paid_amount || 0))
@@ -125,26 +211,51 @@ function openPayAll() {
   showPayAll.value       = true
 }
 
+// Paying with prepaid balance covers as much as the balance allows, oldest
+// orders first; anything left stays unpaid for cash/GCash.
+const payAllMethods     = computed(() => auth.isAdmin && balance.value > 0.009 ? ['cash', 'gcash', 'balance'] : ['cash', 'gcash'])
+const payAllCreditCover = computed(() => Math.min(balance.value, unpaidTotal.value))
+
 async function confirmPayAll() {
   payingAll.value      = true
   payAllError.value    = ''
-  const targets        = unpaidOrders.value.slice()
+  const useCredit      = payAllMethod.value === 'balance'
+  const targets        = unpaidOrders.value.slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
   payAllProgress.value = { done: 0, total: targets.length }
+  let credit = balance.value
+  let settled = 0
+  let collected = 0
   try {
     for (const o of targets) {
-      const balance = orderBalance(o)
-      const payData = { method: payAllMethod.value, amount: balance, type: 'payment' }
-      if (payAllMethod.value === 'cash') payData.tendered = balance
-      else payData.reference_number = payAllRef.value || ''
+      const owed   = orderBalance(o)
+      const amount = useCredit ? Math.round(Math.min(owed, credit) * 100) / 100 : owed
+      if (amount <= 0.009) break
+      const payData = { method: payAllMethod.value, amount, type: 'payment' }
+      if (payAllMethod.value === 'cash') payData.tendered = amount
+      else if (payAllMethod.value === 'gcash') payData.reference_number = payAllRef.value || ''
       await createPayment(o.id, payData)
       // A claimed order that's now fully paid is auto-completed by the backend.
+      credit -= amount
+      collected += amount
+      if (amount >= owed - 0.009) settled++
       payAllProgress.value.done++
     }
     showPayAll.value = false
-    toast.add({ severity: 'success', summary: 'All paid', detail: `${targets.length} order${targets.length !== 1 ? 's' : ''} settled`, life: 3500 })
+    const left = unpaidTotal.value - collected
+    toast.add({
+      severity: 'success',
+      summary: useCredit ? 'Paid from balance' : 'All paid',
+      detail: useCredit && left > 0.009
+        ? `₱${fmt(collected)} applied · ₱${fmt(left)} still unpaid`
+        : `${settled} order${settled !== 1 ? 's' : ''} settled`,
+      life: 4000,
+    })
     await load()
   } catch (e) {
     payAllError.value = e.response?.data?.message || 'Failed to record payment.'
+    // Some orders may have been paid before the failure — refresh so a retry
+    // only targets what is still owed.
+    load()
   } finally {
     payingAll.value = false
   }
@@ -161,6 +272,8 @@ async function load() {
       getCustomerLoyalty(route.params.id).catch(() => null),
     ])
     customer.value = custRes.data.data || custRes.data
+    balance.value  = Number(customer.value.balance || 0)
+    loadBalance()
     orders.value   = ordersRes.data.data || ordersRes.data
     stampCount.value  = loyaltyRes?.data?.total_stamps ?? 0
     loyaltyActive.value = (loyaltyRes?.data?.rules?.length ?? 0) > 0
@@ -357,6 +470,57 @@ onMounted(load)
             class="text-sm font-semibold text-indigo-600 hover:text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded-xl transition-all hover:bg-indigo-100 active:scale-95 shrink-0"
             @click="openAdjust"
           >Adjust</button>
+        </div>
+
+        <!-- Prepaid balance (admin / super-admin only) -->
+        <div v-if="auth.isAdmin" class="mt-3 border rounded-xl overflow-hidden" :class="balance > 0 ? 'border-emerald-200' : 'border-slate-200'">
+          <div class="flex items-center gap-3 px-4 py-3" :class="balance > 0 ? 'bg-emerald-50' : 'bg-slate-50'">
+            <div class="text-2xl">💰</div>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-semibold" :class="balance > 0 ? 'text-emerald-900' : 'text-slate-700'">₱{{ fmt(balance) }} balance</div>
+              <div class="text-xs" :class="balance > 0 ? 'text-emerald-600' : 'text-slate-500'">Prepaid deposit, usable on future orders</div>
+            </div>
+            <button
+              v-if="balanceTx.length"
+              class="text-xs font-semibold text-slate-500 hover:text-slate-700 underline shrink-0"
+              @click="showBalanceTx = !showBalanceTx"
+            >{{ showBalanceTx ? 'Hide' : 'History' }}</button>
+            <button
+              class="text-sm font-semibold text-emerald-700 hover:text-emerald-800 border border-emerald-300 bg-white px-3 py-1.5 rounded-xl transition-all hover:bg-emerald-100 active:scale-95 shrink-0"
+              @click="openDeposit"
+            >+ Add Deposit</button>
+          </div>
+          <div v-if="showBalanceTx && balanceTx.length" class="divide-y divide-slate-100 max-h-72 overflow-y-auto bg-white">
+            <div v-for="t in balanceTx" :key="t.id" class="flex items-center gap-3 px-4 py-2.5 text-sm">
+              <div class="flex-1 min-w-0">
+                <div class="font-medium text-slate-800">
+                  {{ txLabel[t.type] || t.type }}
+                  <span v-if="t.method" class="text-xs uppercase text-slate-400 ml-1">{{ t.method }}</span>
+                  <button
+                    v-if="t.payment?.order"
+                    class="text-xs font-mono text-blue-600 hover:underline ml-1"
+                    @click="router.push('/orders/' + t.payment.order.id)"
+                  >{{ t.payment.order.order_number }}</button>
+                  <span v-if="t.voided_at" class="text-[10px] font-bold uppercase text-red-500 bg-red-50 px-1.5 py-0.5 rounded ml-1">voided</span>
+                </div>
+                <div class="text-xs text-slate-400 truncate">
+                  {{ fmtDateTime(t.created_at) }}<template v-if="t.user"> · {{ t.user.name }}</template><template v-if="t.note"> · {{ t.note }}</template>
+                </div>
+              </div>
+              <div class="text-right shrink-0">
+                <div class="font-semibold" :class="Number(t.amount) >= 0 ? 'text-emerald-700' : 'text-slate-700'">
+                  {{ Number(t.amount) >= 0 ? '+' : '−' }}₱{{ fmt(Math.abs(t.amount)) }}
+                </div>
+                <div class="text-[11px] text-slate-400">bal ₱{{ fmt(t.balance_after) }}</div>
+              </div>
+              <button
+                v-if="t.type === 'deposit' && !t.voided_at"
+                class="text-xs text-red-500 hover:text-red-700 shrink-0"
+                title="Void deposit"
+                @click="confirmVoid(t)"
+              >Void</button>
+            </div>
+          </div>
         </div>
 
         <!-- Unpaid alert banner -->
@@ -584,6 +748,105 @@ onMounted(load)
     </div>
     </Teleport>
 
+    <!-- ── Add Deposit Modal (admin / super-admin) ── -->
+    <Teleport to="body">
+    <div
+      v-if="showDeposit"
+      class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+      style="background: rgba(15,23,42,0.6); backdrop-filter: blur(6px);"
+      @click.self="showDeposit = false"
+    >
+      <div class="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden" style="box-shadow: 0 32px 80px rgba(0,0,0,0.3);">
+        <div class="px-6 pt-6 pb-4 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900">Add Deposit</h2>
+            <p class="text-sm text-slate-400 mt-0.5">Current balance: <span class="font-bold text-emerald-600">₱{{ fmt(balance) }}</span></p>
+          </div>
+          <button
+            class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
+            @click="showDeposit = false"
+          >✕</button>
+        </div>
+
+        <div class="px-6 py-5 space-y-4">
+          <div class="flex gap-1">
+            <button
+              v-for="m in ['cash','gcash']"
+              :key="m"
+              class="flex-1 py-2 rounded-xl text-xs font-semibold transition-all"
+              :class="depositMethod === m ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'"
+              @click="depositMethod = m"
+            >{{ m.toUpperCase() }}</button>
+          </div>
+
+          <div>
+            <label class="text-xs text-slate-500">Amount received</label>
+            <div class="relative mt-1">
+              <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">₱</span>
+              <input
+                v-model="depositAmount"
+                type="number" step="0.01" min="0"
+                placeholder="0.00"
+                autofocus
+                class="w-full border border-slate-200 rounded-xl pl-7 pr-3 py-2 text-sm text-right focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all"
+              />
+            </div>
+          </div>
+
+          <div class="flex gap-1 flex-wrap">
+            <button
+              v-for="d in [100, 200, 500, 1000]"
+              :key="d"
+              class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 active:scale-95 transition-all"
+              @click="depositAmount = String(d)"
+            >₱{{ d }}</button>
+          </div>
+
+          <div class="flex items-center justify-between px-4 py-3 bg-emerald-50 border border-emerald-100 rounded-2xl">
+            <span class="text-sm font-medium text-emerald-800">New balance</span>
+            <span class="text-xl font-bold text-emerald-700">₱{{ fmt(balance + Number(depositAmount || 0)) }}</span>
+          </div>
+
+          <input
+            v-model="depositNote"
+            placeholder="Note (optional)"
+            maxlength="500"
+            class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all"
+          />
+
+          <div>
+            <label class="text-xs text-slate-500">Date received (leave blank for today)</label>
+            <input
+              v-model="depositDate"
+              type="date"
+              :max="todayStr()"
+              class="mt-1 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-400 transition-all"
+            />
+          </div>
+
+          <div v-if="depositError" class="text-xs text-red-500 font-medium px-1">{{ depositError }}</div>
+        </div>
+
+        <div class="px-6 pb-6 flex gap-3">
+          <button
+            class="flex-1 py-3 rounded-2xl font-semibold text-sm text-slate-600 border border-slate-200 hover:bg-slate-50 active:scale-[0.98] transition-all"
+            :disabled="depositing"
+            @click="showDeposit = false"
+          >Cancel</button>
+          <button
+            class="flex-1 py-3 rounded-2xl font-bold text-sm text-white transition-all active:scale-[0.98] disabled:opacity-50"
+            style="background: linear-gradient(135deg, #059669, #10b981); box-shadow: 0 4px 14px rgba(16,185,129,0.35);"
+            :disabled="depositing"
+            @click="confirmDeposit"
+          >
+            <span v-if="!depositing">Add ₱{{ fmt(depositAmount) }}</span>
+            <span v-else>Saving…</span>
+          </button>
+        </div>
+      </div>
+    </div>
+    </Teleport>
+
     <!-- ── Pay All Modal ── -->
     <Teleport to="body">
     <div
@@ -633,18 +896,27 @@ onMounted(load)
               <!-- Method -->
               <div class="flex gap-1">
                 <button
-                  v-for="m in ['cash','gcash']"
+                  v-for="m in payAllMethods"
                   :key="m"
                   class="flex-1 py-2 rounded-xl text-xs font-semibold transition-all"
                   :class="payAllMethod === m
-                    ? 'bg-blue-600 text-white shadow-sm'
+                    ? (m === 'balance' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-blue-600 text-white shadow-sm')
                     : 'bg-slate-100 text-slate-500 hover:bg-slate-200'"
                   @click="payAllMethod = m"
-                >{{ m.toUpperCase() }}</button>
+                >{{ m === 'balance' ? `BALANCE ₱${fmt(balance)}` : m.toUpperCase() }}</button>
+              </div>
+
+              <!-- Paying from prepaid balance -->
+              <div v-if="payAllMethod === 'balance'" class="px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-1 text-sm">
+                <div class="flex justify-between text-emerald-800"><span>Applied from balance</span><span class="font-bold">₱{{ fmt(payAllCreditCover) }}</span></div>
+                <div class="flex justify-between text-emerald-700 text-xs"><span>Balance left after</span><span>₱{{ fmt(balance - payAllCreditCover) }}</span></div>
+                <div v-if="unpaidTotal - payAllCreditCover > 0.009" class="flex justify-between text-amber-700 text-xs font-medium">
+                  <span>Still unpaid (oldest orders are paid first)</span><span>₱{{ fmt(unpaidTotal - payAllCreditCover) }}</span>
+                </div>
               </div>
 
               <!-- Total -->
-              <div class="flex items-center justify-between px-4 py-3 bg-amber-50 border border-amber-200 rounded-2xl">
+              <div v-if="payAllMethod !== 'balance'" class="flex items-center justify-between px-4 py-3 bg-amber-50 border border-amber-200 rounded-2xl">
                 <span class="text-sm font-medium text-amber-800">Total to collect</span>
                 <span class="text-xl font-bold text-amber-700">₱{{ fmt(unpaidTotal) }}</span>
               </div>
@@ -711,7 +983,7 @@ onMounted(load)
               </template>
 
               <!-- Digital ref -->
-              <div v-else class="flex items-center gap-2">
+              <div v-else-if="payAllMethod === 'gcash'" class="flex items-center gap-2">
                 <span class="text-xs text-slate-500 w-16 shrink-0">Ref #</span>
                 <input
                   v-model="payAllRef"
@@ -742,7 +1014,7 @@ onMounted(load)
                 :disabled="payingAll"
                 @click="confirmPayAll"
               >
-                <span v-if="!payingAll">✓ Confirm · ₱{{ fmt(unpaidTotal) }}</span>
+                <span v-if="!payingAll">✓ Confirm · ₱{{ fmt(payAllMethod === 'balance' ? payAllCreditCover : unpaidTotal) }}</span>
                 <span v-else>Processing…</span>
               </button>
             </div>

@@ -222,6 +222,10 @@ onMounted(load)
               <div class="text-sm text-gray-600">Cash payments in <span class="text-xs text-gray-400">(net of refunds)</span></div>
               <span class="font-semibold text-green-700">+₱{{ fmt(cashData.cash_in) }}</span>
             </div>
+            <div v-if="cashData.cash_deposits" class="flex items-center justify-between px-5 py-3">
+              <div class="text-sm text-gray-600">Customer deposits <span class="text-xs text-gray-400">(prepaid balance, not sales)</span></div>
+              <span class="font-semibold text-green-700">+₱{{ fmt(cashData.cash_deposits) }}</span>
+            </div>
             <div class="flex items-center justify-between px-5 py-3">
               <div class="text-sm text-gray-600">Expenses</div>
               <span class="font-semibold text-red-600">−₱{{ fmt(cashData.expenses) }}</span>
@@ -249,6 +253,10 @@ onMounted(load)
                 +₱{{ fmt(cashData.gcash_in) }}
               </span>
             </div>
+            <div v-if="cashData.gcash_deposits" class="flex items-center justify-between px-5 py-3">
+              <div class="text-sm text-gray-600">Customer deposits <span class="text-xs text-gray-400">(prepaid balance, not sales)</span></div>
+              <span class="font-semibold text-green-700">+₱{{ fmt(cashData.gcash_deposits) }}</span>
+            </div>
             <div v-if="cashData.gcash_expenses > 0" class="flex items-center justify-between px-5 py-3">
               <div class="text-sm text-gray-600">GCash Expenses</div>
               <span class="font-semibold text-red-600">−₱{{ fmt(cashData.gcash_expenses) }}</span>
@@ -269,13 +277,13 @@ onMounted(load)
               {{ cashData.to_remit_cash < 0 ? '-' : '' }}₱{{ fmt(Math.abs(cashData.to_remit_cash)) }}
             </div>
             <div class="text-xs mt-1" :class="cashData.to_remit_cash >= 0 ? 'text-green-600' : 'text-red-500'">
-              {{ cashData.is_range ? 'Cash payments minus cash expenses' : 'Drawer total minus starting float' }}
+              {{ cashData.is_range ? `Cash payments${cashData.cash_deposits ? ' and deposits' : ''} minus cash expenses` : 'Drawer total minus starting float' }}
             </div>
           </div>
           <div class="bg-blue-50 border border-blue-200 rounded-xl p-5">
             <div class="text-xs font-semibold text-blue-700 mb-1">📱 To Remit (GCash)</div>
             <div class="text-2xl font-bold text-blue-900">{{ cashData.to_remit_gcash < 0 ? '-' : '' }}₱{{ fmt(Math.abs(cashData.to_remit_gcash)) }}</div>
-            <div class="text-xs text-blue-500 mt-1">GCash payments minus GCash expenses</div>
+            <div class="text-xs text-blue-500 mt-1">GCash payments{{ cashData.gcash_deposits ? ' and deposits' : '' }} minus GCash expenses</div>
           </div>
         </div>
 
